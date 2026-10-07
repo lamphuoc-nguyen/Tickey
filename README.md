@@ -147,6 +147,16 @@ Secret keys bypass RLS. One named secret key per developer, so one can be revoke
 To revoke: Dashboard → Settings → API Keys → delete that row. Add a new one with **New secret key**
 (name: lowercase letters, digits, underscores). Share values through a password manager, not chat or email.
 
+### New teammate: getting access
+
+1. The project owner invites you: Supabase Dashboard → Organization → Team → **Invite**, role **Developer**
+   (Read-only cannot see secret keys). Accept the email invite.
+2. In the Dashboard open "Event Ticket Booking" → Settings → API Keys and copy **your** secret key (e.g. `dev_2`).
+   If you don't have one yet, ask the owner to create one named after you.
+3. `git pull`, `pnpm install`, then follow "Connecting a dev machine" below with that key.
+4. You will not have the QR signing key, so tickets are issued only by the Workers instance that holds
+   `hosted-1` (see "QR signing key"). Everything else works.
+
 ### Connecting a dev machine to the hosted project
 
 ```bash
@@ -155,7 +165,7 @@ To revoke: Dashboard → Settings → API Keys → delete that row. Add a new on
 #   *_SUPABASE_ANON_KEY = the publishable key above
 #   *_API_URL stays the local .NET API (http://10.0.2.2:5080 for the Android emulator, http://localhost:5080 for web)
 
-# Backend: run for both src/EventPlatform.Api and src/EventPlatform.Workers
+# Backend: run these three commands for src/EventPlatform.Api, then again with src/EventPlatform.Workers
 dotnet user-secrets --project backend/src/EventPlatform.Api set "Supabase:Url"            "https://ddourrslmudoqevqlvpv.supabase.co"
 dotnet user-secrets --project backend/src/EventPlatform.Api set "Supabase:AnonKey"        "<publishable key>"
 dotnet user-secrets --project backend/src/EventPlatform.Api set "Supabase:ServiceRoleKey" "<your own secret key>"
