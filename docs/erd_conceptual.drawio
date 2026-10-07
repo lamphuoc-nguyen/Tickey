@@ -1,0 +1,400 @@
+<mxfile host="Electron" agent="Antigravity">
+  <diagram id="Conceptual_ERD" name="Conceptual ERD">
+    <mxGraphModel dx="1471" dy="894" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1850" pageHeight="950" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="node_organizations" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;organizations&lt;/span&gt;" vertex="1">
+          <mxGeometry height="42" width="150" x="40" y="640" as="geometry" />
+        </mxCell>
+        <mxCell id="node_venues" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;venues&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="140" x="45" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="node_org_fee_contracts" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;org_fee_contracts&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="150" x="250" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="node_kyc_submissions" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;kyc_submissions&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="150" x="10" y="850" as="geometry" />
+        </mxCell>
+        <mxCell id="node_org_bank_accounts" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;org_bank_accounts&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="150" x="250" y="850" as="geometry" />
+        </mxCell>
+        <mxCell id="node_layouts" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;layouts&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="140" x="430" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="node_events" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;events&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="140" x="460" y="600" as="geometry" />
+        </mxCell>
+        <mxCell id="node_ledger_accounts" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;ledger_accounts&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="150" x="460" y="750" as="geometry" />
+        </mxCell>
+        <mxCell id="node_layout_versions" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;layout_versions&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="140" x="710" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="node_settlements" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;settlements&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="140" x="670" y="500" as="geometry" />
+        </mxCell>
+        <mxCell id="node_approvals" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;approvals&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="140" x="670" y="700" as="geometry" />
+        </mxCell>
+        <mxCell id="node_zones" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;zones&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="140" x="880" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="node_sessions" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;sessions&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="140" x="620" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="node_profiles" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;profiles&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="140" x="880" y="560" as="geometry" />
+        </mxCell>
+        <mxCell id="node_payouts" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;payouts&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="140" x="1010" y="700" as="geometry" />
+        </mxCell>
+        <mxCell id="node_seats" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;seats&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="140" x="1100" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="node_session_zone_inventory" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;session_zone_inventory&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="180" x="1130" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="node_ticket_types" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;ticket_types&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="140" x="1100" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="node_staff_assignments" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;staff_assignments&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="150" x="1100" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="node_bookings" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;bookings&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="140" x="1000" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="node_audit_logs" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;audit_logs&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="140" x="690" y="620" as="geometry" />
+        </mxCell>
+        <mxCell id="node_memberships" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;memberships&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="140" x="1190" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="node_session_seats" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;session_seats&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="140" x="1270" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="node_tickets" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;tickets&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="140" x="1350" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="node_notifications" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;notifications&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="140" x="1350" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="node_payments" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;payments&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="140" x="1230" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="node_booking_items" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;booking_items&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="140" x="1350" y="500" as="geometry" />
+        </mxCell>
+        <mxCell id="node_ledger_transactions" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;ledger_transactions&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="160" x="1350" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="node_ticket_credentials" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;ticket_credentials&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="160" x="1680" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="node_scan_logs" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;scan_logs&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="140" x="1610" y="490" as="geometry" />
+        </mxCell>
+        <mxCell id="node_ledger_entries" parent="1" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;ledger_entries&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="150" x="1630" y="750" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_1" edge="1" parent="1" source="node_organizations" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_venues" value="owns">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_2" edge="1" parent="1" source="node_organizations" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_org_fee_contracts" value="binds">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="170" y="560" />
+              <mxPoint x="325" y="560" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_3" edge="1" parent="1" source="node_organizations" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_events" value="organizes">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="325" y="650" />
+              <mxPoint x="325" y="620" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_4" edge="1" parent="1" source="node_organizations" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_kyc_submissions" value="submits">
+          <mxGeometry relative="1" x="0.0476" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="80" y="770" />
+              <mxPoint x="80" y="770" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_5" edge="1" parent="1" source="node_organizations" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_org_bank_accounts" value="configures">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="160" y="740" />
+              <mxPoint x="325" y="740" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_6" edge="1" parent="1" source="node_organizations" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_ledger_accounts" value="holds balance">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="535" y="670" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_7" edge="1" parent="1" source="node_organizations" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_approvals" value="has">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="115" y="720" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_8" edge="1" parent="1" source="node_venues" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_layouts" value="contains">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_9" edge="1" parent="1" source="node_venues" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;exitX=0.83;exitY=1.08;exitDx=0;exitDy=0;exitPerimeter=0;" target="node_events" value="hosts">
+          <mxGeometry relative="1" x="-0.371" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="161.18" y="270" />
+              <mxPoint x="490" y="270" />
+            </Array>
+            <mxPoint x="160" y="340" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_10" edge="1" parent="1" source="node_layouts" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_layout_versions" value="versions">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="620" y="210" />
+              <mxPoint x="620" y="210" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_11" edge="1" parent="1" source="node_layout_versions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_zones" value="divides into">
+          <mxGeometry relative="1" x="0.25" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="780" y="130" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_12" edge="1" parent="1" source="node_layout_versions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_sessions" value="applies layout">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="780" y="250" />
+              <mxPoint x="640" y="250" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_13" edge="1" parent="1" source="node_zones" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_seats" value="has">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="950" y="60" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_14" edge="1" parent="1" source="node_zones" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_session_zone_inventory" value="maps">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1220" y="130" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_15" edge="1" parent="1" source="node_seats" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_session_seats" value="maps">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1340" y="70" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_16" edge="1" parent="1" source="node_seats" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_tickets" value="assigned to">
+          <mxGeometry relative="1" x="-0.35" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1430" y="50" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_17" edge="1" parent="1" source="node_events" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_sessions" value="schedules">
+          <mxGeometry relative="1" x="0.1892" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="530" y="430" />
+              <mxPoint x="640" y="430" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_18" edge="1" parent="1" source="node_events" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_settlements" value="settles revenue">
+          <mxGeometry relative="1" x="0.3684" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="560" y="520" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_19" edge="1" parent="1" source="node_sessions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_session_zone_inventory" value="tracks quota">
+          <mxGeometry relative="1" x="0.1538" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="950" y="330" />
+              <mxPoint x="950" y="190" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_20" edge="1" parent="1" source="node_sessions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_session_seats" value="allocates seat state">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1330" y="300" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_21" edge="1" parent="1" source="node_sessions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_ticket_types" value="offers">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="690" y="270" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_22" edge="1" parent="1" source="node_sessions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_staff_assignments" value="assigns">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="740" y="380" />
+              <mxPoint x="1175.06" y="380" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_23" edge="1" parent="1" source="node_sessions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_bookings" value="targets">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="670" y="420" />
+              <mxPoint x="1070" y="420" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_24" edge="1" parent="1" source="node_settlements" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_payouts" value="executes transfer">
+          <mxGeometry relative="1" x="0.4245" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="860" y="520" />
+              <mxPoint x="860" y="670" />
+              <mxPoint x="1070" y="670" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_25" edge="1" parent="1" source="node_approvals" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_payouts" value="2-person rule approved">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_26" edge="1" parent="1" source="node_profiles" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_staff_assignments" value="works as">
+          <mxGeometry relative="1" x="-0.3973" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1190" y="570" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_27" edge="1" parent="1" source="node_profiles" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_bookings" value="places">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="950" y="460" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_28" edge="1" parent="1" source="node_profiles" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_audit_logs" value="logged by">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_29" edge="1" parent="1" source="node_profiles" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_memberships" value="belongs to">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1110" y="600" />
+              <mxPoint x="1110" y="600" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_30" edge="1" parent="1" source="node_profiles" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_scan_logs" value="verified by staff">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="950" y="640" />
+              <mxPoint x="1690" y="640" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_31" edge="1" parent="1" source="node_bookings" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_notifications" value="dispatches">
+          <mxGeometry relative="1" x="-0.0556" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1440" y="450" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_32" edge="1" parent="1" source="node_bookings" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_payments" value="paid via">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1100" y="410" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_33" edge="1" parent="1" source="node_bookings" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_booking_items" value="contains">
+          <mxGeometry relative="1" x="0.3571" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1110" y="520" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_34" edge="1" parent="1" source="node_bookings" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_tickets" value="issues">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1540" y="470" />
+              <mxPoint x="1540" y="280" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_35" edge="1" parent="1" source="node_bookings" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_ledger_transactions" value="triggers ledger event">
+          <mxGeometry relative="1" x="0.2174" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1070.03" y="550" />
+              <mxPoint x="1430.03" y="550" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_36" edge="1" parent="1" source="node_ticket_types" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_tickets" value="classified as">
+          <mxGeometry relative="1" x="-0.3846" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1330" y="260" />
+              <mxPoint x="1330" y="260" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_37" edge="1" parent="1" source="node_tickets" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_ticket_credentials" value="secures with Ed25519">
+          <mxGeometry relative="1" x="-0.1111" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1640" y="260" />
+              <mxPoint x="1640" y="260" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_38" edge="1" parent="1" source="node_tickets" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_scan_logs" value="scanned at gate">
+          <mxGeometry relative="1" x="-0.4468" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1460" y="230" />
+              <mxPoint x="1650" y="230" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_39" edge="1" parent="1" source="node_ledger_transactions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_ledger_entries" value="double entry (Debit/Credit)">
+          <mxGeometry relative="1" x="-0.5" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1720" y="600" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_40" edge="1" parent="1" source="node_ledger_accounts" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;labelBackgroundColor=#ffffff;startArrow=ERmandOne;endArrow=ERmany;startFill=0;endFill=0;" target="node_ledger_entries" value="mutates balance">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

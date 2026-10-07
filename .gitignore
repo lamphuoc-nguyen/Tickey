@@ -1,0 +1,44 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+coverage/
+
+# expo / react native
+.expo/
+expo-env.d.ts
+web-build/
+ios/
+android/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# env (MT §14): only .env.example is committed
+.env
+.env.local
+.env.*.local
+
+# .NET
+bin/
+obj/
+*.user
+.vs/
+TestResults/
+appsettings.*.local.json
+
+# supabase
+supabase/.branches/
+supabase/.temp/
+
+# editors / OS
+.idea/
+.DS_Store
+Thumbs.db
