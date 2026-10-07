@@ -100,6 +100,99 @@ dotnet test --solution backend/EventPlatform.sln
 
 CI (`.github/workflows/ci.yml`) runs the same checks plus `supabase test db`.
 
+## Hosted Supabase project
+
+The shared hosted project is **`ddourrslmudoqevqlvpv`** ("Event Ticket Booking"). The Dashboard labels its `main`
+branch **PRODUCTION**: do not run `seed.sql`, `supabase test db`, `smoke_e2e.sql` or `concurrency_ac01.sh` against
+it. Use the local stack (`supabase start`) for that.
+
+| Item | Value |
+| --- | --- |
+| API URL | `https://ddourrslmudoqevqlvpv.supabase.co` |
+| Publishable key (public, safe in apps) | `sb_publishable_qkth_w6D3OU7rXmQ_lSTZA_q7uKKM-F` |
+| Dashboard | https://supabase.com/dashboard/project/ddourrslmudoqevqlvpv |
+
+### What is already set up (2026-10-07)
+
+- **Schema:** `supabase/migrations/20261001000000_init_database.sql` is fully applied (66 tables with RLS, RPCs,
+  6 pg_cron jobs). It was run through the SQL editor, so the migration history is **empty**. Before the first
+  `supabase db push`, run once:
+  ```bash
+  supabase link --project-ref ddourrslmudoqevqlvpv
+  supabase migration repair --status applied 20261001000000
+  ```
+  Otherwise `db push` runs the init file again and fails.
+- **Auth hook:** Authentication → Hooks → Custom Access Token → `public.custom_access_token_hook` (enabled).
+- **MFA:** TOTP enabled. Admin, Owner and Finance accounts must enrol TOTP, or sensitive RPCs return `MFA_REQUIRED`.
+- **QR signing key:** kid `hosted-1` (Ed25519, ACTIVE) is in `public.signing_keys`. The private seed is in the
+  Workers user-secrets of the machine that generated it only (see below).
+- **Security advisor:** the `SECURITY DEFINER` RPC warnings, the `org_public` view and `rls_auto_enable` are
+  expected. RPCs check permissions inside the function, `org_public` exposes only public columns of approved Orgs,
+  and `rls_auto_enable` is Supabase's own event trigger.
+
+### API keys: what goes where
+
+| Key | Where it may live | Never |
+| --- | --- | --- |
+| Publishable `sb_publishable_…` | `apps/*/.env.local` (`EXPO_PUBLIC_SUPABASE_ANON_KEY`, `VITE_SUPABASE_ANON_KEY`), EAS env, backend `Supabase:AnonKey` | n/a, it is public |
+| Secret `sb_secret_…` | Backend only: `Supabase:ServiceRoleKey` in user-secrets, or env var `Supabase__ServiceRoleKey` on a server | Apps, `EXPO_PUBLIC_*` / `VITE_*`, `appsettings*.json`, git, chat |
+
+Secret keys bypass RLS. One named secret key per developer, so one can be revoked without breaking the others:
+
+| Name | Who |
+| --- | --- |
+| `default` | Project owner's backend |
+| `dev_2` | Second developer, .NET backend user-secrets only |
+
+To revoke: Dashboard → Settings → API Keys → delete that row. Add a new one with **New secret key**
+(name: lowercase letters, digits, underscores). Share values through a password manager, not chat or email.
+
+### Connecting a dev machine to the hosted project
+
+```bash
+# Apps: apps/customer/.env.local, apps/staff/.env.local (EXPO_PUBLIC_*), apps/portal/.env.local (VITE_*)
+#   *_SUPABASE_URL      = https://ddourrslmudoqevqlvpv.supabase.co
+#   *_SUPABASE_ANON_KEY = the publishable key above
+#   *_API_URL stays the local .NET API (http://10.0.2.2:5080 for the Android emulator, http://localhost:5080 for web)
+
+# Backend: run for both src/EventPlatform.Api and src/EventPlatform.Workers
+dotnet user-secrets --project backend/src/EventPlatform.Api set "Supabase:Url"            "https://ddourrslmudoqevqlvpv.supabase.co"
+dotnet user-secrets --project backend/src/EventPlatform.Api set "Supabase:AnonKey"        "<publishable key>"
+dotnet user-secrets --project backend/src/EventPlatform.Api set "Supabase:ServiceRoleKey" "<your own secret key>"
+```
+
+User-secrets override the `127.0.0.1:54321` URL in `appsettings.Development.json`. To go back to the local stack,
+remove them: `dotnet user-secrets --project <project> remove "Supabase:Url"` (and the two keys).
+
+### QR signing key (`hosted-1`)
+
+- Only a Workers instance with `Qr:SigningKey` + `Qr:Kid = hosted-1` can issue tickets. Without it, bookings stay
+  `PAID` and never reach `CONFIRMED`.
+- Run Workers in one place (ideally a server, env vars `Qr__SigningKey` / `Qr__Kid`) instead of copying the seed to
+  every laptop. Keep a backup of the seed in a password manager.
+- If the seed is lost or leaks, do not reuse the kid: generate a new pair (DB_INSTRUCTIONS §4.1), insert it as
+  `hosted-2`, switch Workers to it, then
+  `update public.signing_keys set status = 'RETIRED', retired_at = now() where kid = 'hosted-1';`
+  Tickets already signed with `hosted-1` still verify against its public key.
+
+### Gotchas
+
+- **"Forbidden use of secret API key in browser" (401):** Supabase rejects secret keys sent with a browser-like
+  `User-Agent`, and that includes PowerShell's `Invoke-WebRequest`. Test with `curl.exe` instead. The .NET
+  `HttpClient` sends no browser User-Agent, so the backend is not affected. The key itself has not leaked.
+- **Platform admins:** none exist yet. After they sign up:
+  `insert into public.memberships (user_id, scope, roles) values ('<auth user id>', 'PLATFORM', array['KYC_REVIEWER', ...]);`
+  Keep at least two `FINANCE_ADMIN` accounts, because payouts need two different approvers.
+- **Phones** cannot reach `localhost`/`10.0.2.2`. Preview and production builds need a public HTTPS URL for the
+  .NET API, which the payment gateway also needs for `POST /payments/ipn/{gateway}`.
+
+### Still open
+
+- Install the .NET 10 SDK (10.0.100, see `global.json`) and the Supabase CLI, then do the `migration repair` above.
+- Create the platform admin accounts and memberships.
+- Payment gateway secrets (`Gateway:*`) once OQ-02 is decided.
+- Host the .NET API + Workers with a public HTTPS URL.
+
 ## Building an Android APK (EAS)
 
 Builds run on Expo's servers (EAS Build). Profiles live in `apps/<app>/eas.json`:
@@ -160,3 +253,6 @@ Open (Sprint 0 decisions, see PC §7):
   - Workers: `RefundWorker`, `PayoutWorker`, `NotificationsWorker`.
 - **JWT check:** the API forwards the user's JWT and lets PostgREST validate it. Add JwtBearer validation once the Auth signing-key setup is fixed.
 - **Hosting** for the .NET services.
+
+dev_2
+Second developer - .NET backend user-secrets only : not stored here. Copy it from Dashboard → Settings → API Keys (needs the Developer role in the Supabase org, see "Hosted Supabase project").
