@@ -2,8 +2,9 @@ import type { PropsWithChildren } from 'react';
 import { router, usePathname } from 'expo-router';
 import { Button, Copy, ErrorNotice, Heading, QueryState, Screen } from '@/components/ui';
 import { useAuth } from '../hooks/auth-context';
+import { isStaffWorkspace, type MobileWorkspaceKind } from '../mobile-workspace';
 
-export function AuthGate({ children }: PropsWithChildren) {
+export function AuthGate({ children, kind = 'CUSTOMER' }: PropsWithChildren<{ kind?: MobileWorkspaceKind }>) {
   const auth = useAuth();
   const next = usePathname();
   if (auth.loading)
@@ -26,7 +27,11 @@ export function AuthGate({ children }: PropsWithChildren) {
     return (
       <Screen>
         <Heading>Đăng nhập để tiếp tục</Heading>
-        <Copy>Quản lý đơn và vé của bạn trong Tickey.</Copy>
+        <Copy>
+          {kind === 'STAFF'
+            ? 'Sử dụng tài khoản đã được tổ chức phân quyền nhân viên.'
+            : 'Quản lý đơn và vé của bạn trong Tickey.'}
+        </Copy>
         {!!auth.error && <ErrorNotice error={auth.error} />}
         <Button onPress={() => router.push({ pathname: '/auth/login', params: { next } })}>Đăng nhập</Button>
         <Button secondary onPress={() => router.push('/tickets/offline')}>
@@ -34,13 +39,27 @@ export function AuthGate({ children }: PropsWithChildren) {
         </Button>
       </Screen>
     );
-  if (auth.session.workspace.kind !== 'CUSTOMER')
+  if (auth.session.workspace.kind !== kind)
     return (
       <Screen>
-        <Heading>Chọn không gian Customer</Heading>
+        <Heading>{kind === 'CUSTOMER' ? 'Chọn vai trò khách hàng' : 'Chọn vai trò nhân viên'}</Heading>
+        <Copy>Đổi vai trò trong cùng ứng dụng để tiếp tục.</Copy>
         <Button onPress={() => router.push({ pathname: '/workspaces', params: { next } })}>
-          Chọn không gian làm việc
+          Chọn vai trò sử dụng
         </Button>
+        {isStaffWorkspace(auth.session.workspace) && (
+          <Button secondary onPress={() => router.replace('/staff')}>
+            Về khu vực nhân viên
+          </Button>
+        )}
+      </Screen>
+    );
+  if (kind === 'STAFF' && !isStaffWorkspace(auth.session.workspace))
+    return (
+      <Screen navigationEnabled={false}>
+        <Heading>Chưa thể xác nhận quyền nhân viên</Heading>
+        <Copy>Vui lòng chọn lại tổ chức hoặc liên hệ người quản lý để kiểm tra quyền truy cập.</Copy>
+        <Button onPress={() => router.replace('/workspaces')}>Chọn vai trò sử dụng</Button>
       </Screen>
     );
   return children;

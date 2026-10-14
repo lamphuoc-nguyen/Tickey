@@ -6,12 +6,17 @@ import { useBookingDraft } from '@/features/booking/draft-store';
 import { ticketCache } from '@/features/tickets/hooks/use-ticket';
 import { clearLocalReminders } from '@/features/notifications/hooks/use-reminders';
 import { useExclusiveMutation } from '@/features/forms/use-exclusive-mutation';
+import type { Workspace } from '@event/core';
+import { activateMobileWorkspace } from '../activate-mobile-workspace';
 
 export function useAuthActions() {
-  const { session } = useAuth();
+  const { session, refresh } = useAuth();
   const cache = useQueryClient();
   const login = useExclusiveMutation('auth-login', {
-    mutationFn: (p: { email: string; password: string }) => repositories.auth.login(p.email, p.password),
+    mutationFn: async (p: { email: string; password: string }) => {
+      await repositories.auth.login(p.email, p.password);
+      await refresh();
+    },
   });
   const register = useExclusiveMutation('auth-register', {
     mutationFn: (p: { email: string; password: string; name: string }) =>
@@ -65,7 +70,8 @@ export function useAuthActions() {
     enabled: !!session,
   });
   const switchWorkspace = useExclusiveMutation('auth-workspace', {
-    mutationFn: () => repositories.workspace.setActiveWorkspace('CUSTOMER'),
+    mutationFn: (workspace: Workspace) =>
+      activateMobileWorkspace(workspace, session?.userId, repositories.workspace, refresh),
     onSuccess: async () => {
       await cache.cancelQueries();
       cache.clear();

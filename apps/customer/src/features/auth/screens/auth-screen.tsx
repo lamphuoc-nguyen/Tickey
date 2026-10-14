@@ -69,14 +69,14 @@ export function AuthScreen({ mode }: { mode: 'login' | 'register' | 'forgot' | '
       if (mode === 'login') {
         await actions.login.mutateAsync({ email, password });
         clear();
-        router.replace({ pathname: '/workspaces', params: { next: params.next ?? '/' } });
+        router.replace({ pathname: '/workspaces', params: { next: params.next ?? '/', auto: '1' } });
       }
       if (mode === 'register') {
         const hasSession = await actions.register.mutateAsync({ email, password, name });
         clear();
         router.replace(
           hasSession
-            ? { pathname: '/workspaces', params: { next: params.next ?? '/' } }
+            ? { pathname: '/workspaces', params: { next: params.next ?? '/', auto: '1' } }
             : { pathname: '/auth/verify', params: { email, next: params.next ?? '/' } },
         );
       }
@@ -91,12 +91,12 @@ export function AuthScreen({ mode }: { mode: 'login' | 'register' | 'forgot' | '
         }
         await actions.reset.mutateAsync(password);
         clear();
-        router.replace({ pathname: '/workspaces', params: { next: params.next ?? '/' } });
+        router.replace({ pathname: '/workspaces', params: { next: params.next ?? '/', auto: '1' } });
       }
       if (mode === 'verify') {
         await actions.verify.mutateAsync({ email, token, signup: true });
         clear();
-        router.replace({ pathname: '/workspaces', params: { next: params.next ?? '/' } });
+        router.replace({ pathname: '/workspaces', params: { next: params.next ?? '/', auto: '1' } });
       }
     } catch {
       /* The mutation error remains visible in the form. */

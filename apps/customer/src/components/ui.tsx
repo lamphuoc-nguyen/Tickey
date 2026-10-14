@@ -319,6 +319,8 @@ export function ErrorNotice({ error }: { error: unknown }) {
 }
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) {
+    if (error.details.reason === 'WORKSPACE_NOT_ACTIVATED')
+      return 'Chưa thể xác nhận vai trò đã chọn. Vui lòng thử lại hoặc liên hệ người quản lý.';
     if (error.details.reason === 'AUTH_LINK_EXPIRED')
       return 'Liên kết xác thực đã hết hạn hoặc đã được sử dụng. Vui lòng yêu cầu email mới.';
     if (error.details.reason === 'AUTH_CALLBACK_FAILED')
