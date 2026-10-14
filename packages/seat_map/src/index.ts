@@ -2,4 +2,6 @@
 // renderers are decided in spike S0-FE3-2 and go in src/web and src/native.
 export * from './types';
 export * from './spatial-index';
+export * from './render-plan';
+export * from './seat-geometry';
 export * from './validate';

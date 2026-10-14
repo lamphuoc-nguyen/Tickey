@@ -24,3 +24,27 @@ describe('ApiError.fromPostgrest', () => {
     expect(e.message).toContain('permission denied');
   });
 });
+
+describe('RPC error causes', () => {
+  it('identifies installed SDK fetch failures without turning server errors into network errors', () => {
+    for (const name of ['TypeError', 'FetchError', 'AbortError']) {
+      expect(ApiError.fromPostgrest({ code: '', message: `${name}: request failed` }).code).toBe('NETWORK');
+    }
+    expect(ApiError.fromPostgrest({ code: 'P0001', message: 'TypeError: server error' }).code).toBe(
+      'UNKNOWN',
+    );
+  });
+  it('keeps JWT failure and SQL permission denial distinct', () => {
+    expect(ApiError.fromPostgrest({ code: 'PGRST301', message: 'JWT expired' }).code).toBe('UNAUTHENTICATED');
+    expect(ApiError.fromPostgrest({ code: '42501', message: 'permission denied' }).code).toBe('FORBIDDEN');
+  });
+  it('preserves business message/details and the conflict subtype', () => {
+    expect(
+      ApiError.fromPostgrest({
+        code: 'P0001',
+        message: 'SEAT_CONFLICT',
+        details: '{"seat_ids":["seat-id"]}',
+      }),
+    ).toEqual(new SeatConflictError(['seat-id'], { seat_ids: ['seat-id'] }));
+  });
+});

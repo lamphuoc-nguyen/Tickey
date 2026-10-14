@@ -1,6 +1,8 @@
 # dependencies
 node_modules/
 .pnpm-store/
+# This workspace uses pnpm; keep accidental npm lockfiles local.
+/package-lock.json
 
 # build output
 dist/
@@ -13,6 +15,8 @@ coverage/
 .expo/
 expo-env.d.ts
 web-build/
+# Expo CLI generates this file; the root already ignores expo-env.d.ts.
+/apps/customer/.gitignore
 ios/
 android/
 *.jks
@@ -25,6 +29,8 @@ android/
 .env
 .env.local
 .env.*.local
+.env.*
+!.env.example
 
 # .NET
 bin/
