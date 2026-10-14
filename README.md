@@ -276,6 +276,7 @@ still decides what the caller may see or do. Endpoint code lives in `backend/src
 | Support                   | `GET/POST /api/reports`, `GET/POST /api/support-requests`, `POST /api/support-requests/{id}/messages`, `GET /api/refunds`, `POST /api/refunds/{id}/bank-info` (needs a recent OTP)                                                                                           |
 | Staff                     | `GET /api/me/staff-assignments` (not in the API list; used to pick a Session), `POST /api/devices`, `GET /api/sessions/{id}/manifest?deviceId=&since=`, `POST /api/check-in`, `/check-in/sync`, `/check-in/manual`, `GET /api/sessions/{id}/attendees?q=`, `/gate-analytics` |
 | POS                       | `POST /api/bookings` with `options: { bookingType: "POS", buyerName, buyerPhone, buyerEmail }`, then `/payment`                                                                                                                                                              |
+| Uploads                   | `POST /api/uploads` (multipart `file`, `purpose` = `REPORT_EVIDENCE` / `KYC` / `EVENT_ASSET`, `orgId` for the last two; JPEG, PNG, WebP or PDF up to 10 MB). Returns `{ bucket, path, public_url }`; pass `path` to the RPC that uses it                                     |
 
 The old `/payments/*` routes still work for `@event/core`'s `HttpPaymentApi`.
 

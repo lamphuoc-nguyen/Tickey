@@ -37,5 +37,6 @@ app.MapCatalogEndpoints();
 app.MapBookingEndpoints();
 app.MapSupportEndpoints();
 app.MapCheckInEndpoints();
+app.MapUploadEndpoints();
 
 app.Run();

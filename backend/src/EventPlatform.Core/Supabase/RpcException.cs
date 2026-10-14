@@ -24,6 +24,10 @@ public sealed class RpcException : Exception
     /// <summary>True for errors raised by app_error() (SQLSTATE P0001).</summary>
     public bool IsAppError => PgCode == "P0001";
 
+    /// <summary>An error with an app_error() code raised outside the database (e.g. a Storage policy refusal).</summary>
+    public static RpcException App(HttpStatusCode status, string code, string? details = null) =>
+        new(status, code, details, "P0001");
+
     public static RpcException FromResponse(HttpStatusCode status, string body)
     {
         try

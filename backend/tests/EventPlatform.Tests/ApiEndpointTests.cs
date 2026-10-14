@@ -36,6 +36,7 @@ public class ApiEndpointTests
                 services.AddHttpClient<SupabaseRpcClient>().ConfigurePrimaryHttpMessageHandler(() => handler);
                 services.AddHttpClient<SupabaseRestClient>().ConfigurePrimaryHttpMessageHandler(() => handler);
                 services.AddHttpClient<SupabaseAuthClient>().ConfigurePrimaryHttpMessageHandler(() => handler);
+                services.AddHttpClient<SupabaseStorageClient>().ConfigurePrimaryHttpMessageHandler(() => handler);
             });
         });
         var client = factory.CreateClient();
@@ -220,6 +221,21 @@ public class ApiEndpointTests
     }
 
     [Fact]
+    public async Task Device_platform_is_normalised_and_validated()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, """{"device_id":"d1"}"""), UserJwt);
+        var device = new { orgId = Guid.NewGuid(), fingerprint = "fp", name = "Gate phone" };
+
+        var bad = await client.PostAsJsonAsync("/api/devices", new { device.orgId, device.fingerprint, device.name, platform = "web" }, Ct);
+        var ok = await client.PostAsJsonAsync("/api/devices", new { device.orgId, device.fingerprint, device.name, platform = " android " }, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+        using var sent = JsonDocument.Parse(Assert.Single(handler.Calls).Body);
+        Assert.Equal("ANDROID", sent.RootElement.GetProperty("p_platform").GetString());
+    }
+
+    [Fact]
     public async Task Revoked_device_is_403()
     {
         var (client, _) = Create((_, _) => (HttpStatusCode.BadRequest, """{"code":"P0001","message":"DEVICE_REVOKED"}"""), UserJwt);
@@ -253,6 +269,73 @@ public class ApiEndpointTests
         using var sent = JsonDocument.Parse(Assert.Single(handler.Calls).Body);
         Assert.Equal("A", sent.RootElement.GetProperty("data").GetProperty("full_name").GetString());
         Assert.Equal("0900000000", sent.RootElement.GetProperty("data").GetProperty("phone").GetString());
+    }
+
+    private static MultipartFormDataContent Upload(string purpose, string contentType, Guid? orgId = null)
+    {
+        var file = new ByteArrayContent([1, 2, 3]);
+        file.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        var form = new MultipartFormDataContent { { file, "file", "photo" }, { new StringContent(purpose), "purpose" } };
+        if (orgId is { } id) form.Add(new StringContent(id.ToString()), "orgId");
+        return form;
+    }
+
+    [Fact]
+    public async Task Report_evidence_goes_to_the_callers_own_folder()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, """{"Key":"x"}"""), UserJwt);
+
+        var res = await client.PostAsync("/api/uploads", Upload("report_evidence", "image/png"), Ct);
+
+        Assert.Equal(HttpStatusCode.Created, res.StatusCode);
+        var result = await res.Content.ReadFromJsonAsync<JsonElement>(Ct);
+        var path = result.GetProperty("path").GetString()!;
+        Assert.StartsWith($"{UserId}/", path);
+        Assert.EndsWith(".png", path);
+        Assert.Equal(JsonValueKind.Null, result.GetProperty("public_url").ValueKind);
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal($"http://db.test/storage/v1/object/report-evidence/{path}", request.RequestUri!.ToString());
+        Assert.Equal($"Bearer {UserJwt}", request.Headers.Authorization!.ToString());
+    }
+
+    [Fact]
+    public async Task Event_asset_needs_an_org_and_returns_a_public_url()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "{}"), UserJwt);
+        var orgId = Guid.NewGuid();
+
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await client.PostAsync("/api/uploads", Upload("EVENT_ASSET", "image/jpeg"), Ct)).StatusCode);
+        var res = await client.PostAsync("/api/uploads", Upload("EVENT_ASSET", "image/jpeg", orgId), Ct);
+
+        var result = await res.Content.ReadFromJsonAsync<JsonElement>(Ct);
+        Assert.StartsWith($"http://db.test/storage/v1/object/public/event-assets/{orgId}/",
+            result.GetProperty("public_url").GetString());
+        Assert.Single(handler.Calls);
+    }
+
+    [Fact]
+    public async Task Upload_rejects_other_file_types_before_calling_storage()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "{}"), UserJwt);
+
+        var res = await client.PostAsync("/api/uploads", Upload("REPORT_EVIDENCE", "text/html"), Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+        Assert.Equal("VALIDATION_FAILED", (await res.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("message").GetString());
+        Assert.Empty(handler.Calls);
+    }
+
+    [Fact]
+    public async Task Storage_policy_refusal_is_403_forbidden()
+    {
+        var (client, _) = Create((_, _) => (HttpStatusCode.BadRequest,
+            """{"statusCode":"403","error":"Unauthorized","message":"new row violates row-level security policy"}"""), UserJwt);
+
+        var res = await client.PostAsync("/api/uploads", Upload("KYC", "application/pdf", Guid.NewGuid()), Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+        Assert.Equal("FORBIDDEN", (await res.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("message").GetString());
     }
 
     [Theory]

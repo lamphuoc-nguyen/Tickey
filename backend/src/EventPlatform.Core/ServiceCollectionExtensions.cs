@@ -19,6 +19,7 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient<SupabaseRpcClient>();
         services.AddHttpClient<SupabaseRestClient>();
         services.AddHttpClient<SupabaseAuthClient>();
+        services.AddHttpClient<SupabaseStorageClient>();
         services.AddSingleton<IPaymentGateway, UnconfiguredPaymentGateway>();
         return services;
     }

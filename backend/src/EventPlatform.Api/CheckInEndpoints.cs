@@ -28,10 +28,18 @@ public static class CheckInEndpoints
         // Idempotent per (org, fingerprint); returns device_id and the QR public keys.
         api.MapPost("/devices", async (RegisterDeviceRequest body, HttpContext http, SupabaseRpcClient rpc,
             CancellationToken ct) =>
-            Results.Ok(await rpc.CallAsUserAsync<JsonElement>("register_gate_device", new
+        {
+            // gate_devices.platform is ANDROID or IOS; normalise instead of surfacing a check-constraint error.
+            var platform = body.Platform?.Trim().ToUpperInvariant();
+            if (platform is not ("ANDROID" or "IOS"))
             {
-                p_org_id = body.OrgId, p_fingerprint = body.Fingerprint, p_name = body.Name, p_platform = body.Platform,
-            }, http.Jwt(), ct)));
+                return Results.BadRequest(new { message = "VALIDATION_FAILED", details = """{"field":"platform"}""" });
+            }
+            return Results.Ok(await rpc.CallAsUserAsync<JsonElement>("register_gate_device", new
+            {
+                p_org_id = body.OrgId, p_fingerprint = body.Fingerprint, p_name = body.Name, p_platform = platform,
+            }, http.Jwt(), ct));
+        });
 
         // Full manifest without since; delta (changed tickets + revocations) with since = the last server_now.
         api.MapGet("/sessions/{id:guid}/manifest", async (Guid id, Guid deviceId, DateTimeOffset? since, HttpContext http,
