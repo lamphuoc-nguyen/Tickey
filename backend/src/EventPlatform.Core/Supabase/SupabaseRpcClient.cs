@@ -27,9 +27,12 @@ public sealed class SupabaseRpcClient(HttpClient http, IOptions<SupabaseOptions>
     public Task CallAsync(string function, object? args, CancellationToken ct = default) =>
         SendAsync<JsonElement>(function, args, _options.ServiceRoleKey, _options.ServiceRoleKey, ct);
 
-    /// <summary>RPC on behalf of a user (e.g. begin_payment): anon key + the user's own JWT.</summary>
-    public Task<T> CallAsUserAsync<T>(string function, object? args, string userJwt, CancellationToken ct = default) =>
-        SendAsync<T>(function, args, _options.AnonKey, userJwt, ct);
+    /// <summary>
+    /// RPC on behalf of a user (e.g. begin_payment): anon key + the user's own JWT.
+    /// A null JWT calls as anon, for RPCs granted to anon (get_session_layout, ...).
+    /// </summary>
+    public Task<T> CallAsUserAsync<T>(string function, object? args, string? userJwt, CancellationToken ct = default) =>
+        SendAsync<T>(function, args, _options.AnonKey, userJwt ?? _options.AnonKey, ct);
 
     private async Task<T> SendAsync<T>(string function, object? args, string apiKey, string bearer, CancellationToken ct)
     {
@@ -37,13 +40,7 @@ public sealed class SupabaseRpcClient(HttpClient http, IOptions<SupabaseOptions>
         {
             Content = JsonContent.Create(args ?? new { }, options: Json),
         };
-        request.Headers.Add("apikey", apiKey);
-        // Legacy anon / service_role keys are JWTs and also go in Authorization. New-style keys
-        // (sb_publishable_..., sb_secret_...) are not JWTs and must only be sent as apikey.
-        if (IsJwt(bearer))
-        {
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
-        }
+        AddKeys(request, apiKey, bearer);
 
         using var response = await http.SendAsync(request, ct);
         var body = await response.Content.ReadAsStringAsync(ct);
@@ -58,5 +55,16 @@ public sealed class SupabaseRpcClient(HttpClient http, IOptions<SupabaseOptions>
         return JsonSerializer.Deserialize<T>(body, Json)!;
     }
 
-    private static bool IsJwt(string token) => token.Count(c => c == '.') == 2;
+    internal static void AddKeys(HttpRequestMessage request, string apiKey, string bearer)
+    {
+        request.Headers.Add("apikey", apiKey);
+        // Legacy anon / service_role keys are JWTs and also go in Authorization. New-style keys
+        // (sb_publishable_..., sb_secret_...) are not JWTs and must only be sent as apikey.
+        if (IsJwt(bearer))
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
+        }
+    }
+
+    internal static bool IsJwt(string token) => token.Count(c => c == '.') == 2;
 }

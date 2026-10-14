@@ -1,4 +1,3 @@
-using System.Net;
 using EventPlatform.Api;
 using EventPlatform.Core;
 using EventPlatform.Core.Supabase;
@@ -24,12 +23,7 @@ app.Use(async (context, next) =>
     }
     catch (RpcException e)
     {
-        context.Response.StatusCode = e.Status switch
-        {
-            HttpStatusCode.Unauthorized => StatusCodes.Status401Unauthorized,
-            _ when e.IsAppError => StatusCodes.Status400BadRequest,
-            _ => StatusCodes.Status502BadGateway,
-        };
+        context.Response.StatusCode = Postgrest.StatusFor(e);
         await context.Response.WriteAsJsonAsync(new { message = e.Message, details = e.Details });
     }
 });
@@ -37,5 +31,11 @@ app.Use(async (context, next) =>
 app.UseCors();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapPaymentEndpoints();
+app.MapAuthEndpoints();
+app.MapAccountEndpoints();
+app.MapCatalogEndpoints();
+app.MapBookingEndpoints();
+app.MapSupportEndpoints();
+app.MapCheckInEndpoints();
 
 app.Run();
