@@ -76,3 +76,38 @@ export const scanResultColors = {
   INVALID_SIGNATURE: palette.danger,
   OUTSIDE_TIME: palette.warning,
 } as const;
+
+// Additive Customer Material tokens from Figma 1:722 / 9:878. Existing consumers keep their theme.
+export const customerTheme = {
+  colors: {
+    background: '#FFFAF8',
+    surface: '#FFFFFF',
+    container: '#FFF0EC',
+    tint: '#FCEDE8',
+    primary: '#B93824',
+    accent: '#D9422D',
+    primaryContainer: '#FFDAD3',
+    onPrimaryContainer: '#752014',
+    text: '#20272B',
+    muted: '#6C7579',
+    border: '#E7E4DF',
+    blueTint: '#EBF0FA',
+    blue: '#315D99',
+    amberTint: '#FFF3D9',
+    amber: '#946018',
+    gray: '#D5D9DA',
+    green: '#1B7956',
+    navy: '#172A35',
+  },
+  fonts: {
+    regular: 'BeVietnamPro',
+    medium: 'BeVietnamPro-Medium',
+    semibold: 'BeVietnamPro-SemiBold',
+    bold: 'BeVietnamPro-Bold',
+    heading: 'Outfit-Bold',
+    editorial: 'Lora-Bold',
+  },
+  spacing: { screen: 20, card: 16, gap: 12, small: 8 },
+  radius: { card: 16, field: 10, full: 999 },
+  touchTarget: 48,
+} as const;

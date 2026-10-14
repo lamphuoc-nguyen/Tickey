@@ -1,9 +1,54 @@
-import { HttpPaymentApi, SupabaseBookingRepository, SupabaseWorkspaceRepository } from '@event/core';
-import { supabase } from './supabase';
+import {
+  HttpCatalogRepository,
+  HttpClient,
+  HttpCustomerRepository,
+  HttpPaymentApi,
+  SupabaseAuthRepository,
+  SupabaseBookingRepository,
+  SupabasePreferencesRepository,
+  SupabaseWorkspaceRepository,
+} from '@event/core';
+import { getSupabase } from './supabase';
 
 // Screens and hooks talk to the server only through these (MT §9.1, §21.1).
+function createRepositories() {
+  const client = getSupabase();
+  const http = new HttpClient(process.env.EXPO_PUBLIC_API_URL, client);
+  return {
+    http,
+    catalog: new HttpCatalogRepository(http),
+    customer: new HttpCustomerRepository(http),
+    preferences: new SupabasePreferencesRepository(client),
+    auth: new SupabaseAuthRepository(client),
+    booking: new SupabaseBookingRepository(client),
+    workspace: new SupabaseWorkspaceRepository(client),
+    payment: new HttpPaymentApi(process.env.EXPO_PUBLIC_API_URL, client),
+  };
+}
+let instance: ReturnType<typeof createRepositories> | undefined;
+export function getRepositories() {
+  return (instance ??= createRepositories());
+}
 export const repositories = {
-  booking: new SupabaseBookingRepository(supabase),
-  workspace: new SupabaseWorkspaceRepository(supabase),
-  payment: new HttpPaymentApi(process.env.EXPO_PUBLIC_API_URL, supabase),
+  get catalog() {
+    return getRepositories().catalog;
+  },
+  get customer() {
+    return getRepositories().customer;
+  },
+  get preferences() {
+    return getRepositories().preferences;
+  },
+  get auth() {
+    return getRepositories().auth;
+  },
+  get booking() {
+    return getRepositories().booking;
+  },
+  get workspace() {
+    return getRepositories().workspace;
+  },
+  get payment() {
+    return getRepositories().payment;
+  },
 };

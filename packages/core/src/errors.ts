@@ -43,6 +43,11 @@ export class ApiError extends Error {
   }
 
   static fromPostgrest(error: PostgrestLikeError): ApiError {
+    // Installed PostgREST SDK represents unanswered fetches with an empty code and an error-name prefix.
+    if (error.code === '' && /^(?:TypeError|FetchError|AbortError|Error):/.test(error.message))
+      return new ApiError('NETWORK');
+    if (error.code === 'PGRST301' || error.code === 'PGRST302') return new ApiError('UNAUTHENTICATED');
+    if (error.code === '42501') return new ApiError('FORBIDDEN');
     const code = (ERROR_CODES as readonly string[]).includes(error.message)
       ? (error.message as AppErrorCode)
       : 'UNKNOWN';

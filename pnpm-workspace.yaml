@@ -5,6 +5,7 @@ packages:
 # Packages allowed to run install scripts (pnpm blocks them by default).
 allowBuilds:
   unrs-resolver: true
+  '@shopify/react-native-skia': true
 
 # Recently published Expo SDK packages, exempted from pnpm's minimum release age.
 minimumReleaseAgeExclude:

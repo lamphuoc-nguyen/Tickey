@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { z } from 'zod';
 import { ApiError, type PostgrestLikeError } from '../errors';
 
 // .NET API contract (MT §20.9, §24): POST /payments/sessions with the user's JWT.
@@ -47,6 +48,17 @@ export class HttpPaymentApi implements PaymentApi {
       }
       throw new ApiError('UNKNOWN', { status: res.status });
     }
-    return body as PaymentSession;
+    const parsed = z
+      .object({
+        bookingId: z.string(),
+        paymentUrl: z.url(),
+        expiresAt: z.string().datetime({ offset: true }),
+      })
+      .safeParse(body);
+    if (!parsed.success) throw new ApiError('UNKNOWN', { reason: 'INVALID_PAYMENT_RESPONSE' });
+    if (parsed.data.bookingId !== bookingId) throw new ApiError('UNKNOWN', { reason: 'BOOKING_MISMATCH' });
+    if (!/^https?:\/\//.test(parsed.data.paymentUrl))
+      throw new ApiError('UNKNOWN', { reason: 'INVALID_PAYMENT_URL' });
+    return parsed.data;
   }
 }

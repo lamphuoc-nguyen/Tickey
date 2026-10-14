@@ -1,0 +1,567 @@
+[
+  {
+    "id": "9:878",
+    "name": "01 / CUSTOMER · Khám phá, đặt vé, quản lý vé",
+    "frames": [
+      {
+        "id": "1:722",
+        "name": "c-home / Đi đâu cuối tuần?",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:842",
+        "name": "c-search / Tìm sự kiện",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:895",
+        "name": "c-event / Đêm nhạc Mùa Thu",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:948",
+        "name": "c-session / Chọn suất diễn",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:983",
+        "name": "c-seats / Chọn chỗ của bạn",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:1172",
+        "name": "c-standing / Vé khu đứng",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:1214",
+        "name": "c-conflict / Ghế vừa được đặt",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:1410",
+        "name": "c-booking / Kiểm tra đặt vé",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:1459",
+        "name": "c-holder / Người tham dự",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:1500",
+        "name": "c-payment / Thanh toán",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:1547",
+        "name": "c-payment-wait / Đang xác nhận thanh toán",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:1583",
+        "name": "c-success / Đặt vé thành công",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:1622",
+        "name": "c-free / Đăng ký vé miễn phí",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:1660",
+        "name": "c-expired / Đã hết hạn giữ chỗ",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:1694",
+        "name": "c-orders / Đơn của tôi",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:1727",
+        "name": "c-order / Chi tiết đơn TK-1024",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:1764",
+        "name": "c-ticket / Vé của bạn",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:2125",
+        "name": "c-venue / Địa điểm tổ chức",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:2183",
+        "name": "c-cancelled / Suất diễn đã bị hủy",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:2223",
+        "name": "c-refund / Theo dõi hoàn tiền",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:2270",
+        "name": "c-refund-bank / Tài khoản nhận hoàn tiền",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:2310",
+        "name": "c-otp / Xác thực OTP",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:2340",
+        "name": "c-report / Gửi phản ánh",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:2393",
+        "name": "c-report-detail / Phản ánh RP-018",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:2428",
+        "name": "c-support / Yêu cầu hỗ trợ",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:2458",
+        "name": "c-support-detail / Hỗ trợ HT-024",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:2490",
+        "name": "c-notifications / Thông báo",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:2523",
+        "name": "c-profile / Tài khoản",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:2564",
+        "name": "c-profile-edit / Thông tin cá nhân",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:2599",
+        "name": "c-preferences / Nhắc lịch & thông báo",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:4116",
+        "name": "c-cancel-booking / Hủy đơn đang giữ chỗ",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:4149",
+        "name": "c-free-success / Đã đăng ký vé miễn phí",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:4538",
+        "name": "c-empty / Bạn chưa có đơn vé",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:4580",
+        "name": "c-error / Không thể kết nối",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "13:1031",
+        "name": "c-session-2 / Chọn suất diễn",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "15:919",
+        "name": "c-seats-reselected / Ghế thay thế đã chọn",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "15:7544",
+        "name": "c-payment-failed / Thanh toán chưa thành công",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "15:7586",
+        "name": "c-payment-cancelled / Bạn đã đóng cổng thanh toán",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "16:1094",
+        "name": "c-preferences-off / Nhắc lịch & thông báo",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "16:1135",
+        "name": "c-ticket-2 / Vé thứ 2",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "112:2070",
+        "name": "c-order-pending / TK-1024 · Chờ xác nhận thanh toán",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "112:2108",
+        "name": "c-order-failed / TK-1024 · Thanh toán thất bại",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "112:2146",
+        "name": "c-order-free / Đơn TK-1012 · Vé miễn phí",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "115:1809",
+        "name": "c-venue-standing / Sân khấu Bến Sông",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "130:1831",
+        "name": "c-event-jazz / Chuyện của Jazz",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "133:1202",
+        "name": "c-venue-free / Địa điểm · Âm thanh Thành Phố",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "133:1233",
+        "name": "c-ticket-free-1 / TK-1012 · Vé 1",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "133:1257",
+        "name": "c-ticket-free-2 / TK-1012 · Vé 2",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "143:1283",
+        "name": "c-refund-request / Chọn vé cần hoàn tiền",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "143:1306",
+        "name": "c-refund-submitted / Đã gửi Organization duyệt",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "143:1329",
+        "name": "c-refund-ineligible / Vé không đủ điều kiện hoàn",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "150:1444",
+        "name": "c-business / Mua cho doanh nghiệp",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "150:1467",
+        "name": "c-business-review / Kiểm tra đơn doanh nghiệp",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "150:1490",
+        "name": "c-business-pending / Đơn doanh nghiệp chờ thanh toán",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "150:1513",
+        "name": "c-business-failed / Thanh toán doanh nghiệp thất bại",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "150:1536",
+        "name": "c-business-paid / Đơn doanh nghiệp đã thanh toán",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "150:1704",
+        "name": "c-business-ticket-1 / Vé doanh nghiệp 1",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "150:1727",
+        "name": "c-business-ticket-2 / Vé doanh nghiệp 2",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "150:1750",
+        "name": "c-business-ticket-3 / Vé doanh nghiệp 3",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "151:1530",
+        "name": "c-payment-late / Thanh toán sau hạn giữ vé",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "151:1603",
+        "name": "c-report-supplement / Bổ sung RP-018",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "151:1626",
+        "name": "c-my-reports / Phản ánh của tôi",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "159:1804",
+        "name": "c-audience-pricing / Chọn mức giá theo đối tượng",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "161:1560",
+        "name": "c-jazz-seats / Chọn ghế Chuyện của Jazz",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "161:1583",
+        "name": "c-jazz-holder / Người tham dự Jazz",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "161:1606",
+        "name": "c-jazz-pending / Chờ xác nhận TK-1049",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "161:1629",
+        "name": "c-jazz-order / Đơn TK-1049",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "161:1652",
+        "name": "c-jazz-order-1021 / Đơn TK-1021",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "161:1675",
+        "name": "c-jazz-ticket / Vé TK1049-01",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "161:1698",
+        "name": "c-jazz-ticket-1021 / Vé TK1021-01",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "161:2104",
+        "name": "c-free-unavailable / Không thể đăng ký vé miễn phí",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "174:1696",
+        "name": "c-sales-paused / Suất tạm dừng bán",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "174:1986",
+        "name": "c-jazz-failed / TK-1049 thanh toán thất bại",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      }
+    ]
+  },
+  {
+    "id": "9:877",
+    "name": "00 / ĐĂNG NHẬP CHUNG · Kiểm tra role",
+    "frames": [
+      {
+        "id": "1:532",
+        "name": "c-login / Chào bạn trở lại",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:573",
+        "name": "c-register / Tạo tài khoản",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:618",
+        "name": "c-verify / Kiểm tra email của bạn",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:652",
+        "name": "c-forgot / Quên mật khẩu",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:686",
+        "name": "c-reset / Đặt lại mật khẩu",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      },
+      {
+        "id": "1:4085",
+        "name": "c-access-info / Tài khoản Organization hoặc Admin",
+        "type": "FRAME",
+        "w": 390,
+        "h": 844
+      }
+    ]
+  }
+]
