@@ -106,11 +106,11 @@ The shared hosted project is **`ddourrslmudoqevqlvpv`** ("Event Ticket Booking")
 branch **PRODUCTION**: do not run `seed.sql`, `supabase test db`, `smoke_e2e.sql` or `concurrency_ac01.sh` against
 it. Use the local stack (`supabase start`) for that.
 
-| Item | Value |
-| --- | --- |
-| API URL | `https://ddourrslmudoqevqlvpv.supabase.co` |
-| Publishable key (public, safe in apps) | `sb_publishable_qkth_w6D3OU7rXmQ_lSTZA_q7uKKM-F` |
-| Dashboard | https://supabase.com/dashboard/project/ddourrslmudoqevqlvpv |
+| Item                                   | Value                                                       |
+| -------------------------------------- | ----------------------------------------------------------- |
+| API URL                                | `https://ddourrslmudoqevqlvpv.supabase.co`                  |
+| Publishable key (public, safe in apps) | `sb_publishable_qkth_w6D3OU7rXmQ_lSTZA_q7uKKM-F`            |
+| Dashboard                              | https://supabase.com/dashboard/project/ddourrslmudoqevqlvpv |
 
 ### What is already set up (2026-10-07)
 
@@ -132,17 +132,17 @@ it. Use the local stack (`supabase start`) for that.
 
 ### API keys: what goes where
 
-| Key | Where it may live | Never |
-| --- | --- | --- |
-| Publishable `sb_publishable_…` | `apps/*/.env.local` (`EXPO_PUBLIC_SUPABASE_ANON_KEY`, `VITE_SUPABASE_ANON_KEY`), EAS env, backend `Supabase:AnonKey` | n/a, it is public |
-| Secret `sb_secret_…` | Backend only: `Supabase:ServiceRoleKey` in user-secrets, or env var `Supabase__ServiceRoleKey` on a server | Apps, `EXPO_PUBLIC_*` / `VITE_*`, `appsettings*.json`, git, chat |
+| Key                            | Where it may live                                                                                                    | Never                                                            |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Publishable `sb_publishable_…` | `apps/*/.env.local` (`EXPO_PUBLIC_SUPABASE_ANON_KEY`, `VITE_SUPABASE_ANON_KEY`), EAS env, backend `Supabase:AnonKey` | n/a, it is public                                                |
+| Secret `sb_secret_…`           | Backend only: `Supabase:ServiceRoleKey` in user-secrets, or env var `Supabase__ServiceRoleKey` on a server           | Apps, `EXPO_PUBLIC_*` / `VITE_*`, `appsettings*.json`, git, chat |
 
 Secret keys bypass RLS. One named secret key per developer, so one can be revoked without breaking the others:
 
-| Name | Who |
-| --- | --- |
-| `default` | Project owner's backend |
-| `dev_2` | Second developer, .NET backend user-secrets only |
+| Name      | Who                                              |
+| --------- | ------------------------------------------------ |
+| `default` | Project owner's backend                          |
+| `dev_2`   | Second developer, .NET backend user-secrets only |
 
 To revoke: Dashboard → Settings → API Keys → delete that row. Add a new one with **New secret key**
 (name: lowercase letters, digits, underscores). Share values through a password manager, not chat or email.
@@ -251,6 +251,34 @@ Working now:
 - Portal login → workspace picker → Org/Admin route guards.
 - .NET RPC client, Ed25519 QR signer, and the `IssueTicketsWorker` (claim → issue → sign → attach → complete).
 - `POST /payments/sessions`, `/payments/ipn/{gateway}` and `/payments/return`, built against `IPaymentGateway`.
+- REST API `/api/*` for the Customer and Staff apps (see below).
+
+### REST API for Customer and Staff (`/api`)
+
+A thin layer over the RPCs and RLS. Every call forwards the caller's JWT (anon when there is none), so the database
+still decides what the caller may see or do. Endpoint code lives in `backend/src/EventPlatform.Api/*Endpoints.cs`.
+
+- **Requests** are camelCase JSON. **Responses** are the database JSON unchanged (snake_case), the same shapes
+  `@event/core` already parses. Auth responses are Supabase Auth's own (`access_token`, `refresh_token`, ...).
+- **Errors** keep the RPC contract `{ message: CODE, details: "<json>" }`. Status: `UNAUTHENTICATED` 401;
+  `FORBIDDEN`, `MFA_REQUIRED`, `OTP_REQUIRED`, `DEVICE_REVOKED` 403; `NOT_FOUND` 404; `INVALID_STATE`,
+  `SESSION_NOT_ON_SALE`, `SEAT_CONFLICT`, `SOLD_OUT`, `LIMIT_EXCEEDED`, `BOOKING_EXPIRED`, `IMMUTABLE_ROW` 409; other
+  codes 400. Branch on `message`, not on the status.
+- Lists take `limit` (default 20, max 100) and `offset`.
+
+| Area                      | Endpoints                                                                                                                                                                                                                                                                    |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth                      | `POST /api/auth/register`, `login`, `refresh`, `logout`, `otp`, `otp/verify`, `mfa/enroll`, `mfa/verify`                                                                                                                                                                     |
+| Account                   | `GET/PUT /api/me`, `GET /api/workspaces`, `PUT /api/workspaces/active` (then call `/api/auth/refresh`), `GET /api/notifications?unread=`, `PUT /api/notifications/read`                                                                                                      |
+| Catalog (no login needed) | `GET /api/categories`, `/api/events?q=&categoryId=&featured=`, `/api/events/{id}`, `/api/events/{id}/sessions`, `/api/sessions/{id}/ticket-types`, `/layout`, `/availability`, `/seat-pricing`                                                                               |
+| Booking                   | `GET/POST /api/bookings` (idempotency key in the body or the `Idempotency-Key` header), `GET/DELETE /api/bookings/{id}`, `POST /api/bookings/{id}/payment`, `POST /api/payments/ipn/{gateway}`                                                                               |
+| Tickets                   | `GET /api/tickets`, `GET /api/tickets/{id}` (with `credential` for the QR), `PUT /api/tickets/{id}/holder`                                                                                                                                                                   |
+| Support                   | `GET/POST /api/reports`, `GET/POST /api/support-requests`, `POST /api/support-requests/{id}/messages`, `GET /api/refunds`, `POST /api/refunds/{id}/bank-info` (needs a recent OTP)                                                                                           |
+| Staff                     | `GET /api/me/staff-assignments` (not in the API list; used to pick a Session), `POST /api/devices`, `GET /api/sessions/{id}/manifest?deviceId=&since=`, `POST /api/check-in`, `/check-in/sync`, `/check-in/manual`, `GET /api/sessions/{id}/attendees?q=`, `/gate-analytics` |
+| POS                       | `POST /api/bookings` with `options: { bookingType: "POS", buyerName, buyerPhone, buyerEmail }`, then `/payment`                                                                                                                                                              |
+| Uploads                   | `POST /api/uploads` (multipart `file`, `purpose` = `REPORT_EVIDENCE` / `KYC` / `EVENT_ASSET`, `orgId` for the last two; JPEG, PNG, WebP or PDF up to 10 MB). Returns `{ bucket, path, public_url }`; pass `path` to the RPC that uses it                                     |
+
+The old `/payments/*` routes still work for `@event/core`'s `HttpPaymentApi`.
 
 Open (Sprint 0 decisions, see PC §7):
 

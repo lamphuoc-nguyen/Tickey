@@ -17,6 +17,9 @@ public static class ServiceCollectionExtensions
             .Validate(o => !string.IsNullOrEmpty(o.ServiceRoleKey), "Supabase:ServiceRoleKey is required (user-secrets)")
             .ValidateOnStart();
         services.AddHttpClient<SupabaseRpcClient>();
+        services.AddHttpClient<SupabaseRestClient>();
+        services.AddHttpClient<SupabaseAuthClient>();
+        services.AddHttpClient<SupabaseStorageClient>();
         services.AddSingleton<IPaymentGateway, UnconfiguredPaymentGateway>();
         return services;
     }
