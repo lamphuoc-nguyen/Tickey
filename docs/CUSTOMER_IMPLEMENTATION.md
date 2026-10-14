@@ -1,6 +1,6 @@
 # Customer mobile — triển khai và bàn giao
 
-Phạm vi theo phân công Customer mới: `apps/customer` và package chung cần thiết. Giữ tài liệu phân công gốc; không sửa backend, migration hoặc Figma. Giữ nhánh và thay đổi của đồng đội, gồm `package-lock.json` untracked có từ trước. Theo yêu cầu bàn giao, tạo nhánh giaunh-cusmobile, commit và push phần Customer đã rà soát. Không merge, deploy, EAS, reset, seed, migration hoặc ghi dữ liệu hosted PRODUCTION.
+Phạm vi theo phân công Customer mới: `apps/customer` và package chung cần thiết. Theo xác nhận mới của người dùng, mobile là **một app dùng chung Customer/Staff**, đăng nhập chung và phân khu vực theo quyền server. Giữ tên package/thư mục hiện tại, không khởi tạo app mới. Giữ tài liệu phân công gốc; không sửa backend, migration hoặc Figma. Giữ nhánh và thay đổi của đồng đội, gồm `package-lock.json` untracked có từ trước. Theo yêu cầu bàn giao, tạo nhánh giaunh-cusmobile, commit và push phần Customer đã rà soát. Không merge, deploy, EAS, reset, seed, migration hoặc ghi dữ liệu hosted PRODUCTION.
 
 Đã dựng giao diện và nối wrapper thật cho các flow Customer; **chưa kết luận UI/UX hoàn thành kiểm chứng toàn bộ**. Đã bổ sung cấu hình public Customer cho Supabase nhóm; API user-secrets đã có URL/AnonKey khớp Customer, còn thiếu ServiceRoleKey nên chưa chạy được. Môi trường agent không có Android SDK/ADB/thiết bị; các màn nghiệp vụ **đã dựng nhưng chưa kiểm tra runtime bằng dữ liệu thật**. Bảng [79 frame Customer/Auth](CUSTOMER_FRAME_MATRIX.md) ghi rõ route, component/state, API, trạng thái UI và contract gap của từng frame. Không còn đường chạy mock hoặc design-preview trong Customer.
 
@@ -18,7 +18,7 @@ Phạm vi theo phân công Customer mới: `apps/customer` và package chung c�
 
 | Flow P0 | Hành vi |
 | --- | --- |
-| Auth/workspace | Login/register/email verify/forgot/reset/callback/OTP/logout; listMyWorkspaces và setActiveWorkspace bằng repository cũ, refresh JWT; CUSTOMER tiếp tục app, role khác hướng dẫn nơi sử dụng. Không Login Staff riêng. |
+| Auth/workspace | Login/register/email verify/forgot/reset/callback/OTP/logout dùng chung; listMyWorkspaces và setActiveWorkspace bằng repository cũ, refresh JWT. CUSTOMER → Home, STAFF → /staff trong cùng app; ORG/ADMIN hướng dẫn Portal. Không Login Staff riêng. |
 | Home → Search → Event → Session | Catalog/categories/events thật, carousel, q/category, limit/offset; chọn suất hợp lệ và giữ lựa chọn. Thiếu ảnh dùng vùng chưa có ảnh, không ảnh business mẫu. |
 | Ghế/khu đứng | LayoutData/SeatState thật; renderer chung Skia native + SVG web, pan/pinch/zoom/culling; zone và ticket type chọn tường minh. Nhiều khu đứng thiếu mapping vẫn hiện khu nhưng khóa đặt. |
 | Booking/hold/conflict | useCreateBooking retry:false; UUID cho một ý định/payload; NETWORK/UNKNOWN giữ ý định để replay; conflict giữ lựa chọn khác nhưng không coi đã giữ. Exclusive lock chặn request lặp. |
@@ -102,11 +102,11 @@ Chuyển nhượng/đổi lịch/voucher/khiếu nại lại không có frame ri
 | Customer lint/typecheck | Qua sau chỉnh UI và logic cuối. |
 | Core/seat-map typecheck; Portal/Staff typecheck | Qua, giữ tương thích app khác. |
 | Dependency peer check | Có mismatch đã tồn tại trong lockfile gốc: Customer metro-config 0.87.1 so với community-cli-plugin 0.86.3; Portal React/React DOM 19.2.3 so với react-router 8.4.0 yêu cầu >=19.2.7. Không nâng framework hoặc sửa Portal trong nhiệm vụ này. |
-| Customer Vitest | **28/28**, 12 files. Auth validation/callback errors, form concurrency, idempotent intent/replay, booking outcome/countdown, selection limits, offline cache, reminder plan, notification destinations và chặn SDK import trong Expo Go Android/web. |
+| Customer Vitest | **36/36**, 13 files. Auth validation/callback errors, phân vai trò mobile và xác nhận workspace sau refresh, form concurrency, idempotent intent/replay, booking outcome/countdown, selection limits, offline cache, reminder plan, notification destinations và chặn SDK import trong Expo Go Android/web. |
 | Core Vitest | **31/31**, 7 files. Mapper/Zod/HTTP cause/empty/permission/not-found, auth failure/signup/resend callback, OTP expiration và PaymentSession contract. |
 | Seat-map Vitest | **8/8**, 3 files. Geometry/spatial/render-plan. |
 | Web Edge headless 390×844 | Lần kiểm tra trước khi tạo .env.local: chỉ root lỗi thiếu cấu hình, đúng thông báo; không console/page errors, failed HTTP responses hoặc request ghi dữ liệu. Artifact kiểm tra được giữ ngoài repo; ảnh preview cũ đã bỏ. |
-| Android Expo export | Hermes bundle/assets thành công. Đây là bundle build, không phải chạy app trên Android hay test native component. |
+| Android Expo export | Hermes bundle/assets thành công sau sửa phân vai trò: 2.703 modules, 61 assets. Đây là bundle build, không phải chạy app trên Android hay test native component. |
 | Native/live E2E | **Chưa chạy** bởi agent. Không ADB/SDK/emulator/device, không iOS; Customer đã có .env.local public, API user-secrets đã có URL/AnonKey nhưng thiếu server secret nên chưa chạy. GET Supabase Auth health bằng public key trả HTTP 200; không đăng nhập/ghi dữ liệu. |
 
 Không báo script “no tests yet” là test mobile. Customer đã cấu hình Vitest cho logic TypeScript; **chưa có test native component/Jest/thiết bị**. Không dùng fixtures để kiểm chứng fake-success hoặc chụp data screens của bản hiện tại. Việc đọc screenshot Figma và kiểm tra code không thay thế so sánh screenshot app native bằng dữ liệu thật.
@@ -114,6 +114,14 @@ Không báo script “no tests yet” là test mobile. Customer đã cấu hình
 Còn cần kiểm tra native với data thật: keyboard/safe area/text dài/scroll/footer; seat-map gestures/performance; Auth mail/OTP; free issuance; gateway return/background; pending/expired/conflict; cancellation/refund; evidence uploads/messages; offline account separation và notification permission/tap. Các trạng thái chưa mở được ghi rõ ở bảng từng frame. Không kết luận toàn bộ UI/UX hoàn thành cho đến khi kiểm chứng và xử lý các vấn đề đó.
 
 ## Cách chạy và cấu hình
+
+### Mobile dùng chung Customer/Staff
+
+- Entry `/` đọc workspace hiện tại từ session server: CUSTOMER mở Home, STAFF mở `/staff`. Sau đăng nhập, `list_my_workspaces` kiểm tra vai trò/tổ chức còn được cấp. Nếu chỉ có Customer thì vào trực tiếp; Staff đang active hợp lệ được khôi phục. Trường hợp nhiều vai trò/tổ chức cần chọn, không tự lấy tổ chức đầu tiên. SQL hiện luôn trả Customer cho mọi tài khoản; membership Staff được cấp thêm, không phải loại tài khoản loại trừ Customer.
+- Màn chọn vai trò cho phép CUSTOMER hoặc STAFF theo record server. Chọn Staff gửi đúng `orgId` qua `setActiveWorkspace`, repository refresh JWT; app đọc lại session và chỉ điều hướng nếu user/kind/orgId/quyền Staff đã khớp. Nếu claim chưa cập nhật, hiển thị lỗi xác nhận vai trò, không coi lựa chọn local là quyền thật. Server vẫn kiểm tra từng thao tác.
+- Customer và Staff có guard riêng trong cùng Expo Router; cache được clear khi đổi workspace. Profile có nút Đổi vai trò sử dụng. Không hướng dẫn cài app Staff khác.
+- `/staff` hiện chỉ là điểm tích hợp được kiểm tra quyền, có thông tin tài khoản/tổ chức thật, đổi vai trò và đăng xuất. Quét vé/kiểm soát vé/POS hiện khóa với lý do gần nút. `apps/staff` trong checkout chỉ có scaffold; giữ nguyên phần của đồng đội, không nhập chéo app hoặc triển khai nghiệp vụ Staff trong nhiệm vụ Customer. Việc ghép module Staff hoàn chỉnh vào app chung vẫn còn phải làm.
+- Đã kiểm tra logic phân vai trò và từ chối claim sai/cũ, lỗi server, tài khoản đổi trong lúc refresh. Chưa chạy đăng nhập/đổi vai trò với tài khoản Staff thật trên thiết bị; không xác nhận ca làm/quét vé/POS đã hoạt động.
 
 ```powershell
 # Node >=22; packageManager trong repo pnpm@12.9.1

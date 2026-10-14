@@ -14,11 +14,13 @@ const AuthContext = createContext<{
   loading: boolean;
   error: unknown;
   retry: () => void;
+  refresh: () => Promise<AuthSession | null>;
 }>({
   session: null,
   loading: true,
   error: null,
   retry: () => {},
+  refresh: async () => null,
 });
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<AuthSession | null>(null);
@@ -28,6 +30,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const queryClient = useQueryClient();
   const previousUser = useRef<string | null>(null);
   const retrySession = useRef<() => void>(() => {});
+  const refreshSession = useRef<() => Promise<AuthSession | null>>(async () => null);
   useEffect(() => {
     const listener = AppState.addEventListener('change', (state) =>
       focusManager.setFocused(state === 'active'),
@@ -65,18 +68,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setError(null);
       setLoading(false);
     };
+    refreshSession.current = async () => {
+      const next = await repositories.auth.session();
+      await update(next);
+      return next;
+    };
     retrySession.current = () => {
       setLoading(true);
       setError(null);
-      void repositories.auth
-        .session()
-        .then(update)
-        .catch((e: unknown) => {
-          if (alive) {
-            setError(e);
-            setLoading(false);
-          }
-        });
+      void refreshSession.current().catch((e: unknown) => {
+        if (alive) {
+          setError(e);
+          setLoading(false);
+        }
+      });
     };
     void repositories.auth
       .session()
@@ -107,7 +112,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
   }, [queryClient]);
   return (
-    <AuthContext.Provider value={{ session, loading, error, retry: () => retrySession.current() }}>
+    <AuthContext.Provider
+      value={{
+        session,
+        loading,
+        error,
+        retry: () => retrySession.current(),
+        refresh: () => refreshSession.current(),
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

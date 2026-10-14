@@ -25,7 +25,7 @@ function Content() {
         <Copy style={ui.muted}>Quản lý tùy chọn</Copy>
       </Card>
       <Card>
-        <Copy>Loại tài khoản</Copy>
+        <Copy>Vai trò đang sử dụng</Copy>
         <Copy>Khách hàng</Copy>
       </Card>
       <Button secondary onPress={() => router.push('/profile/preferences')}>
@@ -54,7 +54,7 @@ function Content() {
         Theo dõi hoàn tiền
       </Button>
       <Button secondary onPress={() => router.push('/workspaces')}>
-        Không gian làm việc
+        Đổi vai trò sử dụng
       </Button>
     </Screen>
   );

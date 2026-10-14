@@ -25,7 +25,7 @@ export function useAuthCallback(params: AuthCallbackRouteParams) {
       if (current.current?.key !== key)
         current.current = { key, promise: repositories.auth.acceptCallback(callback) };
       await current.current.promise;
-      if (alive) router.replace(callback.type === 'recovery' ? '/auth/reset' : '/workspaces');
+      if (alive) router.replace(callback.type === 'recovery' ? '/auth/reset' : '/workspaces?auto=1');
     };
     void read().catch((e: unknown) => {
       if (alive) setError(e);

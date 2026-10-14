@@ -1,1 +1,1 @@
-export { default } from '@/features/catalog/screens/home-screen';
+export { default } from '@/features/auth/screens/mobile-entry-screen';
