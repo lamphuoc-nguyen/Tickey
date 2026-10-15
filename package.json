@@ -7,8 +7,9 @@
   },
   "scripts": {
     "dev:portal": "pnpm --filter @event/portal dev",
-    "dev:customer": "pnpm --filter @event/customer start",
-    "dev:staff": "pnpm --filter @event/staff start",
+    "dev:mobile": "pnpm --filter @event/mobile start",
+    "dev:customer": "pnpm dev:mobile",
+    "dev:staff": "pnpm dev:mobile",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
