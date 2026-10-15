@@ -18,19 +18,26 @@ import {
 import { useAuthActions } from '../hooks/use-auth-actions';
 import { useAuth } from '../hooks/auth-context';
 import { useFormDraft } from '@/features/forms/use-form-draft';
-import { validateAuthForm } from '@/features/forms/auth-validation';
+import { validateAuthForm, type AuthMode } from '@/features/forms/auth-validation';
 
-export function AuthScreen({ mode }: { mode: 'login' | 'register' | 'forgot' | 'reset' | 'verify' }) {
+export function AuthScreen({ mode }: { mode: AuthMode }) {
   const params = useLocalSearchParams<{ email?: string; next?: string }>();
   const actions = useAuthActions();
   const auth = useAuth();
-  const { draft, update, clear } = useFormDraft(`auth:${mode}`, {
-    email: params.email ?? '',
-    password: '',
-    confirm: '',
-    name: '',
-    token: '',
-  });
+  const isRecovery = mode === 'verify-recovery';
+  const isVerification = mode === 'verify' || isRecovery;
+  const canReset = !!auth.session?.passwordRecovery;
+  const resend = isRecovery ? actions.forgot : actions.resendSignup;
+  const { draft, update, clear } = useFormDraft(
+    isVerification ? `auth:${mode}:${params.email ?? ''}` : `auth:${mode}`,
+    {
+      email: params.email ?? '',
+      password: '',
+      confirm: '',
+      name: '',
+      token: '',
+    },
+  );
   const { email, password, confirm, name, token } = draft;
   const setEmail = (email: string) => update({ email });
   const setPassword = (password: string) => update({ password });
@@ -40,28 +47,26 @@ export function AuthScreen({ mode }: { mode: 'login' | 'register' | 'forgot' | '
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('');
   const [localError, setLocalError] = useState('');
-  const current =
-    actions[
-      mode === 'login'
-        ? 'login'
-        : mode === 'register'
-          ? 'register'
-          : mode === 'forgot'
-            ? 'forgot'
-            : mode === 'reset'
-              ? 'reset'
-              : 'verify'
-    ];
+  const current = {
+    login: actions.login,
+    register: actions.register,
+    forgot: actions.forgot,
+    reset: actions.reset,
+    verify: actions.verify,
+    'verify-recovery': actions.verifyRecovery,
+  }[mode];
   const title = {
     login: 'Chào bạn trở lại',
     register: 'Tạo tài khoản',
     forgot: 'Quên mật khẩu',
     reset: 'Đặt lại mật khẩu',
     verify: 'Kiểm tra email của bạn',
+    'verify-recovery': 'Nhập mã khôi phục',
   }[mode];
-  const continueToAccount = () => router.replace({ pathname: '/workspaces', params: { next: params.next ?? '/' } });
+  const continueToAccount = () =>
+    router.replace({ pathname: '/workspaces', params: { next: params.next ?? '/' } });
   async function submit() {
-    if (current.isPending) return;
+    if (current.isPending || (isVerification && resend.isPending)) return;
     const errors = validateAuthForm(mode, draft);
     setErrors(errors);
     if (Object.keys(errors).length) return;
@@ -80,7 +85,11 @@ export function AuthScreen({ mode }: { mode: 'login' | 'register' | 'forgot' | '
       }
       if (mode === 'forgot') {
         await actions.forgot.mutateAsync(email);
-        setMessage('Nếu email thuộc tài khoản, bạn sẽ nhận được liên kết đặt lại mật khẩu.');
+        clear();
+        router.replace({
+          pathname: '/auth/verify-recovery',
+          params: { email: email.trim(), next: params.next ?? '/' },
+        });
       }
       if (mode === 'reset') {
         if (password !== confirm) {
@@ -96,6 +105,14 @@ export function AuthScreen({ mode }: { mode: 'login' | 'register' | 'forgot' | '
         clear();
         continueToAccount();
       }
+      if (isRecovery) {
+        await actions.verifyRecovery.mutateAsync({ email, token });
+        clear();
+        router.replace({
+          pathname: '/auth/reset',
+          params: { email: email.trim(), next: params.next ?? '/' },
+        });
+      }
     } catch {
       /* The mutation error remains visible in the form. */
     }
@@ -104,8 +121,12 @@ export function AuthScreen({ mode }: { mode: 'login' | 'register' | 'forgot' | '
     <Screen
       footer={
         <ActionFooter
-          disabled={(mode === 'reset' && !auth.session) || (mode === 'verify' && actions.resendSignup.isPending)}
-          disabledReason={mode === 'verify' ? 'Đang yêu cầu email mới. Vui lòng chờ rồi nhập mã mới nhất.' : 'Mở liên kết đặt lại mật khẩu gửi đến email trước khi tiếp tục.'}
+          disabled={(mode === 'reset' && !canReset) || (isVerification && resend.isPending)}
+          disabledReason={
+            isVerification
+              ? 'Đang yêu cầu email mới. Vui lòng chờ rồi nhập mã mới nhất.'
+              : 'Xác thực mã khôi phục trong email trước khi đặt mật khẩu mới.'
+          }
           busy={current.isPending}
           onPress={() => void submit()}
         >
@@ -114,14 +135,16 @@ export function AuthScreen({ mode }: { mode: 'login' | 'register' | 'forgot' | '
             : mode === 'register'
               ? 'Tạo tài khoản'
               : mode === 'forgot'
-                ? 'Gửi liên kết'
-                : mode === 'verify'
-                  ? 'Xác nhận email'
+                ? 'Gửi mã OTP'
+                : isVerification
+                  ? isRecovery
+                    ? 'Xác thực mã OTP'
+                    : 'Xác nhận email'
                   : 'Lưu mật khẩu'}
         </ActionFooter>
       }
     >
-      {mode !== 'verify' && (
+      {!isVerification && (
         <View style={ui.row}>
           <View
             style={{
@@ -138,7 +161,7 @@ export function AuthScreen({ mode }: { mode: 'login' | 'register' | 'forgot' | '
           <Heading>tickey</Heading>
         </View>
       )}
-      {mode !== 'verify' && (
+      {!isVerification && (
         <Image
           source={
             mode !== 'register'
@@ -174,7 +197,7 @@ export function AuthScreen({ mode }: { mode: 'login' | 'register' | 'forgot' | '
           autoComplete="email"
         />
       )}
-      {(mode === 'login' || mode === 'register' || mode === 'reset') && (
+      {(mode === 'login' || mode === 'register' || (mode === 'reset' && canReset)) && (
         <Field
           label={mode === 'reset' ? 'Mật khẩu mới' : 'Mật khẩu'}
           value={password}
@@ -185,21 +208,29 @@ export function AuthScreen({ mode }: { mode: 'login' | 'register' | 'forgot' | '
           placeholder={mode !== 'login' ? 'Tối thiểu 8 ký tự' : undefined}
         />
       )}
-      {mode === 'reset' && (
+      {mode === 'reset' && canReset && (
         <>
+          <Notice>Đã xác thực email. Nhập mật khẩu mới để hoàn tất khôi phục tài khoản.</Notice>
           <Field
-            label="Nhập lại mật khẩu"
+            label="Xác nhận mật khẩu mới"
             value={confirm}
             onChangeText={setConfirm}
             secureTextEntry
             error={errors.confirm}
+            textContentType="newPassword"
+            autoComplete="new-password"
           />
-          {!auth.session && (
-            <Notice warning>Mở liên kết đặt lại mật khẩu gửi đến email trước khi tiếp tục.</Notice>
-          )}
         </>
       )}
-      {mode === 'verify' && (
+      {mode === 'reset' && !canReset && (
+        <>
+          <Notice warning>
+            Vui lòng nhận và xác thực mã khôi phục trong email trước khi đặt mật khẩu mới.
+          </Notice>
+          <Button onPress={() => router.replace('/auth/forgot')}>Nhận mã khôi phục</Button>
+        </>
+      )}
+      {isVerification && (
         <>
           <View
             style={{
@@ -216,10 +247,12 @@ export function AuthScreen({ mode }: { mode: 'login' | 'register' | 'forgot' | '
             <Icon name="email" />
           </View>
           <Notice>
-            Nhập mã xác nhận trong email mới nhất. Bạn có thể đọc email trên máy tính và nhập mã vào ứng dụng.
+            {isRecovery
+              ? 'Nếu email đã đăng ký, bạn sẽ nhận được mã khôi phục. Nhập mã trong email mới nhất để tiếp tục đặt mật khẩu mới.'
+              : 'Nhập mã xác nhận trong email mới nhất. Bạn có thể đọc email trên máy tính và nhập mã vào ứng dụng.'}
           </Notice>
           <Field
-            label="Mã xác nhận email"
+            label={isRecovery ? 'Mã OTP khôi phục mật khẩu' : 'Mã xác nhận email'}
             value={token}
             error={errors.token}
             keyboardType="number-pad"
@@ -231,44 +264,64 @@ export function AuthScreen({ mode }: { mode: 'login' | 'register' | 'forgot' | '
           />
           <Button
             secondary
-            busy={actions.resendSignup.isPending}
+            busy={resend.isPending}
             disabled={current.isPending}
             disabledReason="Đang xác nhận mã. Vui lòng chờ kết quả."
             onPress={() => {
-              if (actions.resendSignup.isPending || current.isPending) return;
+              if (resend.isPending || current.isPending) return;
               const emailError = validateAuthForm('verify', draft).email;
-              if (emailError) { setErrors({ email: emailError }); return; }
+              if (emailError) {
+                setErrors({ email: emailError });
+                return;
+              }
               setMessage('');
               setLocalError('');
-              void actions.resendSignup
+              void resend
                 .mutateAsync(email)
                 .then(() => {
                   setToken('');
                   setErrors({});
-                  actions.verify.reset();
+                  current.reset();
                   setMessage('Yêu cầu gửi lại đã được tiếp nhận. Hãy kiểm tra email mới nhất.');
                 })
                 .catch(() => {});
             }}
           >
-            Gửi lại email
+            {isRecovery ? 'Gửi lại mã OTP' : 'Gửi lại email'}
           </Button>
-          {!!actions.resendSignup.error && <ErrorNotice error={actions.resendSignup.error} />}
-          <Notice>
-            Nếu email chỉ có liên kết, hãy mở liên kết một lần rồi quay lại đăng nhập trong ứng dụng này.
-            Nếu liên kết báo hết hạn, hãy yêu cầu email mới.
-          </Notice>
+          {!!resend.error && <ErrorNotice error={resend.error} />}
+          {!isRecovery && (
+            <Notice>
+              Nếu email chỉ có liên kết, hãy mở liên kết một lần rồi quay lại đăng nhập trong ứng dụng này.
+              Nếu liên kết báo hết hạn, hãy yêu cầu email mới.
+            </Notice>
+          )}
+          {isRecovery && (
+            <Button
+              secondary
+              disabled={current.isPending || resend.isPending}
+              disabledReason="Vui lòng chờ yêu cầu hiện tại hoàn tất."
+              onPress={() => {
+                clear();
+                router.replace('/auth/forgot');
+              }}
+            >
+              Dùng email khác
+            </Button>
+          )}
           <Button
             secondary
-            disabled={current.isPending || actions.resendSignup.isPending}
+            disabled={current.isPending || resend.isPending}
             disabledReason="Vui lòng chờ thao tác xác nhận email hoàn tất."
-            onPress={() => router.replace({ pathname: '/auth/login', params: { email, next: params.next ?? '/' } })}
+            onPress={() =>
+              router.replace({ pathname: '/auth/login', params: { email, next: params.next ?? '/' } })
+            }
           >
             Quay lại đăng nhập
           </Button>
         </>
       )}
-      {mode === 'forgot' && <Copy>Chúng tôi sẽ gửi liên kết đặt lại mật khẩu.</Copy>}
+      {mode === 'forgot' && <Copy>Nhập email đã đăng ký để nhận mã OTP khôi phục mật khẩu.</Copy>}
       {mode === 'register' && (
         <Notice>Bằng việc tiếp tục, bạn đồng ý Điều khoản và Chính sách riêng tư của Tickey.</Notice>
       )}

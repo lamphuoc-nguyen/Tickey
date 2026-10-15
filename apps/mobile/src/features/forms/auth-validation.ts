@@ -1,4 +1,4 @@
-export type AuthMode = 'login' | 'register' | 'forgot' | 'reset' | 'verify';
+export type AuthMode = 'login' | 'register' | 'forgot' | 'reset' | 'verify' | 'verify-recovery';
 export function validateAuthForm(
   mode: AuthMode,
   form: { email: string; password: string; confirm: string; name: string; token: string },
@@ -11,7 +11,7 @@ export function validateAuthForm(
   if ((mode === 'register' || mode === 'reset') && form.password.length < 8)
     errors.password = 'Mật khẩu cần ít nhất 8 ký tự.';
   if (mode === 'reset' && form.password !== form.confirm) errors.confirm = 'Hai mật khẩu chưa khớp.';
-  if (mode === 'verify' && !/^\d{6,10}$/.test(form.token.trim()))
+  if ((mode === 'verify' || mode === 'verify-recovery') && !/^\d{6,10}$/.test(form.token.trim()))
     errors.token = 'Nhập mã xác nhận được gửi trong email.';
   return errors;
 }

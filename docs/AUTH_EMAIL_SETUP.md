@@ -47,6 +47,27 @@ Repository nay bổ sung kiểm tra `user.email_confirmed_at` (không lấy cờ
 
 Kiểm thử phiên này: Core 49/49, Mobile 59/59 và typecheck cả hai qua. Có kiểm thử với SDK đang cài cho HTTP 400 `email_not_confirmed`, phản hồi thành công nhưng chưa xác nhận, đăng ký và khôi phục session chưa xác nhận, cùng đăng nhập đã xác nhận. Chưa tái hiện bằng tài khoản mới trên hosted project và chưa kiểm tra UI native thật.
 
+## Quên mật khẩu bằng OTP trong Gmail
+
+Luồng mobile: **Quên mật khẩu → nhập email → Gửi mã OTP → nhập mã trong email → Xác thực mã OTP → Mật khẩu mới + Xác nhận mật khẩu mới → Lưu mật khẩu**. Sau khi lưu thành công, app tiếp tục vào tài khoản. OTP và mật khẩu chỉ giữ trong bộ nhớ của form, không đưa vào URL hoặc lưu xuống thiết bị.
+
+Để email khôi phục thực sự có mã, người quản trị project cần vào **Authentication → Emails → Templates → Reset password**, lưu lại mẫu hiện tại để có thể hoàn tác, rồi đặt:
+
+- Subject: `Đặt lại mật khẩu Tickey`.
+- Body: toàn bộ [supabase/templates/recovery.html](../supabase/templates/recovery.html).
+
+Bấm Save, sau đó yêu cầu email khôi phục mới trong app. Đây là template **Reset password**, riêng với **Confirm signup**; sửa `confirmation.html` không đổi nội dung email quên mật khẩu. SMTP Gmail đang cấu hình vẫn được dùng cho cả hai. File trong repo không tự cập nhật template hosted; phiên này chưa thay template trên Dashboard hoặc gửi email thật.
+
+App yêu cầu mã bằng `resetPasswordForEmail`, xác thực bằng `verifyOtp({email, token, type:'recovery'})`, rồi gọi `updateUser({password})`. Mã xác nhận đăng ký dùng type `email` không mở quyền đặt lại mật khẩu. Gửi lại mã dùng lại API recovery, không gọi resend signup. Lỗi mã sai/hết hạn hoặc giới hạn gửi được hiển thị và giữ người dùng tại bước nhập mã; gửi lại thành công xóa mã cũ khỏi form.
+
+Màn `/auth/reset` chỉ hiện hai ô mật khẩu khi phiên hiện tại vừa xác thực recovery thành công. Mở trực tiếp route hoặc chỉ có phiên đăng nhập thường sẽ được hướng dẫn nhận mã. Quyền tiếp tục flow được giữ trong bộ nhớ repository và gắn với tài khoản đang xác thực; bị xóa sau khi đổi mật khẩu thành công, đăng xuất, bắt đầu yêu cầu recovery mới hoặc đăng nhập tài khoản khác. Nếu app bị đóng hoàn toàn giữa lúc nhập mã và đổi mật khẩu, cần xác thực lại recovery; không khôi phục quyền này chỉ từ session đã lưu. Callback recovery hợp lệ cũ vẫn được hỗ trợ.
+
+Supabase vẫn quyết định mã có hợp lệ và có được cập nhật mật khẩu hay không. Cờ recovery trong app chỉ điều khiển flow, không thay thế kiểm tra bảo mật server. Mật khẩu cần tối thiểu 8 ký tự và khớp xác nhận; lỗi dùng lại mật khẩu cũ được hiển thị rõ, không báo đã lưu khi server từ chối.
+
+Tham khảo: [Supabase email templates và biến Token](https://supabase.com/docs/guides/auth/auth-email-templates), [verifyOtp](https://supabase.com/docs/reference/javascript/auth-verifyotp), [updateUser](https://supabase.com/docs/reference/javascript/auth-updateuser).
+
+Kiểm thử recovery: Core 56/56, Mobile 60/60, typecheck Core/Mobile và Mobile lint qua; Android export qua với 2.719 modules và 61 assets. Các test recovery chạy SDK với HTTP giả, không gửi email hoặc đổi mật khẩu trên hosted project. Android export kiểm tra bundle, không thay thế kiểm tra giao diện native hoặc OTP Gmail thực tế.
+
 ## Cách phù hợp cho Gmail Windows + Android emulator: nhập OTP trong app
 
 Không cần thêm deep link để nhập OTP. Cần mẫu email hiển thị mã `{{ .Token }}` do Supabase tạo. Tuy nhiên project Free tạo từ **03/06/2026** đang dùng dịch vụ email mặc định bị hạn chế chỉnh template: phải cấu hình SMTP riêng trước khi áp mẫu OTP. SMTP riêng vẫn dùng được với project Free; không phải cứ thấy nhãn Free là không bật SMTP được. Xem [thay đổi chính thức của Supabase](https://supabase.com/changelog/46599-changes-to-email-template-customisation-on-free-tier).

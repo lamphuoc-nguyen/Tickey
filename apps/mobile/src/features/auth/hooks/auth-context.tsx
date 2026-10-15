@@ -1,7 +1,14 @@
 import type { AuthSession } from '@event/core';
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type PropsWithChildren } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type PropsWithChildren,
+} from 'react';
 import { AppState } from 'react-native';
-import { router } from 'expo-router';
 import { focusManager, onlineManager, useQueryClient } from '@tanstack/react-query';
 import NetInfo from '@react-native-community/netinfo';
 import { repositories } from '@/lib/repositories';
@@ -106,7 +113,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
           setLoading(false);
         }
       });
-      if (event === 'PASSWORD_RECOVERY') router.replace('/auth/reset');
     });
     const listener = AppState.addEventListener('change', (state) =>
       repositories.auth.setForeground(state === 'active'),

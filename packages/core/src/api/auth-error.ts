@@ -9,6 +9,8 @@ export function authError(error: {
     return new ApiError('VALIDATION_FAILED', { reason: 'AUTH_EMAIL_RATE_LIMIT' });
   if (error.code === 'email_address_not_authorized')
     return new ApiError('FORBIDDEN', { reason: 'AUTH_EMAIL_NOT_AUTHORIZED' });
+  if (error.code === 'same_password')
+    return new ApiError('VALIDATION_FAILED', { reason: 'AUTH_SAME_PASSWORD' });
   if (
     error.code &&
     [

@@ -322,7 +322,10 @@ export function errorMessage(error: unknown): string {
     if (error.details.reason === 'WORKSPACE_NOT_ACTIVATED')
       return 'Chưa thể xác nhận vai trò đã chọn. Vui lòng thử lại hoặc liên hệ người quản lý.';
     if (error.details.reason === 'AUTH_LINK_EXPIRED')
-      return 'Liên kết xác thực đã hết hạn hoặc đã được sử dụng. Vui lòng yêu cầu email mới.';
+      return 'Mã hoặc liên kết xác thực không hợp lệ, đã hết hạn hoặc đã được sử dụng. Vui lòng yêu cầu email mới.';
+    if (error.details.reason === 'AUTH_RECOVERY_REQUIRED')
+      return 'Vui lòng xác thực mã khôi phục trong email trước khi đặt mật khẩu mới.';
+    if (error.details.reason === 'AUTH_SAME_PASSWORD') return 'Mật khẩu mới phải khác mật khẩu hiện tại.';
     if (error.details.reason === 'AUTH_CALLBACK_FAILED')
       return 'Chưa thể xác thực bằng liên kết này. Vui lòng yêu cầu email mới hoặc quay về đăng nhập.';
     if (error.details.reason === 'INVALID_AUTH_CALLBACK')

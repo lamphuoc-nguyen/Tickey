@@ -6,7 +6,7 @@ import { useBookingDraft } from '@/features/customer/booking/draft-store';
 import { ticketCache } from '@/features/customer/tickets/hooks/use-ticket';
 import { clearLocalReminders } from '@/features/customer/notifications/hooks/use-reminders';
 import { useExclusiveMutation } from '@/features/forms/use-exclusive-mutation';
-import type { Workspace } from '@event/core';
+import { ApiError, type Workspace } from '@event/core';
 import { activateMobileWorkspace } from '../activate-mobile-workspace';
 import { sessionScope } from '@/lib/session-scope';
 import { assertMobileWorkspaceChange } from '../mobile-access';
@@ -61,6 +61,14 @@ export function useAuthActions() {
       await refresh();
     },
   });
+  const verifyRecovery = useExclusiveMutation('auth-verify-recovery', {
+    mutationFn: async (p: { email: string; token: string }) => {
+      await repositories.auth.verifyOtp(p.email, p.token, 'recovery');
+      const recovered = await refresh();
+      if (!recovered?.passwordRecovery)
+        throw new ApiError('UNAUTHENTICATED', { reason: 'AUTH_RECOVERY_REQUIRED' });
+    },
+  });
   const logout = useExclusiveMutation('auth-logout', {
     mutationFn: async () => {
       if (session) {
@@ -96,5 +104,17 @@ export function useAuthActions() {
       cache.clear();
     },
   });
-  return { login, register, forgot, reset, otp, resendSignup, verify, logout, workspaces, switchWorkspace };
+  return {
+    login,
+    register,
+    forgot,
+    reset,
+    otp,
+    resendSignup,
+    verify,
+    verifyRecovery,
+    logout,
+    workspaces,
+    switchWorkspace,
+  };
 }
