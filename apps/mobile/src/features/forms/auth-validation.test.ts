@@ -17,4 +17,9 @@ describe('auth form validation', () => {
     expect(validateAuthForm('register', empty)).toHaveProperty('name');
     expect(validateAuthForm('verify', empty)).toHaveProperty('token');
   });
+  it('accepts a pasted email code with outer whitespace and rejects nonnumeric or incomplete codes', () => {
+    expect(validateAuthForm('verify', { ...empty, email: 'user@example.test', token: ' 12345678 ' })).toEqual({});
+    for (const token of ['12345', '12345678901', 'abcd1234'])
+      expect(validateAuthForm('verify', { ...empty, email: 'user@example.test', token })).toHaveProperty('token');
+  });
 });

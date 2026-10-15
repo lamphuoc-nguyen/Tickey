@@ -331,6 +331,12 @@ export function errorMessage(error: unknown): string {
       return 'Bạn cần xác nhận email trước khi đăng nhập. Mở email mới nhất hoặc yêu cầu gửi lại.';
     if (error.details.reason === 'AUTH_EMAIL_RATE_LIMIT')
       return 'Bạn đã yêu cầu quá nhiều lần. Vui lòng chờ một lúc rồi thử lại.';
+    if (error.details.reason === 'AUTH_EMAIL_DELIVERY_FAILED')
+      return 'Chưa thể gửi email xác thực. Vui lòng thử lại sau hoặc liên hệ hỗ trợ.';
+    if (error.details.reason === 'AUTH_EMAIL_NOT_AUTHORIZED')
+      return 'Hiện chưa thể gửi email đến địa chỉ này. Vui lòng liên hệ hỗ trợ.';
+    if (error.details.reason === 'AUTH_SERVICE_ERROR')
+      return 'Dịch vụ xác thực đang gặp lỗi. Vui lòng thử lại sau.';
     if (error.code === 'UNAUTHENTICATED' && error.details.reason === 'INVALID_CREDENTIALS')
       return 'Email hoặc mật khẩu chưa đúng.';
     const messages: Partial<Record<ApiError['code'], string>> = {
