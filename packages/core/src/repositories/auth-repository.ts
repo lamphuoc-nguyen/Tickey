@@ -8,11 +8,14 @@ export interface AuthSession {
   userId: string;
   email: string;
   workspace: ReturnType<typeof readActiveWorkspace>;
+  /** Only set after a successful recovery OTP/callback in this app session. */
+  passwordRecovery?: boolean;
 }
 const emailSchema = z.email();
 const passwordSchema = z.string().min(8);
 export class SupabaseAuthRepository {
   private readonly client: SupabaseClient;
+  private recoveryUserId: string | null = null;
   constructor(client: SupabaseClient) {
     this.client = client;
   }
@@ -29,6 +32,7 @@ export class SupabaseAuthRepository {
           userId: session.user.id,
           email: session.user.email ?? '',
           workspace: readActiveWorkspace(session.access_token),
+          passwordRecovery: this.recoveryUserId === session.user.id,
         }
       : null;
   }
@@ -38,12 +42,15 @@ export class SupabaseAuthRepository {
     return this.snapshot(data.session);
   }
   subscribe(listener: (session: AuthSession | null, event: string) => void) {
-    const { data } = this.client.auth.onAuthStateChange((event, session) =>
-      listener(this.snapshot(session), event),
-    );
+    const { data } = this.client.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') this.recoveryUserId = session?.user.id ?? null;
+      else if (!session || session.user.id !== this.recoveryUserId) this.recoveryUserId = null;
+      listener(this.snapshot(session), event);
+    });
     return () => data.subscription.unsubscribe();
   }
   async login(email: string, password: string) {
+    this.recoveryUserId = null;
     const { data, error } = await this.client.auth.signInWithPassword({
       email: emailSchema.parse(email.trim()),
       password: z.string().min(1).parse(password),
@@ -55,6 +62,7 @@ export class SupabaseAuthRepository {
     }
   }
   async register(email: string, password: string, name: string, redirectTo: string) {
+    this.recoveryUserId = null;
     const { data, error } = await this.client.auth.signUp({
       email: emailSchema.parse(email.trim()),
       password: passwordSchema.parse(password),
@@ -71,6 +79,7 @@ export class SupabaseAuthRepository {
     return Boolean(data.session);
   }
   async logout() {
+    this.recoveryUserId = null;
     const { error } = await this.client.auth.signOut();
     if (error) throw new ApiError('NETWORK');
   }
@@ -89,21 +98,38 @@ export class SupabaseAuthRepository {
     });
     if (error) throw authError(error);
   }
-  async verifyOtp(email: string, token: string, type: 'email' | 'signup' = 'email') {
-    const { error } = await this.client.auth.verifyOtp({
+  async verifyOtp(email: string, token: string, type: 'email' | 'signup' | 'recovery' = 'email') {
+    this.recoveryUserId = null;
+    const { data, error } = await this.client.auth.verifyOtp({
       email: emailSchema.parse(email.trim()),
-      token: z.string().trim().regex(/^\d{6,10}$/).parse(token),
+      token: z
+        .string()
+        .trim()
+        .regex(/^\d{6,10}$/)
+        .parse(token),
       type: type === 'signup' ? 'email' : type,
     });
     if (error) throw authError(error);
+    if (type === 'recovery') {
+      if (!data.session || !data.user?.email_confirmed_at)
+        throw new ApiError('UNAUTHENTICATED', { reason: 'AUTH_RECOVERY_REQUIRED' });
+      this.recoveryUserId = data.user.id;
+    }
   }
   async forgotPassword(email: string, redirectTo: string) {
-    const { error } = await this.client.auth.resetPasswordForEmail(emailSchema.parse(email), { redirectTo });
+    const { error } = await this.client.auth.resetPasswordForEmail(emailSchema.parse(email.trim()), {
+      redirectTo,
+    });
     if (error) throw authError(error);
+    this.recoveryUserId = null;
   }
   async resetPassword(password: string) {
+    const session = await this.session();
+    if (!session?.passwordRecovery)
+      throw new ApiError('UNAUTHENTICATED', { reason: 'AUTH_RECOVERY_REQUIRED' });
     const { error } = await this.client.auth.updateUser({ password: passwordSchema.parse(password) });
     if (error) throw authError(error);
+    this.recoveryUserId = null;
   }
   async acceptCallback(params: {
     code?: string;
@@ -112,6 +138,7 @@ export class SupabaseAuthRepository {
     tokenHash?: string;
     type?: 'recovery' | 'signup' | 'email';
   }) {
+    this.recoveryUserId = null;
     if (params.code) {
       const { error } = await this.client.auth.exchangeCodeForSession(params.code);
       if (error) throw authError(error);
@@ -128,6 +155,13 @@ export class SupabaseAuthRepository {
       });
       if (error) throw authError(error);
     } else throw new ApiError('VALIDATION_FAILED', {}, 'Liên kết xác thực không đầy đủ.');
+    if (params.type === 'recovery') {
+      const { data, error } = await this.client.auth.getSession();
+      if (error) throw authError(error);
+      if (!data.session?.user.email_confirmed_at)
+        throw new ApiError('UNAUTHENTICATED', { reason: 'AUTH_RECOVERY_REQUIRED' });
+      this.recoveryUserId = data.session.user.id;
+    }
   }
   setForeground(active: boolean) {
     if (active) this.client.auth.startAutoRefresh();
