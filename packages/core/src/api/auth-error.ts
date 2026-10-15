@@ -1,7 +1,14 @@
 import { ApiError } from '../errors';
-export function authError(error: { name: string; status?: number; code?: string }): ApiError {
+export function authError(error: {
+  name: string;
+  status?: number;
+  code?: string;
+  message?: string;
+}): ApiError {
   if (error.code === 'over_email_send_rate_limit' || error.code === 'over_request_rate_limit')
     return new ApiError('VALIDATION_FAILED', { reason: 'AUTH_EMAIL_RATE_LIMIT' });
+  if (error.code === 'email_address_not_authorized')
+    return new ApiError('FORBIDDEN', { reason: 'AUTH_EMAIL_NOT_AUTHORIZED' });
   if (
     error.code &&
     [
@@ -14,12 +21,19 @@ export function authError(error: { name: string; status?: number; code?: string 
   )
     return new ApiError('VALIDATION_FAILED');
   if (error.code === 'otp_expired') return new ApiError('VALIDATION_FAILED', { reason: 'AUTH_LINK_EXPIRED' });
-  if (
-    error.name === 'AuthRetryableFetchError' ||
-    error.status === 0 ||
-    (error.status !== undefined && error.status >= 500)
-  )
-    return new ApiError('NETWORK');
+  if (error.status !== undefined && error.status >= 500) {
+    // The installed Auth SDK wraps HTTP 5xx as AuthRetryableFetchError and drops the
+    // server code. Recognize only GoTrue's email failure prefix; never expose SMTP details.
+    const emailFailed =
+      /^Error sending (?:(?:confirmation|recovery|magic link|reauthentication|email change) )?(?:email|mail)(?::|$)/i.test(
+        error.message ?? '',
+      );
+    return new ApiError('UNKNOWN', {
+      reason: emailFailed ? 'AUTH_EMAIL_DELIVERY_FAILED' : 'AUTH_SERVICE_ERROR',
+      status: error.status,
+    });
+  }
+  if (error.name === 'AuthRetryableFetchError' || error.status === 0) return new ApiError('NETWORK');
   return new ApiError(
     'UNAUTHENTICATED',
     error.code === 'invalid_credentials'

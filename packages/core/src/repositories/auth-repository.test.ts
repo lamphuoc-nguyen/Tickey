@@ -37,4 +37,22 @@ describe('email confirmation contract', () => {
     });
     expect(verifyOtp).toHaveBeenCalledWith({ token_hash: 'expired-hash', type: 'email' });
   });
+  it('verifies the email code in the app without exchanging a desktop callback', async () => {
+    const verifyOtp = vi.fn(async () => ({ error: null }));
+    const exchangeCodeForSession = vi.fn();
+    const repo = new SupabaseAuthRepository({ auth: { verifyOtp, exchangeCodeForSession } } as unknown as SupabaseClient);
+    await repo.verifyOtp(' user@example.test ', ' 12345678 ', 'signup');
+    expect(verifyOtp).toHaveBeenCalledWith({ email: 'user@example.test', token: '12345678', type: 'email' });
+    expect(exchangeCodeForSession).not.toHaveBeenCalled();
+    for (const token of ['', '12345', '12345678901', 'abcd1234'])
+      await expect(repo.verifyOtp('user@example.test', token, 'signup')).rejects.toThrow();
+    expect(verifyOtp).toHaveBeenCalledTimes(1);
+  });
+  it('does not sign in or auto-confirm when a manually entered code has expired', async () => {
+    const verifyOtp = vi.fn(async () => ({ error: { name: 'AuthApiError', code: 'otp_expired', status: 403 } }));
+    const repo = new SupabaseAuthRepository({ auth: { verifyOtp } } as unknown as SupabaseClient);
+    await expect(repo.verifyOtp('user@example.test', '123456', 'signup')).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED', details: { reason: 'AUTH_LINK_EXPIRED' },
+    });
+  });
 });

@@ -17,9 +17,14 @@ export class SupabaseAuthRepository {
     this.client = client;
   }
   private snapshot(
-    session: { access_token: string; user: { id: string; email?: string } } | null,
+    session: {
+      access_token: string;
+      user: { id: string; email?: string; email_confirmed_at?: string | null };
+    } | null,
   ): AuthSession | null {
-    return session
+    // Keep cached/event sessions out of app routing until Auth has confirmed the email.
+    // Supabase's Confirm Email setting remains responsible for enforcing this on the server.
+    return session?.user.email_confirmed_at
       ? {
           userId: session.user.id,
           email: session.user.email ?? '',
@@ -39,11 +44,15 @@ export class SupabaseAuthRepository {
     return () => data.subscription.unsubscribe();
   }
   async login(email: string, password: string) {
-    const { error } = await this.client.auth.signInWithPassword({
+    const { data, error } = await this.client.auth.signInWithPassword({
       email: emailSchema.parse(email.trim()),
       password: z.string().min(1).parse(password),
     });
     if (error) throw authError(error);
+    if (!data.user.email_confirmed_at) {
+      await this.client.auth.signOut({ scope: 'local' });
+      throw new ApiError('UNAUTHENTICATED', { reason: 'EMAIL_NOT_CONFIRMED' });
+    }
   }
   async register(email: string, password: string, name: string, redirectTo: string) {
     const { data, error } = await this.client.auth.signUp({
@@ -55,6 +64,10 @@ export class SupabaseAuthRepository {
       },
     });
     if (error) throw authError(error);
+    if (data.session && !data.session.user.email_confirmed_at) {
+      await this.client.auth.signOut({ scope: 'local' });
+      return false;
+    }
     return Boolean(data.session);
   }
   async logout() {
@@ -78,8 +91,8 @@ export class SupabaseAuthRepository {
   }
   async verifyOtp(email: string, token: string, type: 'email' | 'signup' = 'email') {
     const { error } = await this.client.auth.verifyOtp({
-      email: emailSchema.parse(email),
-      token: z.string().min(6).parse(token),
+      email: emailSchema.parse(email.trim()),
+      token: z.string().trim().regex(/^\d{6,10}$/).parse(token),
       type: type === 'signup' ? 'email' : type,
     });
     if (error) throw authError(error);
