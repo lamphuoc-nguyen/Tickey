@@ -16,7 +16,7 @@ coverage/
 expo-env.d.ts
 web-build/
 # Expo CLI generates this file; the root already ignores expo-env.d.ts.
-/apps/customer/.gitignore
+/apps/mobile/.gitignore
 ios/
 android/
 *.jks

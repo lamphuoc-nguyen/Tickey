@@ -6,11 +6,6 @@ name: Mobile build (EAS)
 on:
   workflow_dispatch:
     inputs:
-      app:
-        description: App to build
-        type: choice
-        options: [customer, staff]
-        default: customer
       profile:
         description: preview = installable APK for testers, production = AAB for Google Play
         type: choice
@@ -19,7 +14,7 @@ on:
 
 jobs:
   build:
-    name: ${{ inputs.app }} · ${{ inputs.profile }}
+    name: Tickey mobile · ${{ inputs.profile }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,5 +29,5 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
       - name: Start EAS build
-        working-directory: apps/${{ inputs.app }}
+        working-directory: apps/mobile
         run: eas build --platform android --profile ${{ inputs.profile }} --non-interactive --no-wait

@@ -11,7 +11,7 @@ export class HttpClient {
   private readonly auth: SupabaseClient;
   constructor(apiUrl: string | undefined, auth: SupabaseClient) {
     this.auth = auth;
-    if (!apiUrl) throw new Error('Thiếu EXPO_PUBLIC_API_URL. Xem apps/customer/.env.example.');
+    if (!apiUrl) throw new Error('Thiếu EXPO_PUBLIC_API_URL. Xem apps/mobile/.env.example.');
     this.baseUrl = z.url().parse(apiUrl).replace(/\/$/, '');
   }
 
