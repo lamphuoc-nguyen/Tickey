@@ -242,8 +242,6 @@ From GitHub instead: add the repo secret `EXPO_TOKEN` (expo.dev → Access token
 
 ## Mobile implementation status
 
-For email confirmation with Gmail on Windows and Expo Go on an Android emulator, see [AUTH_EMAIL_SETUP.md](docs/AUTH_EMAIL_SETUP.md). Prefer entering the email OTP in the app after the project owner installs the provided confirmation template; desktop links do not automatically open the emulator. Backend signup and resend support an optional `emailRedirectTo`, but do not configure the hosted project's redirect allowlist.
-
 The Customer UI and live wrappers live in `apps/mobile/src/features/customer`. Auth is shared. After login, server Staff memberships select the Staff interface; accounts without Staff membership use Customer. The universal CUSTOMER workspace returned by the existing RPC does not offer Staff users a role switch. Deep links enforce the same interface policy; Staff users can choose only their assigned organizations. Staff source was a scaffold (no scanner, encrypted local DB or sync queue); it is retained in `src/features/staff`, with unavailable actions clearly disabled. No camera permission is requested on login. This mobile routing policy does not replace server authorization: the current backend still allows all accounts to activate CUSTOMER; enforcing an exclusive account type in the API remains a backend contract gap. See `docs/CUSTOMER_IMPLEMENTATION.md`, the 79-frame matrix and `docs/MOBILE_ARCHITECTURE.md` for tested scope and limits.
 
 ## Status of the backend and shared skeleton

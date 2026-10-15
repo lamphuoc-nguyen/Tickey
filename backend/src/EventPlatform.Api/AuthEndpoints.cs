@@ -3,10 +3,7 @@ using EventPlatform.Core.Supabase;
 
 namespace EventPlatform.Api;
 
-public sealed record RegisterRequest(string Email, string Password, string? FullName, string? Phone,
-    string? EmailRedirectTo = null);
-
-public sealed record ResendSignupRequest(string Email, string? EmailRedirectTo = null);
+public sealed record RegisterRequest(string Email, string Password, string? FullName, string? Phone);
 
 public sealed record LoginRequest(string Email, string Password);
 
@@ -32,25 +29,12 @@ public static class AuthEndpoints
         var auth = app.MapGroup("/api/auth");
 
         auth.MapPost("/register", async (RegisterRequest body, SupabaseAuthClient gotrue, CancellationToken ct) =>
-        {
-            if (!TryRedirectPath("signup", body.EmailRedirectTo, out var path)) return InvalidRedirect();
-            return Relay(await gotrue.SendAsync(HttpMethod.Post, path, new
+            Relay(await gotrue.SendAsync(HttpMethod.Post, "signup", new
             {
                 email = body.Email,
                 password = body.Password,
                 data = new { full_name = body.FullName, phone = body.Phone },
-            }, null, ct));
-        });
-
-        // Resend the signup confirmation, not a passwordless login or a new account.
-        auth.MapPost("/resend-signup", async (ResendSignupRequest body, SupabaseAuthClient gotrue, CancellationToken ct) =>
-        {
-            if (string.IsNullOrWhiteSpace(body.Email))
-                return Results.BadRequest(new { message = "VALIDATION_FAILED", details = "{\"field\":\"email\"}" });
-            if (!TryRedirectPath("resend", body.EmailRedirectTo, out var path)) return InvalidRedirect();
-            return Relay(await gotrue.SendAsync(HttpMethod.Post, path,
-                new { type = "signup", email = body.Email.Trim() }, null, ct));
-        });
+            }, null, ct)));
 
         auth.MapPost("/login", async (LoginRequest body, SupabaseAuthClient gotrue, CancellationToken ct) =>
             Relay(await gotrue.SendAsync(HttpMethod.Post, "token?grant_type=password",
@@ -92,27 +76,6 @@ public static class AuthEndpoints
                 new { challenge_id = challengeId, code = body.Code }, http.Jwt(), ct));
         }).RequireBearer();
     }
-
-    private static bool TryRedirectPath(string endpoint, string? redirect, out string path)
-    {
-        path = endpoint;
-        if (redirect is null) return true; // Preserve existing web callers' default Site URL behavior.
-        redirect = redirect.Trim();
-        if (redirect.Length == 0 || redirect.Length > 2048 || redirect.Any(char.IsControl) ||
-            !Uri.TryCreate(redirect, UriKind.Absolute, out var uri) ||
-            uri.Scheme is not ("http" or "https" or "exp" or "exps" or "eventcustomer") ||
-            string.IsNullOrEmpty(uri.Host) || !string.IsNullOrEmpty(uri.UserInfo) || !string.IsNullOrEmpty(uri.Fragment))
-            return false;
-        // Supabase's project redirect allowlist remains authoritative. Encode the whole callback as one value.
-        path = $"{endpoint}?redirect_to={Uri.EscapeDataString(redirect)}";
-        return true;
-    }
-
-    private static IResult InvalidRedirect() => Results.BadRequest(new
-    {
-        message = "VALIDATION_FAILED",
-        details = "{\"field\":\"emailRedirectTo\"}",
-    });
 
     private static IResult Relay(AuthResponse response) =>
         string.IsNullOrWhiteSpace(response.Body)

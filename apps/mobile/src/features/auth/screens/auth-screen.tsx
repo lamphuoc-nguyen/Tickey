@@ -104,8 +104,8 @@ export function AuthScreen({ mode }: { mode: 'login' | 'register' | 'forgot' | '
     <Screen
       footer={
         <ActionFooter
-          disabled={(mode === 'reset' && !auth.session) || (mode === 'verify' && actions.resendSignup.isPending)}
-          disabledReason={mode === 'verify' ? 'Đang yêu cầu email mới. Vui lòng chờ rồi nhập mã mới nhất.' : 'Mở liên kết đặt lại mật khẩu gửi đến email trước khi tiếp tục.'}
+          disabled={mode === 'reset' && !auth.session}
+          disabledReason="Mở liên kết đặt lại mật khẩu gửi đến email trước khi tiếp tục."
           busy={current.isPending}
           onPress={() => void submit()}
         >
@@ -216,15 +216,14 @@ export function AuthScreen({ mode }: { mode: 'login' | 'register' | 'forgot' | '
             <Icon name="email" />
           </View>
           <Notice>
-            Nhập mã xác nhận trong email mới nhất. Bạn có thể đọc email trên máy tính và nhập mã vào ứng dụng.
+            Mở liên kết trong email mới nhất trên thiết bị đang dùng ứng dụng. Nếu email có mã xác thực, bạn
+            có thể nhập mã tại đây.
           </Notice>
           <Field
             label="Mã xác nhận email"
             value={token}
             error={errors.token}
             keyboardType="number-pad"
-            autoCorrect={false}
-            autoComplete="one-time-code"
             onChangeText={setToken}
             autoCapitalize="none"
             textContentType="oneTimeCode"
@@ -232,40 +231,16 @@ export function AuthScreen({ mode }: { mode: 'login' | 'register' | 'forgot' | '
           <Button
             secondary
             busy={actions.resendSignup.isPending}
-            disabled={current.isPending}
-            disabledReason="Đang xác nhận mã. Vui lòng chờ kết quả."
-            onPress={() => {
-              if (actions.resendSignup.isPending || current.isPending) return;
-              const emailError = validateAuthForm('verify', draft).email;
-              if (emailError) { setErrors({ email: emailError }); return; }
-              setMessage('');
-              setLocalError('');
+            onPress={() =>
               void actions.resendSignup
                 .mutateAsync(email)
-                .then(() => {
-                  setToken('');
-                  setErrors({});
-                  actions.verify.reset();
-                  setMessage('Yêu cầu gửi lại đã được tiếp nhận. Hãy kiểm tra email mới nhất.');
-                })
-                .catch(() => {});
-            }}
+                .then(() => setMessage('Đã gửi lại email xác thực.'))
+                .catch(() => {})
+            }
           >
             Gửi lại email
           </Button>
           {!!actions.resendSignup.error && <ErrorNotice error={actions.resendSignup.error} />}
-          <Notice>
-            Nếu email chỉ có liên kết, hãy mở liên kết một lần rồi quay lại đăng nhập trong ứng dụng này.
-            Nếu liên kết báo hết hạn, hãy yêu cầu email mới.
-          </Notice>
-          <Button
-            secondary
-            disabled={current.isPending || actions.resendSignup.isPending}
-            disabledReason="Vui lòng chờ thao tác xác nhận email hoàn tất."
-            onPress={() => router.replace({ pathname: '/auth/login', params: { email, next: params.next ?? '/' } })}
-          >
-            Quay lại đăng nhập
-          </Button>
         </>
       )}
       {mode === 'forgot' && <Copy>Chúng tôi sẽ gửi liên kết đặt lại mật khẩu.</Copy>}
