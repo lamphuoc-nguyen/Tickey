@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using EventPlatform.Core.Supabase;
 
 namespace EventPlatform.Api;
@@ -19,6 +20,30 @@ public static class Postgrest
 
     public static string Escape(object value) =>
         Uri.EscapeDataString(value is Guid g ? g.ToString("D") : Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture)!);
+
+    /// <summary>status=eq.X (upper-cased), or nothing when no status filter was given.</summary>
+    public static string? Status(string? status) =>
+        string.IsNullOrWhiteSpace(status) ? null : Eq("status", status.Trim().ToUpperInvariant());
+
+    /// <summary>
+    /// The `p jsonb` argument of the save_* RPCs: the camelCase request body with its top-level keys in snake_case
+    /// (tenantId → tenant_id). Nested values (zone ids, terms) pass through unchanged. Missing / null keys keep the
+    /// stored value, because the RPCs coalesce each field.
+    /// </summary>
+    public static JsonObject SnakeKeys(JsonElement body, Guid? id = null)
+    {
+        if (body.ValueKind != JsonValueKind.Object)
+        {
+            throw RpcException.App(HttpStatusCode.BadRequest, "VALIDATION_FAILED", """{"field":"body"}""");
+        }
+        var p = new JsonObject();
+        foreach (var property in body.EnumerateObject())
+        {
+            p[JsonNamingPolicy.SnakeCaseLower.ConvertName(property.Name)] = JsonNode.Parse(property.Value.GetRawText());
+        }
+        if (id is { } value) p["id"] = value.ToString("D");
+        return p;
+    }
 
     /// <summary>200 with the first row, or 404 { message: "NOT_FOUND" } when RLS shows none.</summary>
     public static IResult Single(JsonElement rows) =>

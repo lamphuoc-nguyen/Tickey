@@ -350,4 +350,208 @@ public class ApiEndpointTests
     [Fact]
     public void Database_failures_are_bad_gateway() =>
         Assert.Equal(502, Postgrest.StatusFor(new RpcException(HttpStatusCode.InternalServerError, "boom", null, "XX000")));
+
+    [Fact]
+    public async Task Save_event_sends_snake_case_p_and_returns_201()
+    {
+        var eventId = Guid.NewGuid();
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, $"\"{eventId}\""), UserJwt);
+        var orgId = Guid.NewGuid();
+
+        var res = await client.PostAsJsonAsync("/api/events", new { tenantId = orgId, title = "Mùa thu", coverImageUrl = "x" }, Ct);
+
+        Assert.Equal(HttpStatusCode.Created, res.StatusCode);
+        Assert.Equal($"/api/events/{eventId}", res.Headers.Location!.ToString());
+        var (request, body) = Assert.Single(handler.Calls);
+        Assert.EndsWith("/rpc/save_event", request.RequestUri!.ToString());
+        using var sent = JsonDocument.Parse(body);
+        var p = sent.RootElement.GetProperty("p");
+        Assert.Equal(orgId, p.GetProperty("tenant_id").GetGuid());
+        Assert.Equal("x", p.GetProperty("cover_image_url").GetString());
+        Assert.False(p.TryGetProperty("id", out _));
+    }
+
+    [Fact]
+    public async Task Update_session_takes_the_id_from_the_route()
+    {
+        var sessionId = Guid.NewGuid();
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, $"\"{sessionId}\""), UserJwt);
+
+        var res = await client.PutAsJsonAsync($"/api/sessions/{sessionId}", new { id = Guid.NewGuid(), maxTicketsPerAccount = 4 }, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        using var sent = JsonDocument.Parse(Assert.Single(handler.Calls).Body);
+        var p = sent.RootElement.GetProperty("p");
+        Assert.Equal(sessionId, p.GetProperty("id").GetGuid());
+        Assert.Equal(4, p.GetProperty("max_tickets_per_account").GetInt32());
+    }
+
+    [Fact]
+    public async Task Layout_draft_definition_is_sent_unchanged()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.NoContent, ""), UserJwt);
+
+        var res = await client.PutAsync($"/api/layout-versions/{Guid.NewGuid()}/draft",
+            new StringContent("""{"definition":{"zones":[{"seatRows":[]}]}}""", Encoding.UTF8, "application/json"), Ct);
+
+        Assert.Equal(HttpStatusCode.NoContent, res.StatusCode);
+        using var sent = JsonDocument.Parse(Assert.Single(handler.Calls).Body);
+        Assert.True(sent.RootElement.GetProperty("p_definition").GetProperty("zones")[0].TryGetProperty("seatRows", out _));
+    }
+
+    [Fact]
+    public async Task Comp_tickets_need_an_idempotency_key()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, """{"bookings":[],"remaining":1}"""), UserJwt);
+        var body = new { ticketTypeId = Guid.NewGuid(), recipients = new[] { new { email = "a@b.c", quantity = 2 } } };
+
+        var missing = await client.PostAsJsonAsync($"/api/sessions/{Guid.NewGuid()}/comp-tickets", body, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
+        Assert.Empty(handler.Calls);
+
+        client.DefaultRequestHeaders.Add("Idempotency-Key", "comp-12345678");
+        var res = await client.PostAsJsonAsync($"/api/sessions/{Guid.NewGuid()}/comp-tickets", body, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        using var sent = JsonDocument.Parse(Assert.Single(handler.Calls).Body);
+        Assert.Equal("comp-12345678", sent.RootElement.GetProperty("p_idempotency_key").GetString());
+        Assert.Equal(2, sent.RootElement.GetProperty("p_recipients")[0].GetProperty("quantity").GetInt32());
+    }
+
+    [Fact]
+    public async Task Gate_zones_config_is_snake_case()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.NoContent, ""), UserJwt);
+        var gateId = Guid.NewGuid();
+
+        var res = await client.PutAsJsonAsync($"/api/sessions/{Guid.NewGuid()}/gate-zones",
+            new { config = new[] { new { gateId, zoneIds = new[] { Guid.NewGuid() } } } }, Ct);
+
+        Assert.Equal(HttpStatusCode.NoContent, res.StatusCode);
+        using var sent = JsonDocument.Parse(Assert.Single(handler.Calls).Body);
+        var config = sent.RootElement.GetProperty("p_config")[0];
+        Assert.Equal(gateId, config.GetProperty("gate_id").GetGuid());
+        Assert.Equal(1, config.GetProperty("zone_ids").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task Admin_events_default_to_pending_review()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+
+        await client.GetAsync("/api/admin/events", Ct);
+
+        var url = Uri.UnescapeDataString(Assert.Single(handler.Calls).Request.RequestUri!.Query);
+        Assert.Contains("status=eq.PENDING_REVIEW", url);
+    }
+
+    [Fact]
+    public async Task Vote_approval_upper_cases_the_decision()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, """{"status":"APPROVED"}"""), UserJwt);
+        var approvalId = Guid.NewGuid();
+
+        var res = await client.PostAsJsonAsync($"/api/admin/approvals/{approvalId}/votes", new { decision = "approve" }, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var (request, body) = Assert.Single(handler.Calls);
+        Assert.EndsWith("/rpc/vote_approval", request.RequestUri!.ToString());
+        Assert.Equal($$"""{"p_approval_id":"{{approvalId}}","p_decision":"APPROVE","p_note":null}""", body);
+    }
+
+    [Theory]
+    [InlineData("kyc-submissions", "review_kyc", " approve ", "APPROVED")]
+    [InlineData("kyc-submissions", "review_kyc", "reject", "REJECTED")]
+    [InlineData("kyc-submissions", "review_kyc", "needs_info", "NEEDS_INFO")]
+    [InlineData("kyc-submissions", "review_kyc", "APPROVED", "APPROVED")]
+    [InlineData("events", "review_event", "approve", "APPROVED")]
+    [InlineData("events", "review_event", " reject ", "REJECTED")]
+    [InlineData("events", "review_event", "changes_requested", "CHANGES_REQUESTED")]
+    [InlineData("events", "review_event", "REJECTED", "REJECTED")]
+    [InlineData("bank-accounts", "review_bank_account", "approve", "APPROVE")]
+    [InlineData("bank-accounts", "review_bank_account", "reject", "REJECT")]
+    public async Task Review_decisions_match_each_rpc_contract(string resource, string function, string decision,
+        string expected)
+    {
+        var (client, handler) = Create((_, body) =>
+        {
+            using var sent = JsonDocument.Parse(body);
+            return sent.RootElement.GetProperty("p_decision").GetString() == expected
+                ? (HttpStatusCode.NoContent, "")
+                : (HttpStatusCode.BadRequest, """{"code":"P0001","message":"VALIDATION_FAILED","details":"{}"}""");
+        }, UserJwt);
+
+        var res = await client.PostAsJsonAsync($"/api/admin/{resource}/{Guid.NewGuid()}/review",
+            new { decision, note = "Review note" }, Ct);
+
+        Assert.Equal(HttpStatusCode.NoContent, res.StatusCode);
+        Assert.EndsWith($"/rpc/{function}", Assert.Single(handler.Calls).Request.RequestUri!.ToString());
+    }
+
+    [Fact]
+    public async Task Venue_detail_disambiguates_layout_versions()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, """[{"layouts":[]}]"""), UserJwt);
+
+        var res = await client.GetAsync($"/api/venues/{Guid.NewGuid()}", Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var query = Uri.UnescapeDataString(Assert.Single(handler.Calls).Request.RequestUri!.Query);
+        Assert.Contains("versions:layout_versions!layout_versions_layout_id_tenant_id_fkey(", query);
+    }
+
+    [Fact]
+    public async Task Admin_refund_bank_info_uses_the_callers_jwt_and_refund_id()
+    {
+        var id = Guid.NewGuid();
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK,
+            $$"""[{"refund_id":"{{id}}","bank_code":"VCB","account_number":"123456789","account_holder":"CUSTOMER"}]"""), UserJwt);
+
+        var res = await client.GetAsync($"/api/admin/refunds/{id}/bank-info", Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal("/rest/v1/refund_bank_infos", request.RequestUri!.AbsolutePath);
+        Assert.Contains($"refund_id=eq.{id}", Uri.UnescapeDataString(request.RequestUri.Query));
+        Assert.Equal(UserJwt, request.Headers.Authorization!.Parameter);
+        Assert.Equal("sb_publishable_test", Assert.Single(request.Headers.GetValues("apikey")));
+        var bankInfo = await res.Content.ReadFromJsonAsync<JsonElement>(Ct);
+        Assert.Equal("123456789", bankInfo.GetProperty("account_number").GetString());
+    }
+
+    [Fact]
+    public async Task Admin_refund_bank_info_is_not_found_when_rls_hides_the_row()
+    {
+        var (client, _) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+
+        var res = await client.GetAsync($"/api/admin/refunds/{Guid.NewGuid()}/bank-info", Ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
+        Assert.Equal("NOT_FOUND", (await res.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task Mfa_required_is_403()
+    {
+        var (client, _) = Create((_, _) => (HttpStatusCode.BadRequest,
+            """{"code":"P0001","message":"MFA_REQUIRED","details":"{}"}"""), UserJwt);
+
+        var res = await client.PostAsJsonAsync($"/api/admin/kyc-submissions/{Guid.NewGuid()}/review",
+            new { decision = "APPROVE" }, Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+        Assert.Equal("MFA_REQUIRED", (await res.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("message").GetString());
+    }
+
+    [Theory]
+    [InlineData("/api/admin/approvals")]
+    [InlineData("/api/admin/kyc-submissions")]
+    [InlineData("/api/admin/refunds/11111111-1111-1111-1111-111111111111/bank-info")]
+    [InlineData("/api/disputes")]
+    public async Task Org_and_admin_endpoints_need_a_jwt(string path)
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync(path, Ct)).StatusCode);
+        Assert.Empty(handler.Calls);
+    }
 }
