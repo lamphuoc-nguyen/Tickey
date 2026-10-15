@@ -280,6 +280,31 @@ still decides what the caller may see or do. Endpoint code lives in `backend/src
 
 The old `/payments/*` routes still work for `@event/core`'s `HttpPaymentApi`.
 
+### REST API for the Org / Admin portal
+
+Same conventions as above. Creates (`POST /api/venues`, `/events`, `/sessions`, `/ticket-types`) take the RPC's `p`
+fields in camelCase (`tenantId`, `coverImageUrl`, ...) and return `201 { id }`; `PUT .../{id}` updates and only
+changes the fields that are sent. Code: `OrgEndpoints.cs`, `AdminEndpoints.cs`.
+
+Review requests use `APPROVE` / `REJECT`; KYC also accepts `NEEDS_INFO`, event review accepts
+`CHANGES_REQUESTED`. KYC and event review translate these actions to the RPC status values
+(`APPROVED` / `REJECTED`); existing status values are also accepted. Bank-account review and approval votes
+keep `APPROVE` / `REJECT`.
+
+`GET /api/admin/refunds/{id}/bank-info` returns the customer's destination account for manual refunds.
+It forwards the caller's JWT and uses the `refund_bank_infos` RLS policy; hidden or missing rows return 404.
+
+| Area           | Endpoints                                                                                                                                                                                                                                                                                                                                                       |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Organization   | `POST /api/organizations`, `GET /api/organizations/{orgId}`, `GET/PUT .../{orgId}/members`, `GET/POST .../{orgId}/kyc`, `GET .../{orgId}/events?status=`, `GET .../{orgId}/devices`, `POST /api/devices/{id}/revoke`                                                                                                                                             |
+| Venue, layout  | `GET .../{orgId}/venues`, `GET /api/venues/{id}` (gates, layouts), `POST /api/venues`, `PUT /api/venues/{id}`, `POST /api/venues/{id}/layouts`, `GET /api/layout-versions/{id}`, `PUT /api/layout-versions/{id}/draft`, `POST /api/layouts/{id}/versions`, `POST /api/layout-versions/{id}/publish`                                                              |
+| Event, session | `POST/PUT /api/events[/{id}]`, `POST /api/events/{id}/submit`, `/cancellation`; `POST/PUT /api/sessions[/{id}]`, `POST /api/sessions/{id}/cancellation`; `POST/PUT /api/ticket-types[/{id}]`                                                                                                                                                                       |
+| Seats, staff   | `PUT /api/sessions/{id}/seats/ticket-type`, `/seats/status`, `/zones/{zoneId}/held`; `POST /api/sessions/{id}/comp-tickets` (idempotency key); `GET/PUT /api/sessions/{id}/gate-zones`; `GET/POST /api/sessions/{id}/staff-assignments`, `DELETE /api/staff-assignments/{id}`                                                                                    |
+| Disputes       | `GET /api/disputes?orgId=&status=`, `GET /api/disputes/{id}` (messages, reports), `POST /api/disputes/{id}/messages`, `POST /api/admin/disputes/{id}/resolve`                                                                                                                                                                                                    |
+| Org finance    | `GET .../{orgId}/finance`, `/settlements`, `/payouts`, `GET/POST .../{orgId}/bank-accounts`                                                                                                                                                                                                                                                                      |
+| Admin          | `GET /api/admin/organizations`, `POST .../organizations/{id}/status-change`; `GET /api/admin/kyc-submissions`, `POST .../{id}/review`; `GET /api/admin/events` (default `PENDING_REVIEW`), `POST .../{id}/review`; `GET /api/admin/approvals[/{id}]`, `POST .../{id}/votes`; `GET /api/admin/audit-logs`                                                         |
+| Admin money    | `GET/POST /api/admin/refunds`, `POST .../{id}/actions`, `/manual-transfer`; `GET/POST /api/admin/chargebacks`, `POST .../{id}/resolve`; `GET /api/admin/bank-accounts`, `POST .../{id}/review`; `POST /api/admin/sessions/{id}/settlement`; `GET/POST /api/admin/payouts`, `POST .../{id}/cancel`; `POST /api/admin/gateway-statements`                          |
+
 Open (Sprint 0 decisions, see PC §7):
 
 - **Payment gateway (OQ-02):** `UnconfiguredPaymentGateway` throws until a real adapter is registered.
