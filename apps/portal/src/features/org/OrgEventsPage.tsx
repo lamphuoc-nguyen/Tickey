@@ -163,15 +163,17 @@ export function OrgEventsPage() {
         }}
       >
         <div style={{ display: 'flex', gap: '8px' }}>
-          {[
-            { id: 'all', label: 'Tất cả sự kiện' },
-            { id: 'selling', label: 'Đang bán' },
-            { id: 'upcoming', label: 'Sắp diễn' },
-            { id: 'ended', label: 'Đã kết thúc' },
-          ].map((tab) => (
+          {(
+            [
+              { id: 'all', label: 'Tất cả sự kiện' },
+              { id: 'selling', label: 'Đang bán' },
+              { id: 'upcoming', label: 'Sắp diễn' },
+              { id: 'ended', label: 'Đã kết thúc' },
+            ] as const
+          ).map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setFilter(tab.id as any)}
+              onClick={() => setFilter(tab.id)}
               style={{
                 padding: '8px 16px',
                 borderRadius: 'var(--radius-pill)',
