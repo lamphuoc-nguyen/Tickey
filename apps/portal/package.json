@@ -13,10 +13,11 @@
   },
   "dependencies": {
     "@event/core": "workspace:*",
+    "@event/seat-map": "workspace:*",
     "@event/ui-kit": "workspace:*",
     "@supabase/supabase-js": "^2.117.2",
-    "@event/seat-map": "workspace:*",
     "@tanstack/react-query": "^5.104.1",
+    "lucide-react": "^1.59.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-router": "^8.4.0",

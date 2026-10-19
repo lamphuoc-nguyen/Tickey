@@ -1,0 +1,1094 @@
+[
+  {
+    "id": "9:6859",
+    "name": "00 / ĐĂNG NHẬP CHUNG · Web",
+    "type": "SECTION",
+    "frames": [
+      {
+        "id": "1:4617",
+        "name": "w-login / Đăng nhập Tickey",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:4643",
+        "name": "w-workspace / Organization · Chọn workspace",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:4698",
+        "name": "w-mfa / Xác thực hai bước",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:4726",
+        "name": "w-mfa-setup / Thiết lập xác thực hai bước",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:16827",
+        "name": "w-mfa-admin / Xác thực Admin",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "17:7416",
+        "name": "w-register / Tạo tài khoản Tickey",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "17:7451",
+        "name": "w-verify / Xác minh email",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "17:7477",
+        "name": "w-forgot / Quên mật khẩu",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "17:7501",
+        "name": "w-reset / Đặt lại mật khẩu",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      }
+    ]
+  },
+  {
+    "id": "9:6860",
+    "name": "03 / ORGANIZATION · Quản lý tenant & vận hành",
+    "type": "SECTION",
+    "frames": [
+      {
+        "id": "1:4756",
+        "name": "o-create / Đăng ký nhà tổ chức",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:4894",
+        "name": "o-kyc / Hồ sơ xác minh tổ chức",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:5041",
+        "name": "o-kyc-pending / Hồ sơ đang được xét duyệt",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:5176",
+        "name": "o-kyc-info / Bổ sung hồ sơ xác minh",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:5320",
+        "name": "o-dashboard / Tổng quan tổ chức",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1183
+      },
+      {
+        "id": "1:5540",
+        "name": "o-members / Thành viên và quyền",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:5705",
+        "name": "o-member-add / Thêm thành viên",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:5846",
+        "name": "o-venues / Địa điểm tổ chức",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:6005",
+        "name": "o-venue-edit / Thông tin địa điểm",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:6140",
+        "name": "o-layouts / Sơ đồ địa điểm",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:6299",
+        "name": "o-layout-editor / Chỉnh sửa sơ đồ ghế",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:6652",
+        "name": "o-layout-standing / Cấu hình khu không có ghế",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:6799",
+        "name": "o-layout-publish / Kiểm tra 4 loại sơ đồ",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:6938",
+        "name": "o-layout-history / Lịch sử sơ đồ",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:7093",
+        "name": "o-events / Sự kiện của tổ chức",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:7238",
+        "name": "o-event-edit / Thông tin sự kiện",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1129
+      },
+      {
+        "id": "1:7376",
+        "name": "o-event-detail / Đêm nhạc Mùa Thu",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:7508",
+        "name": "o-session-edit / Cấu hình suất diễn",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1287
+      },
+      {
+        "id": "1:7658",
+        "name": "o-session-detail / Đêm 1 / Vận hành suất diễn",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:7797",
+        "name": "o-ticket-types / Hạng vé của Đêm 1",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:7982",
+        "name": "o-ticket-edit / Cấu hình hạng vé",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:8135",
+        "name": "o-seat-pricing / Gán ghế cho hạng vé",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1040
+      },
+      {
+        "id": "1:8483",
+        "name": "o-review-submit / Kiểm tra trước khi gửi duyệt",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:8616",
+        "name": "o-event-pending / Sự kiện đang chờ duyệt",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:8746",
+        "name": "o-staff / Phân công nhân viên",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:8905",
+        "name": "o-staff-assign / Phân công Staff cho Đêm 1",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:9049",
+        "name": "o-gates / Cổng vào và khu vực",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:9204",
+        "name": "o-devices / Thiết bị soát vé",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:9359",
+        "name": "o-device-revoke / Thu hồi thiết bị G1-02",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:9497",
+        "name": "o-comp / Vé mời và khách mời",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:9658",
+        "name": "o-comp-create / Phát hành vé mời",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:9796",
+        "name": "o-seat-status / Giữ và chặn ghế theo suất",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1040
+      },
+      {
+        "id": "1:10144",
+        "name": "o-orders / Đơn hàng và vé",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:10312",
+        "name": "o-order-detail / Đơn TK-1024",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:10448",
+        "name": "o-finance / Doanh thu và số dư",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1245
+      },
+      {
+        "id": "1:10674",
+        "name": "o-settlements / Đối soát theo suất diễn",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:10829",
+        "name": "o-payouts / Lịch sử chi trả",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:10971",
+        "name": "o-bank / Tài khoản nhận doanh thu",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:11116",
+        "name": "o-cancel / Yêu cầu hủy suất diễn",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:11258",
+        "name": "o-cancel-pending / Yêu cầu hủy đang chờ duyệt",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:11388",
+        "name": "o-disputes / Khiếu nại và phản hồi",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:11530",
+        "name": "o-dispute-response / Phản hồi hồ sơ DS-018",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:16318",
+        "name": "o-empty / Chưa có sự kiện",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:16448",
+        "name": "o-error / Không tải được dữ liệu",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:16578",
+        "name": "o-forbidden / Bạn chưa có quyền thao tác",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:16706",
+        "name": "o-loading / Đang tải danh sách",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "17:6163",
+        "name": "o-ticket-free / Cấu hình vé miễn phí",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "17:6334",
+        "name": "o-gate-edit / Cấu hình cổng G1",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "17:6652",
+        "name": "o-comp-import / Nhập danh sách vé mời",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "17:6804",
+        "name": "o-comp-import-review / Kiểm tra danh sách vé mời",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "17:6980",
+        "name": "o-comp-import-confirm / Xác nhận phát 2 vé mời",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "17:7115",
+        "name": "o-bank-mfa / Xác thực thay đổi tài khoản nhận tiền",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "17:7255",
+        "name": "o-bank-pending / Đã gửi yêu cầu đổi tài khoản",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "17:8237",
+        "name": "o-seat-block-confirm / Chặn bán 2 ghế",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "17:8375",
+        "name": "o-seat-release-confirm / Giải phóng ghế giữ/chặn",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "18:6892",
+        "name": "o-seat-pricing-vip / Gán ghế cho hạng VIP",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1040
+      },
+      {
+        "id": "73:6879",
+        "name": "o-layout-type / Chọn loại hình địa điểm",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "74:7084",
+        "name": "o-layout-stadium / Sơ đồ sân vận động",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1100
+      },
+      {
+        "id": "74:7493",
+        "name": "o-layout-cinema / Sơ đồ rạp phim",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1100
+      },
+      {
+        "id": "113:8978",
+        "name": "o-session-paused / Đêm 1 · Chờ xét duyệt hủy",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "117:7462",
+        "name": "o-layout-published / Sơ đồ đã phát hành · Chỉ xem",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "125:7531",
+        "name": "o-venue-pending / Xác minh địa điểm · Chờ duyệt",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "134:7627",
+        "name": "o-ticket-vip / Cấu hình VIP",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "134:7714",
+        "name": "o-ticket-comp / Cấu hình vé mời",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "135:7709",
+        "name": "o-audience-pricing / Giá theo đối tượng",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "135:7796",
+        "name": "o-promotions / Ưu đãi theo thời gian và mua nhóm",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "136:7882",
+        "name": "o-seat-rows-applied / Đã lưu gán hạng theo hàng",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "137:7910",
+        "name": "o-invite-sent / Lời mời Staff đã gửi",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "137:7997",
+        "name": "o-staff-khoa / Phân công Lê Minh Khoa",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "138:8107",
+        "name": "o-org-rejected / Tổ chức chưa được duyệt",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "138:8166",
+        "name": "o-songviet-empty / Workspace Sóng Việt · Chưa có sự kiện",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "139:9186",
+        "name": "o-venue-bensong / Thông tin và hồ sơ Bến Sông",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "139:9273",
+        "name": "o-songviet-venue / Địa điểm đầu tiên · Rạp Sóng Việt",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "140:8493",
+        "name": "o-refunds / Yêu cầu hoàn tiền của khách",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "140:8580",
+        "name": "o-refund-review / Duyệt RF-024",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "140:8667",
+        "name": "o-refund-outcome / Kết quả xử lý hoàn tiền",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "140:9131",
+        "name": "o-refund-policy / Chính sách hoàn tiền theo suất",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "156:9073",
+        "name": "o-venue-bensong-pending / Hồ sơ Bến Sông chờ duyệt",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "156:9277",
+        "name": "o-comp-result / Kết quả cấp vé mời",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "156:9499",
+        "name": "o-gate-g2 / Cấu hình cổng G2",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "156:9680",
+        "name": "o-device-g2 / Thiết bị G2-01",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "156:9882",
+        "name": "o-venue-create / Tạo địa điểm mới",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "156:9969",
+        "name": "o-layout-change / Xác nhận đổi mẫu bố trí",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "156:10320",
+        "name": "o-songviet-layout / Sơ đồ Rạp Sóng Việt",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1100
+      },
+      {
+        "id": "156:10669",
+        "name": "o-songviet-event / Sự kiện mới của Sóng Việt",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "158:9645",
+        "name": "o-session-2 / Đêm 2 tại Bến Sông",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "158:10225",
+        "name": "o-access-blocked / Workspace bị hạn chế",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      }
+    ]
+  },
+  {
+    "id": "9:6861",
+    "name": "04 / ADMIN · Quản trị nền tảng",
+    "type": "SECTION",
+    "frames": [
+      {
+        "id": "1:11680",
+        "name": "a-dashboard / Tổng quan nền tảng",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1183
+      },
+      {
+        "id": "1:11897",
+        "name": "a-kyc / Hồ sơ tổ chức chờ duyệt",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:12044",
+        "name": "a-kyc-review / Review hồ sơ Organization",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:12185",
+        "name": "a-kyc-info / Yêu cầu bổ sung hồ sơ",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:12309",
+        "name": "a-kyc-reject / Từ chối hồ sơ",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:12433",
+        "name": "a-orgs / Organization trên nền tảng",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:12580",
+        "name": "a-org-status / Đình chỉ Organization",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:12713",
+        "name": "a-events / Sự kiện chờ kiểm duyệt",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:12840",
+        "name": "a-event-review / Review Đêm nhạc Mùa Thu",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:12982",
+        "name": "a-event-reject / Từ chối sự kiện",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:13100",
+        "name": "a-cancellations / Yêu cầu hủy suất diễn",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:13234",
+        "name": "a-cancel-review / Review yêu cầu hủy Đêm 1",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:13380",
+        "name": "a-reports / Report và tranh chấp",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:13527",
+        "name": "a-dispute / Hồ sơ tranh chấp DS-018",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:13666",
+        "name": "a-dispute-resolve / Kết luận hồ sơ DS-018",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:13802",
+        "name": "a-support / Yêu cầu hỗ trợ",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:13936",
+        "name": "a-support-detail / Hỗ trợ HT-024",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:14063",
+        "name": "a-refunds / Quản lý hoàn tiền",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:14212",
+        "name": "a-refund-create / Hoàn tiền thủ công",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:14345",
+        "name": "a-refund-transfer / Xác nhận chuyển khoản hoàn",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1167
+      },
+      {
+        "id": "1:14478",
+        "name": "a-chargebacks / Chargeback",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:14612",
+        "name": "a-chargeback-edit / Thông tin chargeback",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:14754",
+        "name": "a-settlements / Đối soát suất diễn",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:14901",
+        "name": "a-settlement-detail / Đối soát Đêm 1",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:15032",
+        "name": "a-payouts / Chi trả doanh thu",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:15168",
+        "name": "a-payout-review / Review payout PO-014",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:15308",
+        "name": "a-bank / Tài khoản ngân hàng chờ duyệt",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:15442",
+        "name": "a-bank-review / Review tài khoản nhận tiền",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:15576",
+        "name": "a-approvals / Phiếu cần phê duyệt",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:15743",
+        "name": "a-approval-review / Phê duyệt AP-014",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:15882",
+        "name": "a-reconciliation / Đối soát cổng thanh toán",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:16016",
+        "name": "a-reconciliation-import / Nhập sao kê từ cổng",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:16152",
+        "name": "a-audit / Lịch sử thao tác hệ thống",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "1:16854",
+        "name": "a-payout-cancel / Hủy yêu cầu payout",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "113:9119",
+        "name": "a-approval-cancel / Phê duyệt AP-024",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "113:9251",
+        "name": "a-approval-hold / Phê duyệt AP-018",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "138:8037",
+        "name": "a-kyc-outcome / Kết quả xét duyệt tổ chức",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "139:9332",
+        "name": "a-venue-verifications / Xác minh địa điểm",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "139:9402",
+        "name": "a-venue-review / Hồ sơ địa điểm và giấy phép",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "139:9472",
+        "name": "a-venue-outcome / Kết quả xác minh địa điểm",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "144:9092",
+        "name": "a-refund-detail / Yêu cầu đã có · Không tạo trùng",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "144:9163",
+        "name": "a-refund-result / Kết quả hoàn tiền",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "154:8855",
+        "name": "a-approval-result / Kết quả phê duyệt",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "154:8911",
+        "name": "a-event-result / Kết quả kiểm duyệt",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "154:8967",
+        "name": "a-payout-result / Kết quả chi trả PO-014",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "154:9023",
+        "name": "a-bank-result / Kết quả tài khoản",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "158:9732",
+        "name": "a-settlement-2 / Đối soát Đêm 2",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "158:10053",
+        "name": "a-org-result / Kết quả quản lý tổ chức",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      },
+      {
+        "id": "158:10421",
+        "name": "a-dispute-12 / DS-012 · Đêm 2",
+        "type": "FRAME",
+        "w": 1440,
+        "h": 1000
+      }
+    ]
+  },
+  {
+    "id": "34:6977",
+    "name": "05 / DÙNG CHUNG · Hộp thoại tài liệu",
+    "type": "SECTION",
+    "frames": [
+      {
+        "id": "34:6978",
+        "name": "w-document-preview / Xem tài liệu",
+        "type": "FRAME",
+        "w": 900,
+        "h": 680
+      }
+    ]
+  },
+  {
+    "id": "89:7295",
+    "name": "Prototype lab / Login role scenarios",
+    "type": "FRAME",
+    "frames": [
+      {
+        "id": "89:7299",
+        "name": "Scenarios",
+        "type": "FRAME",
+        "w": 956,
+        "h": 200
+      }
+    ]
+  },
+  {
+    "id": "154:9473",
+    "name": "QA controls / Finance · outside product",
+    "type": "FRAME",
+    "frames": [
+      {
+        "id": "154:9475",
+        "name": "Actions",
+        "type": "FRAME",
+        "w": 982,
+        "h": 46
+      },
+      {
+        "id": "154:9482",
+        "name": "Provider results",
+        "type": "FRAME",
+        "w": 982,
+        "h": 46
+      },
+      {
+        "id": "154:9492",
+        "name": "Actions",
+        "type": "FRAME",
+        "w": 982,
+        "h": 46
+      }
+    ]
+  }
+]
