@@ -25,6 +25,7 @@ export const staffAssignmentSchema = z
         doors_open_at: nullable,
         status: z.string(),
         event: z.object({ id: z.string(), title: z.string(), cover_image_url: nullable }).nullable(),
+        venue: z.object({ id: z.string(), name: z.string(), timezone: z.string() }).nullable(),
       })
       .nullable(),
   })

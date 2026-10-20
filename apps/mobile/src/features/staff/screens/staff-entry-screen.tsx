@@ -22,6 +22,9 @@ const permissionNames: Record<string, string> = {
 
 const sessionName = (shift: StaffAssignment) => shift.session?.title ?? 'Suất diễn';
 const gateName = (shift: StaffAssignment) => shift.gate?.name ?? 'Mọi cổng';
+// Times are shown in the venue's timezone, like the Customer screens.
+const shiftTime = (shift: StaffAssignment, date: string) =>
+  formatSessionTime(date, shift.session?.venue?.timezone);
 
 /** Staff landing (Figma s-sessions 1:2699, empty state s-no-assignment 149:1424). */
 export default function StaffEntryScreen() {
@@ -57,7 +60,7 @@ export default function StaffEntryScreen() {
               Mở {sessionName(selected)}
             </Button>
             <Copy style={ui.secure}>
-              {organization?.orgName ?? 'Tổ chức'} · {gateName(selected)}
+              {selected.session?.venue?.name ?? organization?.orgName ?? 'Tổ chức'} · {gateName(selected)}
             </Copy>
           </>
         )
@@ -122,13 +125,13 @@ export default function StaffEntryScreen() {
                 {shift.session?.event?.title ? ` • ${shift.session.event.title}` : ''}
               </Copy>
               <Copy style={[ui.muted, { fontSize: 12 }]}>
-                {shift.session ? `${formatSessionTime(shift.session.startsAt)} • ` : ''}
+                {shift.session ? `${shiftTime(shift, shift.session.startsAt)} • ` : ''}
                 {gateName(shift)}
               </Copy>
               <Copy style={{ fontSize: 11, color: phase === 'ACTIVE' ? c.accent : c.muted }}>
                 {phase === 'ACTIVE'
                   ? 'Đang trong ca'
-                  : `Ca bắt đầu ${formatSessionTime(shift.validFrom)}`}
+                  : `Ca bắt đầu ${shiftTime(shift, shift.validFrom)}`}
                 {' · '}
                 {shift.permissions.map((permission) => permissionNames[permission] ?? permission).join(', ')}
               </Copy>

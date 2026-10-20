@@ -46,4 +46,17 @@ describe('staff shifts', () => {
     expect(currentStaffShifts([other, mine], 't', now).map((shift) => shift.id)).toEqual(['mine']);
     expect(currentStaffShifts([other, mine], undefined, now)).toEqual([]);
   });
+  it('keeps the venue timezone from the session embed', () => {
+    const shift = staffAssignmentSchema.parse({
+      ...{ id: 'v', tenant_id: 't', session_id: 's', gate_id: null, permissions: ['SCAN'], status: 'ACTIVE', gate: null },
+      valid_from: '2026-10-24T08:00:00Z',
+      valid_until: '2026-10-24T20:00:00Z',
+      session: {
+        ...{ id: 's', title: 'Đêm 1', starts_at: '2026-10-24T12:30:00Z', ends_at: null, doors_open_at: null, status: 'ON_SALE' },
+        event: null,
+        venue: { id: 'venue', name: 'Nhà hát Ánh Trăng', timezone: 'Asia/Tokyo' },
+      },
+    });
+    expect(shift.session?.venue?.timezone).toBe('Asia/Tokyo');
+  });
 });
