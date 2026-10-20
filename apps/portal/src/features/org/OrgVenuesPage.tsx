@@ -998,7 +998,7 @@ export function OrgVenuesPage() {
 
                 <label>
                   Mục đích khóa
-                  <select value={holdType} onChange={(e) => setHoldType(e.target.value as any)}>
+                  <select value={holdType} onChange={(e) => setHoldType(e.target.value as 'BLOCK' | 'HOLD_COMP')}>
                     <option value="HOLD_COMP">Giữ chỗ VIP / Vé mời Ban tổ chức (COMP)</option>
                     <option value="BLOCK">Khóa kỹ thuật (Camera / Âm thanh / An toàn)</option>
                   </select>
