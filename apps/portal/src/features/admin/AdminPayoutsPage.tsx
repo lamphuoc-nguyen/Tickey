@@ -2,72 +2,66 @@ import {
   CheckCircle2,
   Eye,
   Search,
+  Download,
 } from 'lucide-react';
 import { useState } from 'react';
-
-interface PayoutItem {
-  id: string;
-  organizer: string;
-  eventName: string;
-  grossAmount: string;
-  feeAmount: string;
-  netPayout: string;
-  bankInfo: string;
-  status: 'PENDING_FIRST' | 'PENDING_SECOND' | 'COMPLETED';
-}
+import { useMockStore, exportToCsv, type PayoutItem } from '../../lib/mock-store';
 
 export function AdminPayoutsPage() {
+  const payouts = useMockStore((state) => state.payouts);
+  const approveFirstPayout = useMockStore((state) => state.approveFirstPayout);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPayout, setSelectedPayout] = useState<PayoutItem | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
-
-  const [payouts, setPayouts] = useState<PayoutItem[]>([
-    {
-      id: 'PO-014',
-      organizer: 'Ánh Trăng Events',
-      eventName: 'Indie Soul Acoustic Night',
-      grossAmount: '331.600.000 VNĐ',
-      feeAmount: '11.600.000 VNĐ (3.5%)',
-      netPayout: '320.000.000 VNĐ',
-      bankInfo: '0071009876543 · Vietcombank Nam Sài Gòn',
-      status: 'PENDING_SECOND',
-    },
-    {
-      id: 'PO-015',
-      organizer: 'Sóng Việt Events',
-      eventName: 'Đêm nhạc Mùa Thu (Tạm ứng đợt 1)',
-      grossAmount: '518.000.000 VNĐ',
-      feeAmount: '18.000.000 VNĐ (3.5%)',
-      netPayout: '500.000.000 VNĐ',
-      bankInfo: '0071001234567 · Vietcombank TP.HCM',
-      status: 'PENDING_FIRST',
-    },
-    {
-      id: 'PO-011',
-      organizer: 'Royal Music Vietnam',
-      eventName: 'Hòa nhạc Thính phòng Mùa Hạ',
-      grossAmount: '186.400.000 VNĐ',
-      feeAmount: '6.400.000 VNĐ (3.5%)',
-      netPayout: '180.000.000 VNĐ',
-      bankInfo: '19034567890123 · Techcombank Thăng Long',
-      status: 'COMPLETED',
-    },
-  ]);
 
   const filtered = payouts.filter((p) => {
     if (!searchTerm) return true;
     return (
       p.organizer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.id.toLowerCase().includes(searchTerm.toLowerCase())
+      p.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.eventName.toLowerCase().includes(searchTerm.toLowerCase())
     );
   });
 
   const handleFirstApproval = (id: string) => {
-    setPayouts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, status: 'PENDING_SECOND' } : p))
-    );
+    approveFirstPayout(id);
     setSelectedPayout(null);
     setActionSuccess(`Đã ký duyệt người thứ nhất cho lệnh ${id}. Lệnh được chuyển sang Hàng đợi người duyệt thứ hai.`);
+    setTimeout(() => setActionSuccess(null), 4000);
+  };
+
+  const handleExportExcel = () => {
+    const headers = [
+      'Mã lệnh chi trả',
+      'Đơn vị thụ hưởng',
+      'Sự kiện',
+      'Doanh thu gốc',
+      'Phí nền tảng (3.5%)',
+      'Thực nhận',
+      'Thông tin ngân hàng',
+      'Trạng thái',
+      'Thời gian tạo',
+    ];
+
+    const rows = filtered.map((p) => [
+      p.id,
+      p.organizer,
+      p.eventName,
+      p.grossAmount,
+      p.feeAmount,
+      p.netPayout,
+      p.bankInfo,
+      p.status === 'COMPLETED'
+        ? 'Đã chi trả'
+        : p.status === 'PENDING_SECOND'
+        ? 'Cần người duyệt 2'
+        : 'Chờ duyệt 1',
+      p.createdAt || 'N/A',
+    ]);
+
+    exportToCsv(`Tickey_Lenh_Chi_Tra_${new Date().toISOString().slice(0, 10)}`, headers, rows);
+    setActionSuccess(`Đã xuất file dữ liệu Excel/CSV danh sách ${rows.length} lệnh chi trả!`);
     setTimeout(() => setActionSuccess(null), 4000);
   };
 
@@ -88,20 +82,33 @@ export function AdminPayoutsPage() {
         >
           TICKEY / ADMIN / PAYOUTS & REFUNDS
         </div>
-        <h1
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: '28px',
-            fontWeight: 700,
-            color: 'var(--text)',
-            margin: 0,
-          }}
-        >
-          Chi trả doanh thu & Hoàn tiền
-        </h1>
-        <p style={{ margin: '6px 0 0', fontSize: '14px', color: 'var(--muted)' }}>
-          Quản lý dòng tiền bán vé, ký duyệt giải ngân cho ban tổ chức sau đối soát sự kiện.
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+          <div>
+            <h1
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: '28px',
+                fontWeight: 700,
+                color: 'var(--text)',
+                margin: 0,
+              }}
+            >
+              Chi trả doanh thu & Hoàn tiền
+            </h1>
+            <p style={{ margin: '6px 0 0', fontSize: '14px', color: 'var(--muted)' }}>
+              Quản lý dòng tiền bán vé, ký duyệt giải ngân cho ban tổ chức sau đối soát sự kiện.
+            </p>
+          </div>
+
+          <button
+            onClick={handleExportExcel}
+            className="btn btn-outline"
+            style={{ fontSize: '13px' }}
+          >
+            <Download size={16} style={{ marginRight: '6px' }} />
+            <span>Xuất file Excel</span>
+          </button>
+        </div>
       </div>
 
       {actionSuccess && (
@@ -164,10 +171,10 @@ export function AdminPayoutsPage() {
             Chờ giải ngân (Pending Payouts)
           </div>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: '28px', fontWeight: 700, color: 'var(--primary)' }}>
-            820.000.000 đ
+            {payouts.filter((p) => p.status !== 'COMPLETED').length} lệnh đang chờ
           </div>
           <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px' }}>
-            2 lệnh đang chờ quy trình 2 người duyệt
+            Tuân thủ quy trình kiểm soát 2 người duyệt
           </div>
         </div>
 
@@ -215,7 +222,7 @@ export function AdminPayoutsPage() {
           <Search size={16} color="var(--muted)" />
           <input
             type="text"
-            placeholder="Tìm theo đơn vị, mã PO…"
+            placeholder="Tìm theo đơn vị, sự kiện, mã PO…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
@@ -227,6 +234,9 @@ export function AdminPayoutsPage() {
             }}
           />
         </div>
+        <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
+          Tổng cộng <strong>{filtered.length}</strong> lệnh chi trả
+        </div>
       </div>
 
       {/* Payouts Table */}
@@ -235,40 +245,40 @@ export function AdminPayoutsPage() {
           backgroundColor: 'var(--surface)',
           borderRadius: 'var(--radius-lg)',
           border: '1px solid var(--border)',
-          overflow: 'hidden',
+          overflowX: 'auto',
           boxShadow: 'var(--shadow-sm)',
         }}
       >
-        <table className="table" style={{ width: '100%', margin: 0 }}>
+        <table className="table" style={{ width: '100%', minWidth: '1100px', margin: 0 }}>
           <thead>
             <tr>
-              <th>Mã lệnh</th>
-              <th>Đơn vị thụ hưởng</th>
-              <th>Sự kiện</th>
-              <th>Doanh thu gốc</th>
-              <th>Phí nền tảng</th>
-              <th>Thực nhận</th>
-              <th>Trạng thái</th>
-              <th style={{ textAlign: 'right' }}>Thao tác</th>
+              <th style={{ width: '90px', whiteSpace: 'nowrap' }}>Mã lệnh</th>
+              <th style={{ minWidth: '220px' }}>Đơn vị thụ hưởng</th>
+              <th style={{ minWidth: '220px' }}>Sự kiện</th>
+              <th style={{ whiteSpace: 'nowrap' }}>Doanh thu gốc</th>
+              <th style={{ whiteSpace: 'nowrap' }}>Phí nền tảng</th>
+              <th style={{ whiteSpace: 'nowrap' }}>Thực nhận</th>
+              <th style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>Trạng thái</th>
+              <th style={{ textAlign: 'right', whiteSpace: 'nowrap', width: '120px' }}>Thao tác</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((item) => (
               <tr key={item.id}>
-                <td>
-                  <strong style={{ fontFamily: 'monospace', color: 'var(--text)' }}>{item.id}</strong>
+                <td style={{ whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                  <strong style={{ fontFamily: 'monospace', fontSize: '13px', color: 'var(--text)' }}>{item.id}</strong>
                 </td>
-                <td>
-                  <strong>{item.organizer}</strong>
-                  <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{item.bankInfo}</div>
+                <td style={{ verticalAlign: 'middle' }}>
+                  <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '13.5px' }}>{item.organizer}</div>
+                  <div style={{ fontSize: '11.5px', color: 'var(--muted)', marginTop: '3px' }}>{item.bankInfo}</div>
                 </td>
-                <td style={{ fontSize: '13px' }}>{item.eventName}</td>
-                <td>{item.grossAmount}</td>
-                <td style={{ color: 'var(--muted)', fontSize: '12px' }}>{item.feeAmount}</td>
-                <td>
-                  <strong style={{ color: 'var(--primary)' }}>{item.netPayout}</strong>
+                <td style={{ fontSize: '13px', color: 'var(--text)', verticalAlign: 'middle' }}>{item.eventName}</td>
+                <td style={{ whiteSpace: 'nowrap', verticalAlign: 'middle', fontWeight: 500, fontSize: '13px' }}>{item.grossAmount}</td>
+                <td style={{ whiteSpace: 'nowrap', verticalAlign: 'middle', color: 'var(--muted)', fontSize: '12px' }}>{item.feeAmount}</td>
+                <td style={{ whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                  <strong style={{ color: 'var(--primary)', fontSize: '14px', fontWeight: 700 }}>{item.netPayout}</strong>
                 </td>
-                <td>
+                <td style={{ whiteSpace: 'nowrap', verticalAlign: 'middle', textAlign: 'center' }}>
                   {item.status === 'PENDING_FIRST' && (
                     <span className="badge badge-warning">Chờ duyệt 1</span>
                   )}
@@ -279,13 +289,13 @@ export function AdminPayoutsPage() {
                     <span className="badge badge-success">Đã chi trả</span>
                   )}
                 </td>
-                <td style={{ textAlign: 'right' }}>
+                <td style={{ textAlign: 'right', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                   <button
                     onClick={() => setSelectedPayout(item)}
                     className="btn btn-outline"
-                    style={{ fontSize: '12px', padding: '6px 12px' }}
+                    style={{ fontSize: '12px', padding: '6px 14px', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center' }}
                   >
-                    <Eye size={14} style={{ marginRight: '4px' }} />
+                    <Eye size={14} style={{ marginRight: '6px' }} />
                     Chi tiết
                   </button>
                 </td>
@@ -317,9 +327,7 @@ export function AdminPayoutsPage() {
               backgroundColor: 'var(--surface)',
               borderRadius: 'var(--radius-lg)',
               width: '100%',
-              maxWidth: '600px',
-              maxHeight: '90vh',
-              overflowY: 'auto',
+              maxWidth: '560px',
               boxShadow: 'var(--shadow-lg)',
               padding: '32px',
             }}
@@ -349,6 +357,9 @@ export function AdminPayoutsPage() {
                 >
                   {selectedPayout.organizer}
                 </h2>
+                <div style={{ fontSize: '13px', color: 'var(--muted)', marginTop: '2px' }}>
+                  Sự kiện: {selectedPayout.eventName}
+                </div>
               </div>
               <button
                 onClick={() => setSelectedPayout(null)}

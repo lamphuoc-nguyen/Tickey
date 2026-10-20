@@ -133,19 +133,19 @@ export function AdminAuditPage() {
           backgroundColor: 'var(--surface)',
           borderRadius: 'var(--radius-lg)',
           border: '1px solid var(--border)',
-          overflow: 'hidden',
+          overflowX: 'auto',
           boxShadow: 'var(--shadow-sm)',
         }}
       >
-        <table className="table" style={{ width: '100%', margin: 0 }}>
+        <table className="table" style={{ width: '100%', minWidth: '960px', margin: 0 }}>
           <thead>
             <tr>
-              <th>Thời gian</th>
-              <th>Người thực hiện</th>
-              <th>Hành động</th>
-              <th>Đối tượng tác động</th>
-              <th>Địa chỉ IP</th>
-              <th>Kết quả</th>
+              <th style={{ whiteSpace: 'nowrap' }}>Thời gian</th>
+              <th style={{ minWidth: '160px' }}>Người thực hiện</th>
+              <th style={{ whiteSpace: 'nowrap' }}>Hành động</th>
+              <th style={{ minWidth: '240px' }}>Đối tượng tác động</th>
+              <th style={{ whiteSpace: 'nowrap' }}>Địa chỉ IP</th>
+              <th style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>Kết quả</th>
             </tr>
           </thead>
           <tbody>

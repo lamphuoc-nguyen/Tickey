@@ -250,19 +250,19 @@ export function AdminKycPage() {
           backgroundColor: 'var(--surface)',
           borderRadius: 'var(--radius-lg)',
           border: '1px solid var(--border)',
-          overflow: 'hidden',
+          overflowX: 'auto',
           boxShadow: 'var(--shadow-sm)',
         }}
       >
-        <table className="table" style={{ width: '100%', margin: 0 }}>
+        <table className="table" style={{ width: '100%', minWidth: '960px', margin: 0 }}>
           <thead>
             <tr>
-              <th>Tổ chức</th>
-              <th>Mã số thuế</th>
-              <th>Người đại diện & SĐT</th>
-              <th>Ngày gửi</th>
-              <th>Trạng thái</th>
-              <th style={{ textAlign: 'right' }}>Thao tác</th>
+              <th style={{ minWidth: '220px' }}>Tổ chức</th>
+              <th style={{ whiteSpace: 'nowrap' }}>Mã số thuế</th>
+              <th style={{ minWidth: '180px' }}>Người đại diện & SĐT</th>
+              <th style={{ whiteSpace: 'nowrap' }}>Ngày gửi</th>
+              <th style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>Trạng thái</th>
+              <th style={{ textAlign: 'right', whiteSpace: 'nowrap', width: '140px' }}>Thao tác</th>
             </tr>
           </thead>
           <tbody>
@@ -275,7 +275,7 @@ export function AdminKycPage() {
             ) : (
               filtered.map((item) => (
                 <tr key={item.id}>
-                  <td>
+                  <td style={{ verticalAlign: 'middle' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <div
                         style={{
@@ -287,6 +287,7 @@ export function AdminKycPage() {
                           alignItems: 'center',
                           justifyContent: 'center',
                           color: 'var(--primary)',
+                          flexShrink: 0,
                         }}
                       >
                         <Building2 size={16} />
@@ -297,27 +298,27 @@ export function AdminKycPage() {
                       </div>
                     </div>
                   </td>
-                  <td>
+                  <td style={{ verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                     <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{item.taxCode}</span>
                   </td>
-                  <td>
-                    <div>{item.representative}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{item.phone}</div>
+                  <td style={{ verticalAlign: 'middle' }}>
+                    <div style={{ fontWeight: 500 }}>{item.representative}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>{item.phone}</div>
                   </td>
-                  <td style={{ fontSize: '13px', color: 'var(--muted)' }}>{item.submittedAt}</td>
-                  <td>
+                  <td style={{ fontSize: '13px', color: 'var(--muted)', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>{item.submittedAt}</td>
+                  <td style={{ verticalAlign: 'middle', whiteSpace: 'nowrap', textAlign: 'center' }}>
                     {item.status === 'PENDING' && <span className="badge badge-warning">Chờ review</span>}
                     {item.status === 'APPROVED' && <span className="badge badge-success">Đã duyệt</span>}
                     {item.status === 'NEED_INFO' && <span className="badge badge-info">Cần bổ sung</span>}
                     {item.status === 'REJECTED' && <span className="badge badge-danger">Từ chối</span>}
                   </td>
-                  <td style={{ textAlign: 'right' }}>
+                  <td style={{ textAlign: 'right', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                     <button
                       onClick={() => setSelectedKyc(item)}
                       className="btn btn-outline"
-                      style={{ fontSize: '12px', padding: '6px 12px' }}
+                      style={{ fontSize: '12px', padding: '6px 12px', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center' }}
                     >
-                      <Eye size={14} style={{ marginRight: '4px' }} />
+                      <Eye size={14} style={{ marginRight: '6px' }} />
                       Xem xét hồ sơ
                     </button>
                   </td>
