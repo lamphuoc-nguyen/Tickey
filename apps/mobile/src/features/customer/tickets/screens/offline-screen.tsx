@@ -5,20 +5,17 @@ import { formatSessionTime } from '@event/core';
 import { Button, Card, Copy, Heading, Notice, QueryState, Screen } from '@/components/ui';
 import { useConnection, useOfflineTickets } from '../hooks/use-ticket';
 import { TicketPresentation } from '../components/ticket-presentation';
+import { TextAction } from '@/components/customer-controls';
 
 /** Local downloads remain viewable if a refresh token cannot be renewed offline. No authenticated writes here. */
 export default function OfflineScreen() {
   const query = useOfflineTickets();
   const online = useConnection();
   const [id, setId] = useState<string | null>(null);
-  const selected = query.data?.find((entry) => entry.ticket.id === id);
   return (
     <Screen>
       <Heading>Vé đã tải</Heading>
-      <Notice warning>
-        Đang xem dữ liệu lưu trên thiết bị. Thời điểm cập nhật không chứng minh vé còn hiệu lực; kết nối mạng
-        để kiểm tra với máy chủ.
-      </Notice>
+      <Notice warning>Bản lưu trên thiết bị. Kết nối mạng để kiểm tra hiệu lực vé.</Notice>
       <QueryState
         loading={query.isPending}
         error={query.error}
@@ -33,19 +30,18 @@ export default function OfflineScreen() {
           </Copy>
           <Copy>Trạng thái lưu: {ticketStatusLabels[entry.ticket.status]}</Copy>
           <Copy>Tải lúc: {formatSessionTime(entry.downloadedAt)}</Copy>
-          <Button secondary onPress={() => setId(entry.ticket.id)}>
-            Xem vé đã tải
-          </Button>
+          <TextAction
+            expanded={id === entry.ticket.id}
+            accessibilityLabel={`${id === entry.ticket.id ? 'Đóng' : 'Xem'} vé ${entry.ticket.seat?.seatCode ?? entry.ticket.id}`}
+            onPress={() => setId((current) => (current === entry.ticket.id ? null : entry.ticket.id))}
+          >
+            {id === entry.ticket.id ? 'Đóng vé đã tải' : 'Xem vé đã tải'}
+          </TextAction>
+          {id === entry.ticket.id && (
+            <TicketPresentation ticket={entry.ticket} online={false} downloadedAt={entry.downloadedAt} />
+          )}
         </Card>
       ))}
-      {selected && (
-        <Card>
-          <TicketPresentation ticket={selected.ticket} online={false} downloadedAt={selected.downloadedAt} />
-          <Button secondary onPress={() => setId(null)}>
-            Đóng vé đã tải
-          </Button>
-        </Card>
-      )}
       {online && (
         <Button secondary onPress={() => router.replace('/tickets')}>
           Kiểm tra vé với máy chủ

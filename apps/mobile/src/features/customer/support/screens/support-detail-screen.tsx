@@ -11,30 +11,44 @@ function Content() {
   const { draft, update, clear } = useFormDraft(`message:${requestId}`, { body: '' });
   const body = draft.body;
   const setBody = (body: string) => update({ body });
+  const closed = !!query.data && ['RESOLVED', 'CLOSED'].includes(query.data.status);
+  const unavailable = !query.data || !!query.error || closed;
+  const disabledReason = closed
+    ? 'Yêu cầu đã kết thúc và không nhận thêm tin nhắn.'
+    : !query.data || query.error
+      ? 'Cần tải được yêu cầu để gửi tin nhắn.'
+      : 'Nhập nội dung tin nhắn.';
   return (
     <Screen
       footer={
-        <ActionFooter
-          disabled={
-            !query.data || !!query.error || !body.trim() || ['RESOLVED', 'CLOSED'].includes(query.data.status)
-          }
-          disabledReason={
-            !query.data || query.error
-              ? 'Cần tải được yêu cầu để gửi tin nhắn.'
-              : !body.trim()
-                ? 'Nhập nội dung tin nhắn.'
-                : 'Yêu cầu đã kết thúc và không nhận thêm tin nhắn.'
-          }
-          busy={message.isPending}
-          onPress={() =>
-            void message
-              .mutateAsync({ id: requestId, body })
-              .then(() => clear())
-              .catch(() => {})
-          }
-        >
-          Gửi tin nhắn
-        </ActionFooter>
+        <>
+          {query.data && (
+            <Field
+              label="Tin nhắn"
+              value={body}
+              onChangeText={setBody}
+              placeholder="Nhập tin nhắn"
+              editable={!unavailable && !message.isPending}
+              multiline
+              style={{ height: 80, maxHeight: 120 }}
+            />
+          )}
+          {!!message.error && <ErrorNotice error={message.error} />}
+          <ActionFooter
+            disabled={unavailable || !body.trim()}
+            disabledReason={disabledReason}
+            busy={message.isPending}
+            onPress={() => {
+              if (unavailable || !body.trim() || message.isPending) return;
+              void message
+                .mutateAsync({ id: requestId, body })
+                .then(() => clear())
+                .catch(() => {});
+            }}
+          >
+            Gửi tin nhắn
+          </ActionFooter>
+        </>
       }
     >
       <Heading>{query.data?.subject ?? 'Chi tiết hỗ trợ'}</Heading>
@@ -49,8 +63,6 @@ function Content() {
               <Copy>{new Date(m.createdAt).toLocaleString('vi-VN')}</Copy>
             </Card>
           ))}
-          <Field label="Tin nhắn" value={body} onChangeText={setBody} multiline />
-          {!!message.error && <ErrorNotice error={message.error} />}
         </>
       )}
     </Screen>

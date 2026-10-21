@@ -9,11 +9,13 @@ export function eventPhoto(event: Event) {
 export function EventCard({
   event,
   small = false,
+  width,
   onSelect,
   selected = false,
 }: {
   event: Event;
   small?: boolean;
+  width?: number;
   onSelect?: () => void;
   selected?: boolean;
 }) {
@@ -28,7 +30,7 @@ export function EventCard({
       }}
       style={[
         ui.card,
-        { padding: 8, gap: 12, width: small ? 170 : '100%', minHeight: small ? 224 : 228 },
+        { padding: 8, gap: 12, width: width ?? (small ? 170 : '100%'), minHeight: small ? 224 : 228 },
         selected && { borderColor: c.accent, backgroundColor: c.tint },
       ]}
     >

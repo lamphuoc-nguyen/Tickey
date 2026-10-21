@@ -14,6 +14,9 @@ export default function HomeScreen() {
   const [page, setPage] = useState(0);
   const slider = useRef<ScrollView>(null);
   const width = useWindowDimensions().width - 40;
+  const [eventRailWidth, setEventRailWidth] = useState(0);
+  const eventCardGap = 10;
+  const eventCardWidth = Math.max(1, ((eventRailWidth || width) - 2 * eventCardGap) / 2.3);
   const data = events.data?.pages.flat() ?? [],
     banners = featured.data?.pages.flat() ?? [];
   return (
@@ -51,7 +54,12 @@ export default function HomeScreen() {
         <Icon name="search" />
         <Copy style={{ fontSize: 12, color: c.muted }}>Tìm sự kiện</Copy>
       </Pressable>
-      <View style={[ui.row, { gap: 7, marginBottom: 18, flexWrap: 'wrap' }]}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ marginBottom: 18 }}
+        contentContainerStyle={{ flexGrow: 1, alignItems: 'stretch', gap: 7 }}
+      >
         {(categories.data ?? []).slice(0, 3).map((category) => (
           <Pressable
             key={category.id}
@@ -65,7 +73,9 @@ export default function HomeScreen() {
             style={[
               ui.card,
               {
-                flex: 1,
+                flexGrow: 1,
+                flexShrink: 0,
+                flexBasis: 70,
                 minWidth: 70,
                 alignItems: 'center',
                 padding: 6,
@@ -77,9 +87,9 @@ export default function HomeScreen() {
           >
             <Icon
               name={
-                category.slug.includes('music')
+                category.slug === 'am-nhac' || category.slug.includes('music')
                   ? 'music'
-                  : category.slug.includes('workshop')
+                  : category.slug === 'hoi-thao' || category.slug.includes('workshop')
                     ? 'users'
                     : 'building'
               }
@@ -94,13 +104,26 @@ export default function HomeScreen() {
           onPress={() => router.push('/search')}
           style={[
             ui.card,
-            { flex: 1, alignItems: 'center', padding: 6, gap: 3, minHeight: 55, borderRadius: 10 },
+            {
+              flexGrow: 1.3,
+              flexShrink: 0,
+              flexBasis: 84,
+              minWidth: 84,
+              alignItems: 'center',
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              gap: 3,
+              minHeight: 55,
+              borderRadius: 10,
+            },
           ]}
         >
           <Icon name="calendar" />
-          <Copy style={{ fontFamily: fonts.semibold, fontSize: 11, lineHeight: 16 }}>Tất cả</Copy>
+          <Copy numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 11, lineHeight: 16 }}>
+            Tất cả
+          </Copy>
         </Pressable>
-      </View>
+      </ScrollView>
       <QueryState error={categories.error} retry={() => void categories.refetch()} />
       <QueryState
         loading={featured.isPending}
@@ -211,9 +234,17 @@ export default function HomeScreen() {
         retry={() => void events.refetch()}
         emptyText="Chưa có sự kiện được công bố."
       />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        onLayout={(event) => setEventRailWidth(event.nativeEvent.layout.width)}
+        contentContainerStyle={{ gap: eventCardGap }}
+        snapToInterval={eventCardWidth + eventCardGap}
+        snapToAlignment="start"
+        decelerationRate="fast"
+      >
         {data.map((event) => (
-          <EventCard key={event.id} event={event} small />
+          <EventCard key={event.id} event={event} small width={eventCardWidth} />
         ))}
       </ScrollView>
       {events.hasNextPage && (

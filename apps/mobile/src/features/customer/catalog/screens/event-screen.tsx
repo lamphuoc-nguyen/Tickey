@@ -18,11 +18,11 @@ export default function EventScreen() {
       footer={
         event.data && (
           <View style={ui.row}>
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
               <Copy style={{ fontSize: 10, color: c.muted }}>Giá vé</Copy>
               <Heading small>Xem hạng vé</Heading>
             </View>
-            <View style={{ flex: 1.2 }}>
+            <View style={{ flex: 1.2, minWidth: 0 }}>
               <ActionFooter
                 onPress={() => router.push({ pathname: '/events/[eventId]/sessions', params: { eventId } })}
               >
