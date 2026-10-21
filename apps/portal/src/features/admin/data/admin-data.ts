@@ -78,14 +78,16 @@ export interface Approval {
 }
 
 export interface AuditLog {
-  id: string;
+  id: number;
   actorId: string | null;
+  actorScope: string | null;
   orgId: string | null;
   action: string;
   targetType: string | null;
   targetId: string | null;
   before: unknown;
   after: unknown;
+  meta: Record<string, unknown>;
   createdAt: string;
 }
 
@@ -138,6 +140,15 @@ export const APPROVAL_SUBJECT: Record<string, string> = {
   MANUAL_TRANSFER: 'Chuyển khoản thủ công',
   HOLD_RELEASE: 'Giải phóng quỹ tạm giữ',
   ORG_SUSPENSION: 'Đổi trạng thái tổ chức',
+};
+
+/** Phạm vi tài khoản thao tác (audit_logs.actor_scope). */
+export const AUDIT_SCOPE: Record<string, { label: string; badge: string }> = {
+  CUSTOMER: { label: 'Khách hàng', badge: 'badge-info' },
+  ORG: { label: 'Tổ chức', badge: 'badge-info' },
+  STAFF: { label: 'Nhân sự', badge: 'badge-info' },
+  ADMIN: { label: 'Admin nền tảng', badge: 'badge-warning' },
+  SYSTEM: { label: 'Hệ thống', badge: 'badge-info' },
 };
 
 /** Hồ sơ KYC của các tổ chức. Mặc định trả về tất cả trạng thái. */

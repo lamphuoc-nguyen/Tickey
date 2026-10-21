@@ -617,6 +617,26 @@ public class ApiEndpointTests
     }
 
     [Fact]
+    public async Task Admin_audit_logs_forward_the_org_action_and_target_filters()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+        var orgId = Guid.NewGuid();
+
+        var res = await client.GetAsync(
+            $"/api/admin/audit-logs?orgId={orgId}&action=KYC.APPROVE&targetType=organization&targetId=abc123", Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal("/rest/v1/audit_logs", request.RequestUri!.AbsolutePath);
+        var query = Uri.UnescapeDataString(request.RequestUri.Query);
+        Assert.Contains($"org_id=eq.{orgId}", query);
+        Assert.Contains("action=eq.KYC.APPROVE", query);
+        Assert.Contains("target_type=eq.organization", query);
+        Assert.Contains("target_id=eq.abc123", query);
+        Assert.Contains("order=created_at.desc", query);
+    }
+
+    [Fact]
     public async Task Admin_refund_bank_info_uses_the_callers_jwt_and_refund_id()
     {
         var id = Guid.NewGuid();
