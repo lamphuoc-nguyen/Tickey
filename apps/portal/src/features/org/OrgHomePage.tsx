@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router';
 export function OrgHomePage() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
   // Weekly ticket sales mock data matching Figma
   const salesDays = [
@@ -42,7 +43,22 @@ export function OrgHomePage() {
       status: 'Đang bán',
       statusType: 'warning',
     },
+    {
+      id: '3',
+      title: 'Hồ sơ khiếu nại DS-018 / Đêm 1',
+      details: 'Cần bổ sung giải trình cho Admin',
+      status: 'Chờ xử lý',
+      statusType: 'warning',
+    },
   ];
+
+  const filteredItems = actionItems.filter((item) => {
+    const matchSearch =
+      item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.details.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchStatus = statusFilter === 'ALL' || item.status === statusFilter;
+    return matchSearch && matchStatus;
+  });
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
@@ -263,17 +279,22 @@ export function OrgHomePage() {
               boxShadow: 'var(--shadow-md)',
             }}
           >
+            <div style={{ padding: '12px 12px 0', flexShrink: 0 }}>
+              <img
+                src="/assets/5468833387e5621c0a6d63465a517da248c8556d.jpg"
+                alt="Đêm nhạc Mùa Thu"
+                style={{
+                  width: '100%',
+                  height: '156px',
+                  objectFit: 'cover',
+                  borderRadius: '10px',
+                  display: 'block',
+                }}
+              />
+            </div>
             <div
               style={{
-                height: '170px',
-                backgroundImage: `url('/assets/5468833387e5621c0a6d63465a517da248c8556d.jpg')`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-              }}
-            />
-            <div
-              style={{
-                padding: '24px',
+                padding: '20px 24px 24px',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
@@ -361,14 +382,17 @@ export function OrgHomePage() {
                 />
               </div>
 
-              <div>
-                <button
-                  className="btn btn-outline"
-                  style={{ padding: '8px 14px', fontSize: '13px', height: '38px' }}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Filter size={14} color="var(--muted)" />
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  style={{ width: '170px', height: '38px', padding: '0 12px', fontSize: '13px' }}
                 >
-                  <Filter size={14} />
-                  <span>Tất cả trạng thái</span>
-                </button>
+                  <option value="ALL">Tất cả trạng thái</option>
+                  <option value="Đang bán">Đang bán</option>
+                  <option value="Chờ xử lý">Chờ xử lý</option>
+                </select>
               </div>
             </div>
 
@@ -389,7 +413,7 @@ export function OrgHomePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {actionItems.map((item) => (
+                  {filteredItems.map((item) => (
                     <tr
                       key={item.id}
                       style={{

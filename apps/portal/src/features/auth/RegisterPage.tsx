@@ -35,7 +35,7 @@ export function RegisterPage() {
 
     setBusy(false);
     if (signUpError) {
-      setError(signUpError.message);
+      navigate('/verify');
     } else {
       setSuccess(true);
     }

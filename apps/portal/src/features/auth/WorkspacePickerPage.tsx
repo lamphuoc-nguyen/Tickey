@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router';
 import { TickeyLogo } from '../../components/common/TickeyLogo';
 import { repositories } from '../../lib/repositories';
 import { supabase } from '../../lib/supabase';
+import { useMockStore } from '../../lib/mock-store';
 
 const homeOf: Record<Workspace['kind'], string> = {
   ORG: '/org',
@@ -14,6 +15,7 @@ const homeOf: Record<Workspace['kind'], string> = {
 
 export function WorkspacePickerPage() {
   const navigate = useNavigate();
+  const { state, updateOrgOnboarding } = useMockStore();
 
   const workspaces = useQuery({
     queryKey: ['workspaces'],
@@ -25,40 +27,119 @@ export function WorkspacePickerPage() {
     onSuccess: (_data, w) => navigate(homeOf[w.kind]),
   });
 
+  const songVietOrg = state.adminOrgs?.find((o) => o.name.includes('Sóng Việt'));
+  const songVietKyc = state.adminKycQueue?.find((k) => k.orgName.includes('Sóng Việt'));
+  const isSongVietApproved =
+    songVietOrg?.status === 'ACTIVE' || songVietKyc?.status === 'APPROVED';
+
   const portalWorkspaces =
     workspaces.data?.filter((w) => w.kind === 'ORG' || w.kind === 'ADMIN') ?? [];
 
+  const adminWs: Workspace = {
+    kind: 'ADMIN',
+    orgId: 'admin-platform',
+    orgName: 'Admin nền tảng',
+    orgStatus: 'ACTIVE',
+    roles: ['Quản trị viên hệ thống'],
+    requiresMfa: false,
+  };
+
+  // Collect all unique orgs dynamically from state.adminOrgs, state.adminKycQueue, and state.orgOnboarding
+  const rawOrgMap = new Map<string, { id: string; name: string; isApproved: boolean }>();
+
+  // 1. Initial base orgs
+  rawOrgMap.set('Ánh Trăng Events', { id: 'demo-org-1', name: 'Ánh Trăng Events', isApproved: true });
+  rawOrgMap.set('Sóng Việt Events', {
+    id: 'demo-org-2',
+    name: 'Sóng Việt Events',
+    isApproved: isSongVietApproved,
+  });
+
+  // 2. Add from state.adminOrgs
+  (state.adminOrgs || []).forEach((o) => {
+    const kyc = state.adminKycQueue?.find((k) => k.orgName.toLowerCase() === o.name.toLowerCase());
+    const isApproved = o.status === 'ACTIVE' || kyc?.status === 'APPROVED';
+    rawOrgMap.set(o.name, {
+      id: o.id,
+      name: o.name,
+      isApproved,
+    });
+  });
+
+  // 3. Add from state.adminKycQueue
+  (state.adminKycQueue || []).forEach((k) => {
+    if (!rawOrgMap.has(k.orgName)) {
+      rawOrgMap.set(k.orgName, {
+        id: `org-${k.id}`,
+        name: k.orgName,
+        isApproved: k.status === 'APPROVED',
+      });
+    } else if (k.status === 'APPROVED') {
+      const existing = rawOrgMap.get(k.orgName)!;
+      rawOrgMap.set(k.orgName, { ...existing, isApproved: true });
+    }
+  });
+
+  // 4. Add from state.orgOnboarding
+  if (state.orgOnboarding?.orgName) {
+    const onbName = state.orgOnboarding.orgName;
+    const isApproved = state.orgOnboarding.status === 'APPROVED';
+    if (!rawOrgMap.has(onbName)) {
+      rawOrgMap.set(onbName, {
+        id: 'org-onboarding',
+        name: onbName,
+        isApproved,
+      });
+    } else if (isApproved) {
+      const existing = rawOrgMap.get(onbName)!;
+      rawOrgMap.set(onbName, { ...existing, isApproved: true });
+    }
+  }
+
+  // Convert to dynamic workspaces
+  const dynamicOrgWorkspaces: Workspace[] = Array.from(rawOrgMap.values()).map((item) => ({
+    kind: 'ORG',
+    orgId: item.id,
+    orgName: item.name,
+    orgStatus: item.isApproved ? 'ACTIVE' : 'PENDING',
+    roles: ['Organization · Owner'],
+    requiresMfa: false,
+  }));
+
   const demoWorkspaces: Workspace[] = [
-    {
-      kind: 'ORG',
-      orgId: 'demo-org-1',
-      orgName: 'Ánh Trăng Events',
-      orgStatus: 'ACTIVE',
-      roles: ['Organization · Owner'],
-      requiresMfa: false,
-    },
-    {
-      kind: 'ADMIN',
-      orgId: 'admin-platform',
-      orgName: 'Tickey Admin Nền Tảng',
-      orgStatus: 'ACTIVE',
-      roles: ['Quản trị viên hệ thống'],
-      requiresMfa: false,
-    },
-    {
-      kind: 'ORG',
-      orgId: 'demo-org-2',
-      orgName: 'Sóng Việt Events',
-      orgStatus: 'PENDING',
-      roles: ['Organization · Owner'],
-      requiresMfa: false,
-    },
+    ...dynamicOrgWorkspaces.filter((w) => (w.orgName || '').includes('Ánh Trăng')),
+    adminWs,
+    ...dynamicOrgWorkspaces.filter((w) => !(w.orgName || '').includes('Ánh Trăng')),
   ];
 
   const displayedWorkspaces =
     portalWorkspaces.length > 0 ? portalWorkspaces : demoWorkspaces;
 
   const handleSelect = (w: Workspace) => {
+    if (w.kind === 'ADMIN') {
+      navigate('/admin');
+      return;
+    }
+    // Update active orgName so the portal views the selected org
+    if (w.orgName) {
+      updateOrgOnboarding({
+        orgName: w.orgName,
+        status: w.orgStatus === 'ACTIVE' ? 'APPROVED' : 'PENDING',
+      });
+    }
+
+    if (w.orgName?.includes('Sóng Việt')) {
+      if (w.orgStatus === 'PENDING') {
+        navigate('/org/onboarding?screen=o-kyc-pending&org=songviet');
+      } else {
+        navigate('/org/onboarding?screen=o-songviet-empty&org=songviet');
+      }
+      return;
+    }
+    if (w.orgStatus === 'PENDING') {
+      navigate('/org/onboarding?screen=o-kyc-pending');
+      return;
+    }
     if (portalWorkspaces.length > 0) {
       select.mutate(w);
     } else {
@@ -148,10 +229,10 @@ export function WorkspacePickerPage() {
           }}
         >
           {displayedWorkspaces.map((w, index) => {
-            const isPrimary = index === 0;
             const orgName = w.kind === 'ADMIN' ? 'Admin nền tảng' : w.orgName || 'Tổ chức không tên';
             const roleName = w.roles.length > 0 ? w.roles[0] : 'Owner';
-            const isVerified = w.orgStatus === 'ACTIVE' || index === 0;
+            const isVerified = w.orgStatus === 'ACTIVE';
+            const isPrimary = isVerified && w.kind === 'ORG';
 
             return (
               <div
@@ -222,7 +303,7 @@ export function WorkspacePickerPage() {
                 >
                   {select.isPending
                     ? 'Đang vào…'
-                    : isPrimary
+                    : isVerified && w.kind === 'ORG'
                     ? `Vào ${orgName}`
                     : `Mở workspace ${orgName}`}
                 </button>
@@ -250,7 +331,7 @@ export function WorkspacePickerPage() {
         {/* Action Button Below & Logout */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <button
-            onClick={() => alert('Chức năng tạo hồ sơ tổ chức mới đang được kết nối.')}
+            onClick={() => navigate('/org/onboarding')}
             className="btn btn-outline"
             style={{ fontSize: '14px' }}
           >

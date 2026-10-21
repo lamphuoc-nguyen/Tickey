@@ -1,631 +1,580 @@
-import { useState, type FormEvent } from 'react';
-import { ScanLine, Smartphone, Plus, Trash2, CheckCircle2, AlertTriangle, Layers } from 'lucide-react';
-import { useMockStore, type GateItem } from '../../lib/mock-store';
+import { useState } from 'react';
+import { useSearchParams } from 'react-router';
+import { Search } from 'lucide-react';
+import { useMockStore } from '../../lib/mock-store';
+import { useToast } from '../../components/common/ToastProvider';
+import {
+  FigmaPageHeader,
+  FigmaRecordInfoCard,
+  type FigmaScreenOption,
+} from '../../components/common/FigmaScreenPrimitives';
+
+const GATE_SCREENS: FigmaScreenOption[] = [
+  { id: 'o-gates', label: 'Cổng soát vé (Gates)' },
+  { id: 'o-gate-create', label: 'Tạo cổng soát vé mới' },
+  { id: 'o-gate-edit', label: 'Cấu hình cổng' },
+  { id: 'o-devices', label: 'Thiết bị quét vé (Devices)' },
+  { id: 'o-device-add', label: 'Đăng ký thiết bị mới' },
+  { id: 'o-device-revoke', label: 'Thu hồi phiên thiết bị' },
+];
 
 export function OrgGatesPage() {
-  const gates = useMockStore((state) => state.gates);
-  const staffList = useMockStore((state) => state.staffList);
-  const addGate = useMockStore((state) => state.addGate);
-  const removeGate = useMockStore((state) => state.removeGate);
-  const addDeviceToGate = useMockStore((state) => state.addDeviceToGate);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const {
+    state,
+    createGate,
+    updateGate,
+    createDevice,
+    revokeDevice,
+    reactivateDevice,
+  } = useMockStore();
+  const { showToast } = useToast();
 
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [gateName, setGateName] = useState('');
-  const [selectedZones, setSelectedZones] = useState<string[]>(['Khu VIP']);
-  const [expectedCount, setExpectedCount] = useState<number>(120);
-  const [initialDeviceName, setInitialDeviceName] = useState('Máy quét cầm tay POS');
-  const [initialDeviceStaff, setInitialDeviceStaff] = useState(staffList[0]?.name || 'Lê Minh Khoa');
+  const activeScreen = searchParams.get('screen') || 'o-gates';
+  const setScreen = (screen: string) => setSearchParams({ screen });
 
-  const [showAddDeviceModal, setShowAddDeviceModal] = useState<string | null>(null);
-  const [newDevName, setNewDevName] = useState('Điện thoại Staff Android');
-  const [newDevStaff, setNewDevStaff] = useState(staffList[0]?.name || 'Nguyễn Văn An');
+  const [search, setSearch] = useState('');
 
-  const [deleteConfirm, setDeleteConfirm] = useState<GateItem | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  // Gate form state
+  const [selectedGateId, setSelectedGateId] = useState('g-1');
+  const [gateCode, setGateCode] = useState('G1');
+  const [gateName, setGateName] = useState('Cổng chính G1 · Sảnh A');
+  const [gateTiers, setGateTiers] = useState('Standard, Vé Sinh viên 0đ');
+  const [gateStaff, setGateStaff] = useState('Trần Quốc Bảo');
+  const [isCreatingGate, setIsCreatingGate] = useState(false);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
+  // Device form state
+  const [newDeviceCode, setNewDeviceCode] = useState('DEV-G1-03');
+  const [newDeviceModel, setNewDeviceModel] = useState('Sunmi V2 Pro · Máy POS cầm tay');
+  const [newDeviceGate, setNewDeviceGate] = useState('G1');
+  const [newDeviceStaff, setNewDeviceStaff] = useState('Lê Minh Khoa');
 
-  const availableZones = [
-    'Khu VIP',
-    'Khu Standard (Hàng D - J)',
-    'Khu Balcony Tầng 2',
-    'Khu đứng (Standing)',
-    'Khu Khách mời (VVIP)',
-  ];
+  const [revokeDeviceId, setRevokeDeviceId] = useState('d-1');
+  const [revokeDeviceCode, setRevokeDeviceCode] = useState('DEV-G1-02 · iPhone 15 Pro');
+  const [revokeReason, setRevokeReason] = useState('Nhân sự đổi máy dự phòng tại cổng.');
 
-  const toggleZone = (z: string) => {
-    if (selectedZones.includes(z)) {
-      if (selectedZones.length > 1) {
-        setSelectedZones(selectedZones.filter((item) => item !== z));
-      }
-    } else {
-      setSelectedZones([...selectedZones, z]);
-    }
-  };
-
-  const handleAddGate = (e: FormEvent) => {
-    e.preventDefault();
-    if (!gateName.trim()) return;
-
-    addGate({
-      name: gateName,
-      zones: selectedZones,
-      totalExpected: Number(expectedCount) || 100,
-      devices: [
-        {
-          id: 'DEV-01',
-          name: initialDeviceName || 'Máy quét POS',
-          staff: initialDeviceStaff || 'Nhân viên phụ trách',
-          status: 'Online',
-        },
-      ],
-    });
-
-    setShowAddModal(false);
-    setGateName('');
-    setSelectedZones(['Khu VIP']);
-    setExpectedCount(120);
-    showToast(`Đã thiết lập cổng mới "${gateName}" thành công!`);
-  };
-
-  const handleAddDeviceSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!showAddDeviceModal) return;
-
-    addDeviceToGate(showAddDeviceModal, {
-      name: newDevName,
-      staff: newDevStaff,
-      status: 'Online',
-    });
-
-    showToast(`Đã liên kết thiết bị "${newDevName}" vào cổng thành công!`);
-    setShowAddDeviceModal(null);
-  };
-
-  const handleDeleteGate = (gate: GateItem) => {
-    removeGate(gate.id);
-    setDeleteConfirm(null);
-    showToast(`Đã xóa cổng "${gate.name}"!`);
-  };
+  const screenMeta = GATE_SCREENS.find((s) => s.id === activeScreen) || GATE_SCREENS[0];
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-      {/* Header */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '28px',
-          flexWrap: 'wrap',
-          gap: '16px',
-        }}
-      >
+    <div>
+      <FigmaPageHeader
+        overline="TICKEY / ORGANIZATION"
+        title={screenMeta.label}
+        screens={GATE_SCREENS}
+        activeScreen={activeScreen}
+        onSelectScreen={setScreen}
+      />
+
+      {/* 1. o-gates */}
+      {activeScreen === 'o-gates' && (
         <div>
-          <span className="tag-overline">VẬN HÀNH CHECK-IN</span>
-          <h1
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: '32px',
-              fontWeight: 700,
-              color: 'var(--text)',
-              margin: 0,
-            }}
-          >
-            Quản lý cổng vào & Thiết bị soát vé
-          </h1>
-          <p style={{ margin: '6px 0 0', fontSize: '14px', color: 'var(--muted)' }}>
-            Cấu hình phân luồng khán giả tại các cửa vào sự kiện, liên kết máy quét mã vạch và phân công người trực.
-          </p>
-        </div>
-
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="btn btn-primary"
-        >
-          <Plus size={18} />
-          <span>Thêm cổng mới</span>
-        </button>
-      </div>
-
-      {toastMessage && (
-        <div
-          style={{
-            padding: '12px 18px',
-            backgroundColor: 'var(--success-bg)',
-            color: 'var(--success)',
-            borderRadius: 'var(--radius-md)',
-            marginBottom: '20px',
-            fontSize: '14px',
-            fontWeight: 500,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}
-        >
-          <CheckCircle2 size={18} />
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
-      {/* Gates Cards */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        {gates.map((gate) => (
-          <div key={gate.id} className="card" style={{ padding: '24px 28px' }}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '16px',
-                flexWrap: 'wrap',
-                gap: '12px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                <div
-                  style={{
-                    width: '44px',
-                    height: '44px',
-                    borderRadius: '10px',
-                    backgroundColor: 'var(--primary-tint, rgba(0, 102, 204, 0.1))',
-                    color: 'var(--primary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <ScanLine size={24} />
-                </div>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <h3
-                      style={{
-                        fontFamily: 'var(--font-display)',
-                        fontSize: '19px',
-                        fontWeight: 700,
-                        margin: 0,
-                      }}
-                    >
-                      {gate.name}
-                    </h3>
-                    <span
-                      style={{
-                        fontSize: '11px',
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        backgroundColor: 'var(--bg)',
-                        border: '1px solid var(--border)',
-                        color: 'var(--muted)',
-                        fontWeight: 600,
-                      }}
-                    >
-                      {gate.id}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '13px', color: 'var(--muted)', marginTop: '4px' }}>
-                    Phân luồng vé: <strong>{gate.zones.join(' • ')}</strong>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Tiến độ soát vé</span>
-                  <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text)' }}>
-                    {gate.scannedCount} / {gate.totalExpected} khách
-                  </div>
-                </div>
-
-                <button
-                  className="btn btn-ghost"
-                  style={{ color: 'var(--danger, #dc2626)', padding: '6px 8px' }}
-                  title="Xóa cấu hình cổng"
-                  onClick={() => setDeleteConfirm(gate)}
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
-
-            {/* Progress Bar */}
-            <div
-              style={{
-                width: '100%',
-                height: '6px',
-                backgroundColor: 'var(--bg)',
-                borderRadius: '3px',
-                overflow: 'hidden',
-                marginBottom: '16px',
-              }}
-            >
-              <div
-                style={{
-                  width: `${Math.min(100, Math.round((gate.scannedCount / (gate.totalExpected || 1)) * 100))}%`,
-                  height: '100%',
-                  backgroundColor: 'var(--primary)',
-                  borderRadius: '3px',
-                }}
-              />
-            </div>
-
-            {/* Devices Connected */}
-            <div
-              style={{
-                backgroundColor: 'var(--bg)',
-                borderRadius: 'var(--radius-md)',
-                padding: '16px 20px',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginBottom: '12px',
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    color: 'var(--muted)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
-                  }}
-                >
-                  Thiết bị kết nối ({gate.devices.length})
-                </div>
-
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  style={{ fontSize: '11px', padding: '4px 10px', height: '28px' }}
-                  onClick={() => setShowAddDeviceModal(gate.id)}
-                >
-                  <Plus size={12} style={{ marginRight: '4px' }} />
-                  Gán thêm thiết bị
-                </button>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
-                {gate.devices.map((dev) => (
-                  <div
-                    key={dev.id}
-                    style={{
-                      backgroundColor: 'var(--surface)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '8px',
-                      padding: '12px 14px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <Smartphone size={16} color="var(--primary)" />
-                      <div>
-                        <div style={{ fontSize: '13px', fontWeight: 600 }}>{dev.name}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--muted)' }}>Phụ trách: {dev.staff}</div>
-                      </div>
-                    </div>
-                    <span className="badge badge-success" style={{ fontSize: '11px', padding: '2px 8px' }}>
-                      {dev.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Add Gate Modal */}
-      {showAddModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-            padding: '20px',
-          }}
-        >
           <div
-            className="card"
             style={{
-              width: '100%',
-              maxWidth: '520px',
-              backgroundColor: 'var(--surface)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              marginBottom: 16,
+              flexWrap: 'wrap',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Layers size={20} color="var(--primary)" />
-                <h2
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ position: 'relative', width: 320 }}>
+                <Search
+                  size={15}
                   style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: '20px',
-                    fontWeight: 700,
-                    margin: 0,
+                    position: 'absolute',
+                    left: 12,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--muted)',
                   }}
-                >
-                  Thêm cấu hình cổng mới
-                </h2>
+                />
+                <input
+                  className="form-input"
+                  style={{ paddingLeft: 34 }}
+                  placeholder="Tìm theo tên, mã, email..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
               </div>
               <button
                 type="button"
-                onClick={() => setShowAddModal(false)}
-                className="btn-ghost"
-                style={{ border: 'none', background: 'none', fontSize: '18px', cursor: 'pointer' }}
+                className="btn btn-secondary"
+                onClick={() => setScreen('o-devices')}
               >
-                ✕
+                Thiết bị quét vé
               </button>
             </div>
-            <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '20px' }}>
-              Thiết lập cổng kiểm soát vé vào khán phòng và gán luồng vé hợp lệ.
-            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => showToast('Đã xuất cấu hình cổng ra CSV.', 'success')}
+              >
+                Xuất CSV
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  setIsCreatingGate(true);
+                  setSelectedGateId('');
+                  const nextNum = state.gates.length + 1;
+                  setGateCode(`G${nextNum}`);
+                  setGateName(`Cổng G${nextNum} · Lối vào`);
+                  setGateTiers('Tất cả hạng vé');
+                  setGateStaff(state.members[0]?.name || 'Chưa gán');
+                  setScreen('o-gate-create');
+                }}
+              >
+                + Tạo cổng mới
+              </button>
+            </div>
+          </div>
 
-            <form onSubmit={handleAddGate} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700 }}>
+                Tất cả danh sách
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                {state.gates.length} bản ghi
+              </div>
+            </div>
+            <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>MÃ CỔNG</th>
+                    <th>TÊN CỔNG</th>
+                    <th>HẠNG VÉ CHO PHÉP</th>
+                    <th>THIẾT BỊ KẾT NỐI</th>
+                    <th>TRẠNG THÁI</th>
+                    <th>THAO TÁC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.gates.map((g) => (
+                    <tr key={g.id}>
+                      <td style={{ fontWeight: 700 }}>{g.code}</td>
+                      <td>{g.name}</td>
+                      <td>{g.allowedTiers}</td>
+                      <td>{g.devicesCount || 0} thiết bị</td>
+                      <td>
+                        <span className="badge badge-success">Hoạt động</span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsCreatingGate(false);
+                            setSelectedGateId(g.id);
+                            setGateCode(g.code);
+                            setGateName(g.name);
+                            setGateTiers(g.allowedTiers);
+                            setGateStaff(state.members[0]?.name || 'Lê Minh Khoa');
+                            setScreen('o-gate-edit');
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--primary)',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Cấu hình →
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. o-gate-create & o-gate-edit */}
+      {(activeScreen === 'o-gate-create' || activeScreen === 'o-gate-edit' || activeScreen === 'o-gate-g2') && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 18, alignItems: 'start' }}>
+          <div className="card" style={{ padding: 22 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}>
+              {isCreatingGate ? 'Tạo mới cổng soát vé' : `Cấu hình chi tiết · Cổng ${gateCode}`}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Tên cổng & Vị trí *
-                </label>
+                <label className="form-label">Mã cổng</label>
                 <input
-                  type="text"
-                  placeholder="VD: Cổng phụ G3 · Sảnh Tây (Khu VIP)"
+                  className="form-input"
+                  placeholder="Ví dụ: G1, G2, G3, Cổng VIP, Cổng Đông..."
+                  value={gateCode}
+                  onChange={(e) => setGateCode(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="form-label">Tên cổng soát vé</label>
+                <input
+                  className="form-input"
+                  placeholder="Ví dụ: Cổng chính G3 · Khán đài B, Cổng check-in Fanzone..."
                   value={gateName}
                   onChange={(e) => setGateName(e.target.value)}
-                  required
-                  style={{ width: '100%', height: '40px', padding: '0 12px' }}
                 />
               </div>
-
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Phân luồng loại vé cho phép qua cổng này:
-                </label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {availableZones.map((z) => {
-                    const isSelected = selectedZones.includes(z);
-                    return (
-                      <button
-                        type="button"
-                        key={z}
-                        onClick={() => toggleZone(z)}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '20px',
-                          border: isSelected ? '1px solid var(--primary)' : '1px solid var(--border)',
-                          backgroundColor: isSelected ? 'var(--primary-tint, rgba(0, 102, 204, 0.1))' : 'var(--bg)',
-                          color: isSelected ? 'var(--primary)' : 'var(--text)',
-                          fontSize: '12px',
-                          fontWeight: isSelected ? 600 : 400,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {isSelected ? '✓ ' : '+ '} {z}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                    Số khách dự kiến
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={expectedCount}
-                    onChange={(e) => setExpectedCount(Number(e.target.value))}
-                    style={{ width: '100%', height: '40px', padding: '0 12px' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                    Nhân viên phụ trách ban đầu
-                  </label>
-                  <select
-                    value={initialDeviceStaff}
-                    onChange={(e) => setInitialDeviceStaff(e.target.value)}
-                    style={{ width: '100%', height: '40px', padding: '0 12px' }}
-                  >
-                    {staffList.map((stf) => (
-                      <option key={stf.id} value={stf.name}>
-                        {stf.name} ({stf.role})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Tên thiết bị soát vé đầu tiên
-                </label>
+                <label className="form-label">Hạng vé được phép qua cổng</label>
                 <input
-                  type="text"
-                  placeholder="VD: Máy quét Sunmi POS-04"
-                  value={initialDeviceName}
-                  onChange={(e) => setInitialDeviceName(e.target.value)}
-                  style={{ width: '100%', height: '40px', padding: '0 12px' }}
+                  className="form-input"
+                  placeholder="Ví dụ: Standard, VIP, Vé mời COMP hoặc Tất cả hạng vé"
+                  value={gateTiers}
+                  onChange={(e) => setGateTiers(e.target.value)}
                 />
               </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  gap: '12px',
-                  marginTop: '12px',
-                }}
-              >
+              <div>
+                <label className="form-label">Nhân sự phụ trách chính</label>
+                <select
+                  className="form-input"
+                  value={gateStaff}
+                  onChange={(e) => setGateStaff(e.target.value)}
+                >
+                  {state.members.map((m) => (
+                    <option key={m.id} value={m.name}>
+                      {m.name} ({m.role})
+                    </option>
+                  ))}
+                  {state.members.length === 0 && <option value="Chưa gán">Chưa gán nhân sự</option>}
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                {isCreatingGate ? (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => {
+                      if (!gateName.trim()) {
+                        showToast('Vui lòng nhập tên cổng soát vé.', 'warning');
+                        return;
+                      }
+                      createGate({
+                        code: gateCode.trim() || `G${state.gates.length + 1}`,
+                        name: gateName.trim(),
+                        allowedTiers: gateTiers.trim() || 'Tất cả hạng vé',
+                      });
+                      showToast(`Đã tạo thành công cổng soát vé ${gateCode} - ${gateName}.`, 'success');
+                      setScreen('o-gates');
+                    }}
+                  >
+                    Tạo cổng mới
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => {
+                      updateGate(selectedGateId || 'g-1', {
+                        name: gateName,
+                        allowedTiers: gateTiers,
+                      });
+                      showToast(`Đã lưu cấu hình cổng ${gateCode}.`, 'success');
+                      setScreen('o-gates');
+                    }}
+                  >
+                    Lưu cấu hình cổng
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="btn btn-outline"
+                  className="btn btn-secondary"
+                  onClick={() => setScreen('o-gates')}
                 >
-                  Hủy
+                  Quay lại
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  <Plus size={16} />
-                  Tạo cổng mới
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setScreen('o-devices')}
+                >
+                  Xem thiết bị
                 </button>
               </div>
-            </form>
+            </div>
+          </div>
+          <FigmaRecordInfoCard />
+        </div>
+      )}
+
+      {/* 3. o-devices: Danh sách thiết bị */}
+      {activeScreen === 'o-devices' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setScreen('o-gates')}
+              >
+                ← Danh sách cổng
+              </button>
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                const nextNum = state.devices.length + 1;
+                setNewDeviceCode(`DEV-G1-0${nextNum}`);
+                setNewDeviceModel('Sunmi V2 Pro · Máy POS cầm tay');
+                setNewDeviceGate(state.gates[0]?.code || 'G1');
+                setNewDeviceStaff(state.members[0]?.name || 'Lê Minh Khoa');
+                setScreen('o-device-add');
+              }}
+            >
+              + Đăng ký thiết bị mới
+            </button>
+          </div>
+
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700 }}>
+                Thiết bị đang đăng nhập ứng dụng Staff Check-in
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                {state.devices.length} bản ghi
+              </div>
+            </div>
+            <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>MÃ THIẾT BỊ</th>
+                    <th>TÊN MÁY</th>
+                    <th>CỔNG GÁN</th>
+                    <th>NHÂN SỰ</th>
+                    <th>TRẠNG THÁI</th>
+                    <th>THAO TÁC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.devices.map((d) => (
+                    <tr key={d.id}>
+                      <td style={{ fontWeight: 700 }}>{d.code}</td>
+                      <td>{d.model}</td>
+                      <td>
+                        <span className="badge badge-secondary">{d.gateCode}</span>
+                      </td>
+                      <td>{d.staffName}</td>
+                      <td>
+                        <span
+                          className={`badge ${
+                            d.status === 'ONLINE' ? 'badge-success' : 'badge-danger'
+                          }`}
+                        >
+                          {d.status === 'ONLINE' ? 'Trực tuyến' : 'Đã thu hồi'}
+                        </span>
+                      </td>
+                      <td>
+                        {d.status === 'ONLINE' ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRevokeDeviceId(d.id);
+                              setRevokeDeviceCode(`${d.code} · ${d.model}`);
+                              setScreen('o-device-revoke');
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--danger)',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Thu hồi phiên
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              reactivateDevice(d.id);
+                              showToast(`Đã kết nối lại thiết bị ${d.code}.`, 'success');
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--primary)',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Kết nối lại →
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Add Device Modal */}
-      {showAddDeviceModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-            padding: '20px',
-          }}
-        >
-          <div
-            className="card"
-            style={{
-              width: '100%',
-              maxWidth: '440px',
-              backgroundColor: 'var(--surface)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <h2
-                style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: '19px',
-                  fontWeight: 700,
-                  margin: 0,
-                }}
-              >
-                Gán thiết bị cho cổng {showAddDeviceModal}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setShowAddDeviceModal(null)}
-                className="btn-ghost"
-                style={{ border: 'none', background: 'none', fontSize: '18px', cursor: 'pointer' }}
-              >
-                ✕
-              </button>
+      {/* 4. o-device-add: Đăng ký thiết bị mới */}
+      {activeScreen === 'o-device-add' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 18, alignItems: 'start' }}>
+          <div className="card" style={{ padding: 22 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}>
+              Đăng ký thiết bị quét vé Check-in mới
             </div>
-
-            <form onSubmit={handleAddDeviceSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Tên thiết bị *
-                </label>
+                <label className="form-label">Mã định danh thiết bị</label>
                 <input
-                  type="text"
-                  placeholder="VD: Điện thoại Samsung Galaxy A15 (Staff)"
-                  value={newDevName}
-                  onChange={(e) => setNewDevName(e.target.value)}
-                  required
-                  style={{ width: '100%', height: '40px', padding: '0 12px' }}
+                  className="form-input"
+                  placeholder="Ví dụ: DEV-G1-03, POS-01..."
+                  value={newDeviceCode}
+                  onChange={(e) => setNewDeviceCode(e.target.value)}
                 />
               </div>
-
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Nhân viên sử dụng
-                </label>
+                <label className="form-label">Tên dòng máy / Model</label>
                 <select
-                  value={newDevStaff}
-                  onChange={(e) => setNewDevStaff(e.target.value)}
-                  style={{ width: '100%', height: '40px', padding: '0 12px' }}
+                  className="form-input"
+                  value={newDeviceModel}
+                  onChange={(e) => setNewDeviceModel(e.target.value)}
                 >
-                  {staffList.map((stf) => (
-                    <option key={stf.id} value={stf.name}>
-                      {stf.name} ({stf.role})
+                  <option value="Sunmi V2 Pro · Máy POS cầm tay">Sunmi V2 Pro · Máy POS cầm tay</option>
+                  <option value="iPad 10 Scanner · Máy tính bảng quầy">iPad 10 Scanner · Máy tính bảng quầy</option>
+                  <option value="iPhone 15 Pro · Mobile Check-in">iPhone 15 Pro · Mobile Check-in</option>
+                  <option value="Samsung Galaxy A54 · PDA chuyên dụng">Samsung Galaxy A54 · PDA chuyên dụng</option>
+                  <option value="Đầu đọc mã QR cố định tại Barrier">Đầu đọc mã QR cố định tại Barrier</option>
+                </select>
+              </div>
+              <div>
+                <label className="form-label">Cổng soát vé được gán</label>
+                <select
+                  className="form-input"
+                  value={newDeviceGate}
+                  onChange={(e) => setNewDeviceGate(e.target.value)}
+                >
+                  {state.gates.map((g) => (
+                    <option key={g.id} value={g.code}>
+                      {g.code} · {g.name}
                     </option>
                   ))}
                 </select>
               </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
+              <div>
+                <label className="form-label">Nhân sự phụ trách cầm máy</label>
+                <select
+                  className="form-input"
+                  value={newDeviceStaff}
+                  onChange={(e) => setNewDeviceStaff(e.target.value)}
+                >
+                  {state.members.map((m) => (
+                    <option key={m.id} value={m.name}>
+                      {m.name} ({m.role})
+                    </option>
+                  ))}
+                  {state.members.length === 0 && <option value="Chưa gán">Chưa gán nhân sự</option>}
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
                 <button
                   type="button"
-                  onClick={() => setShowAddDeviceModal(null)}
-                  className="btn btn-outline"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    createDevice({
+                      code: newDeviceCode.trim() || `DEV-${Date.now()}`,
+                      model: newDeviceModel,
+                      gateCode: newDeviceGate,
+                      staffName: newDeviceStaff,
+                    });
+                    showToast(`Đã kích hoạt thiết bị ${newDeviceCode} kết nối cổng ${newDeviceGate}.`, 'success');
+                    setScreen('o-devices');
+                  }}
+                >
+                  Kích hoạt & gán thiết bị
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setScreen('o-devices')}
                 >
                   Hủy
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  Kết nối thiết bị
-                </button>
               </div>
-            </form>
+            </div>
           </div>
+          <FigmaRecordInfoCard />
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {deleteConfirm && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 110,
-            padding: '20px',
-          }}
-        >
-          <div
-            className="card"
-            style={{
-              width: '100%',
-              maxWidth: '440px',
-              backgroundColor: 'var(--surface)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px', color: 'var(--danger, #dc2626)' }}>
-              <AlertTriangle size={24} />
-              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Xác nhận xóa cổng vào</h3>
+      {/* 5. o-device-revoke: Thu hồi phiên thiết bị */}
+      {activeScreen === 'o-device-revoke' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 18, alignItems: 'start' }}>
+          <div className="card" style={{ padding: 22 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}>
+              Thông tin chi tiết · Thu hồi phiên thiết bị
             </div>
-            <p style={{ fontSize: '14px', color: 'var(--text)', lineHeight: 1.5, margin: '0 0 20px' }}>
-              Bạn có chắc chắn muốn xóa cấu hình <strong>{deleteConfirm.name}</strong>? Các thiết bị liên kết với cổng này sẽ bị ngắt kết nối.
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-              <button
-                type="button"
-                className="btn btn-outline"
-                onClick={() => setDeleteConfirm(null)}
-              >
-                Hủy bỏ
-              </button>
-              <button
-                type="button"
-                className="btn btn-danger"
-                style={{ backgroundColor: 'var(--danger, #dc2626)', color: '#fff', border: 'none' }}
-                onClick={() => handleDeleteGate(deleteConfirm)}
-              >
-                Xác nhận xóa
-              </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label className="form-label">Thiết bị thu hồi</label>
+                <input
+                  className="form-input"
+                  disabled
+                  value={revokeDeviceCode}
+                  onChange={(e) => setRevokeDeviceCode(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="form-label">Lý do thu hồi phiên</label>
+                <input
+                  className="form-input"
+                  placeholder="Nhập lý do thu hồi máy (ví dụ: Hết ca trực, Đổi máy dự phòng...)"
+                  value={revokeReason}
+                  onChange={(e) => setRevokeReason(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    revokeDevice(revokeDeviceId);
+                    showToast(`Đã ngắt phiên đăng nhập của ${revokeDeviceCode}.`, 'warning');
+                    setScreen('o-devices');
+                  }}
+                >
+                  Xác nhận thu hồi thiết bị
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setScreen('o-devices')}
+                >
+                  Hủy
+                </button>
+              </div>
             </div>
           </div>
+          <FigmaRecordInfoCard />
         </div>
       )}
     </div>

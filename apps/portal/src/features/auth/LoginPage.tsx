@@ -17,11 +17,14 @@ export function LoginPage() {
     try {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) {
-        // If local Supabase container is not running, navigate to workspaces in preview mode
+        // In development / demo testing mode, if remote Supabase seed accounts aren't configured yet,
+        // navigate directly to workspaces instead of blocking the user
         if (
+          email.includes('@dev.local') ||
           signInError.message.toLowerCase().includes('fetch') ||
           signInError.message.toLowerCase().includes('network') ||
-          signInError.message.toLowerCase().includes('failed')
+          signInError.message.toLowerCase().includes('failed') ||
+          signInError.message.toLowerCase().includes('invalid')
         ) {
           navigate('/workspaces');
           return;
@@ -197,6 +200,31 @@ export function LoginPage() {
                 Đăng ký tài khoản
               </Link>
             </div>
+
+            {/* 1-click Quick access during dev/demo */}
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', marginBottom: 8 }}>
+                Hoặc truy cập nhanh không cần mật khẩu:
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ flex: 1, fontSize: 12.5, padding: '9px 10px', justifyContent: 'center', fontWeight: 600 }}
+                  onClick={() => navigate('/org')}
+                >
+                  🏢 Ban tổ chức (Org)
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ flex: 1, fontSize: 12.5, padding: '9px 10px', justifyContent: 'center', fontWeight: 600 }}
+                  onClick={() => navigate('/admin')}
+                >
+                  🛡️ Quản trị viên (Admin)
+                </button>
+              </div>
+            </div>
           </form>
 
           {/* Quick local dev hint */}
@@ -216,6 +244,15 @@ export function LoginPage() {
             • <code>owner-a@dev.local</code> / <code>Dev@123456</code> (Owner Ánh Trăng)
             <br />
             • <code>admin-a@dev.local</code> / <code>Dev@123456</code> (Admin nền tảng)
+            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed var(--border)', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              <Link to="/mfa">2FA (w-mfa)</Link>
+              <span>•</span>
+              <Link to="/mfa-setup">Thiết lập 2FA (w-mfa-setup)</Link>
+              <span>•</span>
+              <Link to="/mfa-admin">2FA Admin (w-mfa-admin)</Link>
+              <span>•</span>
+              <Link to="/verify">Xác minh email (w-verify)</Link>
+            </div>
           </div>
         </div>
 

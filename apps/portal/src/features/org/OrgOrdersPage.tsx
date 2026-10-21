@@ -1,473 +1,621 @@
-import { useState, type FormEvent } from 'react';
-import { Search, Filter, Download, CheckCircle2, Ticket, Mail, Gift } from 'lucide-react';
-import { useMockStore, exportToCsv } from '../../lib/mock-store';
+import { useState } from 'react';
+import { useSearchParams } from 'react-router';
+import { CheckCircle2, Search } from 'lucide-react';
+import { useMockStore } from '../../lib/mock-store';
+import { useToast } from '../../components/common/ToastProvider';
+import { DocumentPreviewModal } from '../../components/common/DocumentPreviewModal';
+import {
+  FigmaPageHeader,
+  FigmaNavyContextBanner,
+  FigmaContextGrid,
+  FigmaDocumentRow,
+  FigmaEventPreviewCard,
+  type FigmaScreenOption,
+} from '../../components/common/FigmaScreenPrimitives';
+
+const ORDER_SCREENS: FigmaScreenOption[] = [
+  { id: 'o-orders', label: 'Đơn vé khách hàng' },
+  { id: 'o-order-detail', label: 'Chi tiết đơn vé · TK-1024' },
+  { id: 'o-comp', label: 'Danh sách vé mời (COMP)' },
+  { id: 'o-comp-create', label: 'Phát hành vé mời lẻ' },
+  { id: 'o-comp-import', label: 'Nhập danh sách COMP từ CSV' },
+  { id: 'o-comp-import-review', label: 'Kiểm tra danh sách CSV' },
+  { id: 'o-comp-import-confirm', label: 'Xác nhận phát hành hàng loạt' },
+  { id: 'o-comp-result', label: 'Đã phát hành vé mời COMP' },
+];
 
 export function OrgOrdersPage() {
-  const orders = useMockStore((state) => state.orders);
-  const issueCompTicket = useMockStore((state) => state.issueCompTicket);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { state, issueCompTicket, importCompCsv } = useMockStore();
+  const { showToast } = useToast();
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedEventFilter, setSelectedEventFilter] = useState('ALL');
+  const activeScreen = searchParams.get('screen') || 'o-orders';
+  const setScreen = (screen: string) => setSearchParams({ screen });
 
-  const [showCompModal, setShowCompModal] = useState(false);
-  const [compCustomer, setCompCustomer] = useState('');
-  const [compEmail, setCompEmail] = useState('');
-  const [compEvent, setCompEvent] = useState('Đêm nhạc Mùa Thu (Đêm 1)');
-  const [compTier, setCompTier] = useState('Vé mời Ban Tổ Chức (VVIP)');
-  const [compQuantity, setCompQuantity] = useState(2);
-  const [compNote, setCompNote] = useState('Khách mời danh dự');
-  const [sendEmailImmediately, setSendEmailImmediately] = useState(true);
+  const [search, setSearch] = useState('');
+  const [previewDoc, setPreviewDoc] = useState<string | null>(null);
 
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [compGuest, setCompGuest] = useState('Nguyễn Hoàng Yến');
+  const [compEmail, setCompEmail] = useState('yen.nguyen@partner.vn');
+  const [compSeat, setCompSeat] = useState('G04 (Hàng G · COMP)');
+  const [compNote, setCompNote] = useState('Đại diện truyền thông báo chí');
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 4000);
-  };
+  const [csvFile, setCsvFile] = useState('DanhSach_KhachMoi_DemNhacMuaThu.csv (12 khách)');
 
-  const handleIssueComp = (e: FormEvent) => {
-    e.preventDefault();
-    if (!compCustomer || !compEmail) return;
-
-    const newOrder = issueCompTicket({
-      customer: compCustomer,
-      email: compEmail,
-      event: compEvent,
-      tier: compTier,
-      quantity: Number(compQuantity) || 1,
-      note: compNote,
-    });
-
-    setShowCompModal(false);
-    setCompCustomer('');
-    setCompEmail('');
-    setCompQuantity(2);
-    setCompNote('Khách mời danh dự');
-
-    showToast(
-      `Đã cấp thành công ${newOrder.quantity} vé mời (COMP) mã ${newOrder.id} cho ${newOrder.customer}! ${
-        sendEmailImmediately ? 'Mã QR đã được gửi về email.' : ''
-      }`
-    );
-  };
-
-  const handleExportExcel = () => {
-    const headers = [
-      'Mã đơn hàng',
-      'Khách hàng',
-      'Email',
-      'Sự kiện',
-      'Hạng vé',
-      'Số lượng',
-      'Tổng tiền',
-      'Phương thức thanh toán',
-      'Thời gian mua',
-      'Trạng thái',
-    ];
-
-    const rows = filteredOrders.map((ord) => [
-      ord.id,
-      ord.customer,
-      ord.email,
-      ord.event,
-      ord.tier,
-      ord.quantity,
-      ord.total,
-      ord.paymentMethod,
-      ord.time,
-      ord.status,
-    ]);
-
-    exportToCsv(`Tickey_Danh_Sach_Don_Ve_${new Date().toISOString().slice(0, 10)}`, headers, rows);
-    showToast(`Đã xuất file Excel/CSV thành công với ${rows.length} đơn hàng!`);
-  };
-
-  const filteredOrders = orders.filter((o) => {
-    const matchSearch =
-      o.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      o.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      o.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      o.event.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchEvent = selectedEventFilter === 'ALL' || o.event.includes(selectedEventFilter);
-
-    return matchSearch && matchEvent;
-  });
+  const screenMeta = ORDER_SCREENS.find((s) => s.id === activeScreen) || ORDER_SCREENS[0];
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-      {/* Header */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '28px',
-          flexWrap: 'wrap',
-          gap: '16px',
-        }}
-      >
+    <div>
+      <FigmaPageHeader
+        overline="TICKEY / ORGANIZATION"
+        title={screenMeta.label}
+        screens={ORDER_SCREENS}
+        activeScreen={activeScreen}
+        onSelectScreen={setScreen}
+      />
+
+      {/* 1. o-orders */}
+      {activeScreen === 'o-orders' && (
         <div>
-          <span className="tag-overline">ĐƠN HÀNG & PHÁT HÀNH VÉ</span>
-          <h1
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: '32px',
-              fontWeight: 700,
-              color: 'var(--text)',
-              margin: 0,
-            }}
-          >
-            Đơn vé & Vé mời (COMP)
-          </h1>
-          <p style={{ margin: '6px 0 0', fontSize: '14px', color: 'var(--muted)' }}>
-            Theo dõi danh sách người mua vé, cấp phát vé mời ngoại giao và xuất báo cáo bán vé ra Excel.
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button
-            onClick={() => setShowCompModal(true)}
-            className="btn btn-primary"
-          >
-            <Gift size={16} />
-            <span>Cấp vé mời (COMP)</span>
-          </button>
-          <button
-            onClick={handleExportExcel}
-            className="btn btn-outline"
-          >
-            <Download size={16} />
-            <span>Xuất file Excel</span>
-          </button>
-        </div>
-      </div>
-
-      {toastMessage && (
-        <div
-          style={{
-            padding: '12px 18px',
-            backgroundColor: 'var(--success-bg)',
-            color: 'var(--success)',
-            borderRadius: 'var(--radius-md)',
-            marginBottom: '20px',
-            fontSize: '14px',
-            fontWeight: 500,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}
-        >
-          <CheckCircle2 size={18} />
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
-      {/* Filter and Search Bar */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div
-          style={{
-            padding: '16px 20px',
-            borderBottom: '1px solid var(--border)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '16px',
-            flexWrap: 'wrap',
-          }}
-        >
-          <div style={{ position: 'relative', maxWidth: '360px', width: '100%' }}>
-            <Search
-              size={16}
-              color="var(--muted)"
-              style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }}
-            />
-            <input
-              type="text"
-              placeholder="Tìm theo mã đơn TK-..., khách hàng, email…"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ paddingLeft: '36px', height: '38px', fontSize: '13px', width: '100%' }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <Filter size={14} color="var(--muted)" />
-            <select
-              value={selectedEventFilter}
-              onChange={(e) => setSelectedEventFilter(e.target.value)}
-              style={{ height: '38px', fontSize: '13px', padding: '0 12px' }}
-            >
-              <option value="ALL">Tất cả sự kiện</option>
-              <option value="Đêm nhạc Mùa Thu (Đêm 1)">Đêm nhạc Mùa Thu (Đêm 1)</option>
-              <option value="Đêm nhạc Mùa Thu (Đêm 2)">Đêm nhạc Mùa Thu (Đêm 2)</option>
-              <option value="Hòa Nhạc Acoustic">Hòa Nhạc Acoustic Bên Sông</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Orders Table */}
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)', backgroundColor: 'var(--bg)' }}>
-                <th style={{ padding: '14px 20px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                  Mã đơn
-                </th>
-                <th style={{ padding: '14px 20px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                  Khách hàng
-                </th>
-                <th style={{ padding: '14px 20px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                  Sự kiện & Hạng vé
-                </th>
-                <th style={{ padding: '14px 20px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                  Số lượng
-                </th>
-                <th style={{ padding: '14px 20px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                  Tổng tiền
-                </th>
-                <th style={{ padding: '14px 20px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                  Hình thức
-                </th>
-                <th style={{ padding: '14px 20px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                  Trạng thái
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredOrders.map((ord) => (
-                <tr key={ord.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                  <td style={{ padding: '16px 20px', fontSize: '13px', fontWeight: 700, color: 'var(--primary)', fontFamily: 'monospace' }}>
-                    {ord.id}
-                  </td>
-                  <td style={{ padding: '16px 20px' }}>
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>
-                      {ord.customer}
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{ord.email}</div>
-                  </td>
-                  <td style={{ padding: '16px 20px' }}>
-                    <div style={{ fontSize: '13px', color: 'var(--text)', fontWeight: 500 }}>
-                      {ord.event}
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{ord.tier}</div>
-                  </td>
-                  <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 600 }}>
-                    {ord.quantity} vé
-                  </td>
-                  <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 700, color: 'var(--text)' }}>
-                    {ord.total}
-                  </td>
-                  <td style={{ padding: '16px 20px', fontSize: '12px', color: 'var(--muted)' }}>
-                    {ord.paymentMethod}
-                  </td>
-                  <td style={{ padding: '16px 20px' }}>
-                    <span
-                      className={`badge ${
-                        ord.total === '0đ' || ord.status === 'Đã cấp vé'
-                          ? 'badge-info'
-                          : 'badge-success'
-                      }`}
-                    >
-                      {ord.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div
-          style={{
-            padding: '12px 24px',
-            fontSize: '12px',
-            color: 'var(--muted)',
-            backgroundColor: 'var(--bg)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <span>Hiển thị {filteredOrders.length} / {orders.length} đơn hàng</span>
-          <span>Cập nhật theo thời gian thực</span>
-        </div>
-      </div>
-
-      {/* Issue Comp Modal */}
-      {showCompModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-            padding: '20px',
-          }}
-        >
           <div
-            className="card"
             style={{
-              width: '100%',
-              maxWidth: '520px',
-              backgroundColor: 'var(--surface)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              marginBottom: 16,
+              flexWrap: 'wrap',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Ticket size={22} color="var(--primary)" />
-                <h2
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ position: 'relative', width: 320 }}>
+                <Search
+                  size={15}
                   style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: '20px',
-                    fontWeight: 700,
-                    margin: 0,
+                    position: 'absolute',
+                    left: 12,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--muted)',
                   }}
-                >
-                  Cấp vé mời ngoại giao (COMP)
-                </h2>
+                />
+                <input
+                  className="form-input"
+                  style={{ paddingLeft: 34 }}
+                  placeholder="Tìm theo tên, mã, email..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
               </div>
               <button
                 type="button"
-                onClick={() => setShowCompModal(false)}
-                className="btn-ghost"
-                style={{ border: 'none', background: 'none', fontSize: '18px', cursor: 'pointer' }}
+                className="btn btn-secondary"
+                onClick={() => setScreen('o-comp')}
               >
-                ✕
+                Vé mời (COMP)
               </button>
             </div>
-            <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '20px' }}>
-              Vé mời (Complimentary) có giá 0đ, được cấp cho nhà tài trợ, báo chí hoặc đại biểu danh dự.
-            </p>
-
-            <form onSubmit={handleIssueComp} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Họ tên cá nhân / Tổ chức nhận vé *
-                </label>
-                <input
-                  type="text"
-                  placeholder="VD: Nhà báo Nguyễn Lan Hương (VTV3)"
-                  value={compCustomer}
-                  onChange={(e) => setCompCustomer(e.target.value)}
-                  required
-                  style={{ width: '100%', height: '40px', padding: '0 12px' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Email nhận vé điện tử QR *
-                </label>
-                <input
-                  type="email"
-                  placeholder="lanhuong.vtv@gmail.com"
-                  value={compEmail}
-                  onChange={(e) => setCompEmail(e.target.value)}
-                  required
-                  style={{ width: '100%', height: '40px', padding: '0 12px' }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                    Suất diễn
-                  </label>
-                  <select
-                    value={compEvent}
-                    onChange={(e) => setCompEvent(e.target.value)}
-                    style={{ width: '100%', height: '40px', padding: '0 12px' }}
-                  >
-                    <option value="Đêm nhạc Mùa Thu (Đêm 1)">Đêm nhạc Mùa Thu (Đêm 1)</option>
-                    <option value="Đêm nhạc Mùa Thu (Đêm 2)">Đêm nhạc Mùa Thu (Đêm 2)</option>
-                    <option value="Hòa Nhạc Acoustic Bên Sông">Hòa Nhạc Acoustic Bên Sông</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                    Số lượng vé mời
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={compQuantity}
-                    onChange={(e) => setCompQuantity(Number(e.target.value))}
-                    required
-                    style={{ width: '100%', height: '40px', padding: '0 12px' }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Hạng vé cấp
-                </label>
-                <select
-                  value={compTier}
-                  onChange={(e) => setCompTier(e.target.value)}
-                  style={{ width: '100%', height: '40px', padding: '0 12px' }}
-                >
-                  <option value="Vé mời Ban Tổ Chức (VVIP)">Vé mời Ban Tổ Chức (VVIP - Khu vực danh dự)</option>
-                  <option value="Khu VIP · Hàng A">Khu VIP · Hàng A</option>
-                  <option value="Khu Standard · Hàng D">Khu Standard · Hàng D</option>
-                  <option value="Khu Đứng Standing">Khu Đứng (Standing)</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Ghi chú mục đích cấp
-                </label>
-                <input
-                  type="text"
-                  placeholder="VD: Tài trợ Vàng, Khách mời Sở VHTT, Báo chí..."
-                  value={compNote}
-                  onChange={(e) => setCompNote(e.target.value)}
-                  style={{ width: '100%', height: '40px', padding: '0 12px' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                <input
-                  type="checkbox"
-                  id="sendEmail"
-                  checked={sendEmailImmediately}
-                  onChange={(e) => setSendEmailImmediately(e.target.checked)}
-                />
-                <label htmlFor="sendEmail" style={{ fontSize: '13px', cursor: 'pointer', margin: 0 }}>
-                  Gửi email tự động kèm vé QR Code cho người nhận ngay bây giờ
-                </label>
-              </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  gap: '12px',
-                  marginTop: '12px',
-                }}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => showToast('Đã xuất danh sách đơn vé ra CSV.', 'success')}
               >
-                <button
-                  type="button"
-                  onClick={() => setShowCompModal(false)}
-                  className="btn btn-outline"
-                >
-                  Hủy
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  <Mail size={16} />
-                  Xác nhận cấp vé mời
-                </button>
+                Xuất CSV
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setScreen('o-comp-create')}
+              >
+                + Phát hành COMP
+              </button>
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700 }}>
+                Tất cả danh sách
               </div>
-            </form>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                {state.orders.length} bản ghi
+              </div>
+            </div>
+            <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>MÃ ĐƠN</th>
+                    <th>KHÁCH HÀNG</th>
+                    <th>SUẤT DIỄN</th>
+                    <th>GHẾ / HẠNG</th>
+                    <th>TỔNG TIỀN</th>
+                    <th>TRẠNG THÁI</th>
+                    <th>THAO TÁC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.orders.map((o) => (
+                    <tr key={o.id}>
+                      <td style={{ fontWeight: 700 }}>{o.code}</td>
+                      <td>{o.customerName}</td>
+                      <td>{o.sessionName}</td>
+                      <td>{o.seats}</td>
+                      <td>{o.total}</td>
+                      <td>
+                        <span
+                          className={`badge ${
+                            o.status === 'PAID'
+                              ? 'badge-success'
+                              : o.status === 'COMP'
+                                ? 'badge-info'
+                                : 'badge-warning'
+                          }`}
+                        >
+                          {o.status === 'PAID'
+                            ? 'Đã thanh toán'
+                            : o.status === 'COMP'
+                              ? 'Vé mời COMP'
+                              : 'Yêu cầu hoàn'}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => setScreen('o-order-detail')}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--primary)',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Chi tiết →
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
+      )}
+
+      {/* 2. o-order-detail */}
+      {activeScreen === 'o-order-detail' && (
+        <div>
+          <FigmaNavyContextBanner
+            title="Ánh Trăng Events"
+            subtitle="Hồ sơ đang xem · Đúng tổ chức và phạm vi xử lý"
+            badge="Đã thanh toán"
+          />
+          <FigmaContextGrid
+            items={[
+              { label: 'Mã đơn & Khách hàng', value: 'TK-1024 · Nguyễn Minh Anh (minhanh@gmail.com)' },
+              { label: 'Sự kiện & Suất diễn', value: 'Đêm nhạc Mùa Thu · Đêm 1 (24/10/2026 20:00)' },
+              { label: 'Ghế & Hạng vé', value: 'C04, C05 · Hạng VIP (2 × 900.000đ)' },
+              { label: 'Thanh toán & Check-in', value: '1.800.000đ qua VNPay · Chưa check-in' },
+            ]}
+          />
+          <FigmaDocumentRow
+            title="Vé điện tử & Hóa đơn biên nhận"
+            subtitle="Kiểm tra mã QR định danh ghế trước khi gửi lại email cho khách"
+            buttonLabel="Xem vé PDF"
+            onView={() => setPreviewDoc('VeDienTu_TK1024_C04_C05.pdf')}
+          />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => showToast('Đã gửi lại email vé điện tử cho khách hàng.', 'success')}
+            >
+              Gửi lại email vé
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setScreen('o-orders')}
+            >
+              Quay lại danh sách đơn
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 3. o-comp */}
+      {activeScreen === 'o-comp' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setScreen('o-orders')}
+            >
+              ← Đơn vé thương mại
+            </button>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setScreen('o-comp-import')}
+              >
+                Nhập CSV hàng loạt
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setScreen('o-comp-create')}
+              >
+                + Phát hành vé mời lẻ
+              </button>
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700 }}>
+                Danh sách vé mời nội bộ (COMP) · Hàng G
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                {state.compTickets.length} bản ghi
+              </div>
+            </div>
+            <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>MÃ COMP</th>
+                    <th>KHÁCH MỜI</th>
+                    <th>EMAIL NHẬN VÉ</th>
+                    <th>GHẾ</th>
+                    <th>NHÓM KHÁCH</th>
+                    <th>TRẠNG THÁI</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.compTickets.map((c) => (
+                    <tr key={c.id}>
+                      <td style={{ fontWeight: 700 }}>{c.code}</td>
+                      <td>{c.guestName}</td>
+                      <td>{c.email}</td>
+                      <td>{c.seat}</td>
+                      <td>{c.note}</td>
+                      <td>
+                        <span className="badge badge-success">Đã gửi vé</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. o-comp-create */}
+      {activeScreen === 'o-comp-create' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 18, alignItems: 'start' }}>
+          <div className="card" style={{ padding: 22 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}>
+              Thông tin chi tiết · Phát hành vé COMP
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label className="form-label">Họ tên khách mời</label>
+                <input
+                  className="form-input"
+                  value={compGuest}
+                  onChange={(e) => setCompGuest(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="form-label">Email nhận vé QR</label>
+                <input
+                  className="form-input"
+                  value={compEmail}
+                  onChange={(e) => setCompEmail(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="form-label">Ghế chỉ định (Quota Hàng G)</label>
+                <input
+                  className="form-input"
+                  value={compSeat}
+                  onChange={(e) => setCompSeat(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="form-label">Ghi chú / Đơn vị</label>
+                <input
+                  className="form-input"
+                  value={compNote}
+                  onChange={(e) => setCompNote(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    issueCompTicket({
+                      guestName: compGuest,
+                      email: compEmail,
+                      seat: compSeat.split(' ')[0],
+                      note: compNote,
+                    });
+                    showToast(`Đã phát hành vé mời COMP cho ${compGuest}.`, 'success');
+                    setScreen('o-comp-result');
+                  }}
+                >
+                  Phát hành & gửi vé
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setScreen('o-comp-import')}
+                >
+                  Nhập từ CSV
+                </button>
+              </div>
+            </div>
+          </div>
+          <FigmaEventPreviewCard />
+        </div>
+      )}
+
+      {/* 5. o-comp-import */}
+      {activeScreen === 'o-comp-import' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 18, alignItems: 'start' }}>
+          <div className="card" style={{ padding: 22 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}>
+              Tải lên tệp CSV khách mời COMP
+            </div>
+            <div
+              style={{
+                border: '1.5px dashed var(--border)',
+                borderRadius: 12,
+                padding: '24px 20px',
+                textAlign: 'center',
+                background: '#FAF7F2',
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
+                Tệp mẫu CSV (HoTen, Email, MaGhe, DonVi)
+              </div>
+              <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 12 }}>{csvFile}</div>
+              <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer' }}>
+                Chọn tệp CSV khác
+                <input
+                  type="file"
+                  accept=".csv"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) setCsvFile(`${f.name} (12 khách)`);
+                  }}
+                />
+              </label>
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setScreen('o-comp-import-review')}
+              >
+                Kiểm tra dữ liệu CSV
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setScreen('o-comp')}
+              >
+                Quay lại
+              </button>
+            </div>
+          </div>
+          <FigmaEventPreviewCard />
+        </div>
+      )}
+
+      {/* 6. o-comp-import-review */}
+      {activeScreen === 'o-comp-import-review' && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div
+            style={{
+              padding: '16px 20px',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700 }}>
+              Kết quả kiểm tra tệp CSV · 3 dòng hợp lệ
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => setScreen('o-comp-import-confirm')}
+              >
+                Tiếp tục xác nhận
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setScreen('o-comp-import')}
+              >
+                Tải lại tệp
+              </button>
+            </div>
+          </div>
+          <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>DÒNG</th>
+                  <th>KHÁCH MỜI</th>
+                  <th>EMAIL</th>
+                  <th>GHẾ CHỈ ĐỊNH</th>
+                  <th>KIỂM TRA GHẾ</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>#1</td>
+                  <td style={{ fontWeight: 700 }}>Đặng Quốc Khánh</td>
+                  <td>khanh.dang@sponsor.vn</td>
+                  <td>G05</td>
+                  <td>
+                    <span className="badge badge-success">Hợp lệ · Trống</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td>#2</td>
+                  <td style={{ fontWeight: 700 }}>Võ Bích Ngọc</td>
+                  <td>ngoc.vo@press.vn</td>
+                  <td>G06</td>
+                  <td>
+                    <span className="badge badge-success">Hợp lệ · Trống</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td>#3</td>
+                  <td style={{ fontWeight: 700 }}>Trịnh Gia Huy</td>
+                  <td>huy.trinh@artist.vn</td>
+                  <td>G07</td>
+                  <td>
+                    <span className="badge badge-success">Hợp lệ · Trống</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 7. o-comp-import-confirm */}
+      {activeScreen === 'o-comp-import-confirm' && (
+        <div>
+          <FigmaNavyContextBanner
+            title="Ánh Trăng Events"
+            subtitle="Hồ sơ đang xem · Đúng tổ chức và phạm vi xử lý"
+            badge="Sẵn sàng phát hành"
+          />
+          <FigmaContextGrid
+            items={[
+              { label: 'Sự kiện & Suất diễn', value: 'Đêm nhạc Mùa Thu · Đêm 1 (24/10/2026)' },
+              { label: 'Số lượng phát hành', value: '3 vé mời COMP · Ghế G05, G06, G07' },
+              { label: 'Quota COMP còn lại', value: 'Còn 3 / 10 ghế Hàng G sau khi phát hành' },
+              { label: 'Phương thức gửi', value: 'Gửi email kèm mã QR định danh từng ghế' },
+            ]}
+          />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                importCompCsv();
+                showToast('Đã phát hành hàng loạt 3 vé COMP từ CSV.', 'success');
+                setScreen('o-comp-result');
+              }}
+            >
+              Xác nhận phát hành 3 vé COMP
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setScreen('o-comp-import-review')}
+            >
+              Quay lại kiểm tra
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 8. o-comp-result */}
+      {activeScreen === 'o-comp-result' && (
+        <div
+          className="card"
+          style={{
+            padding: '54px 32px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+          }}
+        >
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 14,
+              background: '#EAF7F0',
+              color: '#18794E',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+            }}
+          >
+            <CheckCircle2 size={24} />
+          </div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, marginBottom: 6 }}>
+            Đã phát hành vé mời COMP thành công
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 480, marginBottom: 14, lineHeight: 1.5 }}>
+            Hệ thống đã khóa ghế tương ứng trên sơ đồ Đêm 1 và gửi vé điện tử QR đến email của từng khách mời.
+          </div>
+          <span className="badge badge-success" style={{ marginBottom: 18 }}>
+            Issued · Hàng G
+          </span>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setScreen('o-comp')}
+            >
+              Xem danh sách COMP
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setScreen('o-orders')}
+            >
+              Đơn vé khách hàng
+            </button>
+          </div>
+        </div>
+      )}
+
+      {previewDoc && (
+        <DocumentPreviewModal
+          isOpen={true}
+          onClose={() => setPreviewDoc(null)}
+          title={previewDoc}
+          organization="Ánh Trăng Events"
+          status="Vé điện tử hợp lệ"
+        />
       )}
     </div>
   );

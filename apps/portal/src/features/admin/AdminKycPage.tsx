@@ -1,504 +1,818 @@
-import {
-  Building2,
-  CheckCircle2,
-  Eye,
-  FileCheck,
-  Search,
-} from 'lucide-react';
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
+import { CheckCircle2, Search } from 'lucide-react';
+import { useMockStore } from '../../lib/mock-store';
+import { useToast } from '../../components/common/ToastProvider';
+import { DocumentPreviewModal } from '../../components/common/DocumentPreviewModal';
+import {
+  FigmaPageHeader,
+  FigmaNavyContextBanner,
+  FigmaContextGrid,
+  FigmaDocumentRow,
+  FigmaRecordInfoCard,
+  type FigmaScreenOption,
+} from '../../components/common/FigmaScreenPrimitives';
 
-interface KycItem {
-  id: string;
-  orgName: string;
-  taxCode: string;
-  representative: string;
-  phone: string;
-  submittedAt: string;
-  status: 'PENDING' | 'APPROVED' | 'NEED_INFO' | 'REJECTED';
-  businessType: string;
-  address: string;
-  bankAccount: string;
-}
+const ADMIN_KYC_SCREENS: FigmaScreenOption[] = [
+  { id: 'a-kyc', label: 'Hồ sơ KYC tổ chức' },
+  { id: 'a-kyc-review', label: 'Chi tiết KYC · Sóng Việt Events' },
+  { id: 'a-kyc-info', label: 'Yêu cầu bổ sung KYC' },
+  { id: 'a-kyc-reject', label: 'Từ chối hồ sơ KYC' },
+  { id: 'a-kyc-outcome', label: 'Đã phê duyệt KYC' },
+  { id: 'a-orgs', label: 'Danh sách tổ chức (Tenants)' },
+  { id: 'a-org-status', label: 'Cập nhật trạng thái tổ chức' },
+  { id: 'a-org-result', label: 'Đã cập nhật trạng thái tổ chức' },
+  { id: 'a-venue-verifications', label: 'Xác minh địa điểm' },
+  { id: 'a-venue-review', label: 'Xem xét địa điểm · Sân khấu Bến Sông' },
+  { id: 'a-venue-outcome', label: 'Đã xác minh địa điểm' },
+];
 
 export function AdminKycPage() {
-  const [activeTab, setActiveTab] = useState<'PENDING' | 'APPROVED' | 'NEED_INFO' | 'ALL'>('PENDING');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedKyc, setSelectedKyc] = useState<KycItem | null>(null);
-  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { state, reviewAdminKyc, updateAdminOrgStatus, reviewAdminVenue } = useMockStore();
+  const { showToast } = useToast();
 
-  const [kycList, setKycList] = useState<KycItem[]>([
-    {
-      id: 'KYC-001',
-      orgName: 'Sóng Việt Events',
-      taxCode: '0314892810',
-      representative: 'Nguyễn Văn Hưng',
-      phone: '0903 123 456',
-      submittedAt: '18/10/2026 14:30',
-      status: 'PENDING',
-      businessType: 'Công ty Cổ phần Sự kiện & Truyền thông',
-      address: 'Tầng 8, Tòa nhà Bitexco, Q.1, TP. Hồ Chí Minh',
-      bankAccount: '0071001234567 · Vietcombank TP.HCM',
-    },
-    {
-      id: 'KYC-002',
-      orgName: 'Âm Nhạc Mới Productions',
-      taxCode: '0108923411',
-      representative: 'Trần Thị Mai',
-      phone: '0912 345 678',
-      submittedAt: '19/10/2026 09:15',
-      status: 'PENDING',
-      businessType: 'Công ty TNHH Giải trí & Nghệ thuật',
-      address: 'Số 45 Lý Thường Kiệt, Hoàn Kiếm, Hà Nội',
-      bankAccount: '19034567890123 · Techcombank Thăng Long',
-    },
-    {
-      id: 'KYC-003',
-      orgName: 'Saigon Live Concerts',
-      taxCode: '0309918234',
-      representative: 'Lê Quốc Tuấn',
-      phone: '0988 765 432',
-      submittedAt: '17/10/2026 16:40',
-      status: 'PENDING',
-      businessType: 'Hộ kinh doanh biểu diễn nghệ thuật',
-      address: '120 Nguyễn Thị Minh Khai, Q.3, TP. Hồ Chí Minh',
-      bankAccount: '1029384756 · MB Bank Sài Gòn',
-    },
-    {
-      id: 'KYC-004',
-      orgName: 'Ánh Trăng Events',
-      taxCode: '0315998822',
-      representative: 'Phạm Minh Quang',
-      phone: '0933 888 999',
-      submittedAt: '10/10/2026 10:00',
-      status: 'APPROVED',
-      businessType: 'Công ty TNHH Tổ chức Sự kiện Ánh Trăng',
-      address: '280 Nam Kỳ Khởi Nghĩa, Q.3, TP. Hồ Chí Minh',
-      bankAccount: '0071009876543 · Vietcombank Nam Sài Gòn',
-    },
-  ]);
+  const tabParam = searchParams.get('tab');
+  const defaultScreen = tabParam === 'venues' ? 'a-venue-verifications' : 'a-kyc';
+  const activeScreen = searchParams.get('screen') || defaultScreen;
+  const setScreen = (screen: string) => setSearchParams({ screen });
 
-  const filtered = kycList.filter((item) => {
-    if (activeTab !== 'ALL' && item.status !== activeTab) return false;
-    if (
-      searchTerm &&
-      !item.orgName.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !item.taxCode.includes(searchTerm)
-    ) {
-      return false;
-    }
-    return true;
-  });
+  const [search, setSearch] = useState('');
+  const [previewDoc, setPreviewDoc] = useState<string | null>(null);
 
-  const handleApprove = (id: string) => {
-    setKycList((prev) =>
-      prev.map((k) => (k.id === id ? { ...k, status: 'APPROVED' } : k))
-    );
-    setSelectedKyc(null);
-    setActionSuccess('Đã phê duyệt hồ sơ KYC thành công! Tổ chức đã được kích hoạt trạng thái ACTIVE.');
-    setTimeout(() => setActionSuccess(null), 4000);
-  };
+  const [selectedKycId, setSelectedKycId] = useState<string>('kyc-1');
+  const [selectedVenueQueueId, setSelectedVenueQueueId] = useState<string>('vq-1');
+  const [selectedOrgId, setSelectedOrgId] = useState<string>('org-1');
 
-  const handleRequestInfo = (id: string) => {
-    setKycList((prev) =>
-      prev.map((k) => (k.id === id ? { ...k, status: 'NEED_INFO' } : k))
-    );
-    setSelectedKyc(null);
-    setActionSuccess('Đã gửi thông báo yêu cầu bổ sung giấy tờ tới email tổ chức.');
-    setTimeout(() => setActionSuccess(null), 4000);
-  };
+  const kycQueue = state?.adminKycQueue || [];
+  const venueQueue = state?.adminVenueQueue || [];
+  const orgsList = state?.adminOrgs || [];
 
-  const handleReject = (id: string) => {
-    setKycList((prev) =>
-      prev.map((k) => (k.id === id ? { ...k, status: 'REJECTED' } : k))
-    );
-    setSelectedKyc(null);
-    setActionSuccess('Đã từ chối hồ sơ KYC. Lý do đã được ghi nhận vào nhật ký kiểm toán.');
-    setTimeout(() => setActionSuccess(null), 4000);
-  };
+  const selectedKyc =
+    kycQueue.find((k) => k.id === selectedKycId) || kycQueue[0];
+  const selectedVenueQueue =
+    venueQueue.find((v) => v.id === selectedVenueQueueId) || venueQueue[0];
+  const selectedOrg =
+    orgsList.find((o) => o.id === selectedOrgId) || orgsList[0];
+
+  const [kycInfoNote, setKycInfoNote] = useState(
+    'Vui lòng bổ sung bản scan màu GPKD trang 2 có dấu mộc tròn rõ nét.',
+  );
+  const [kycRejectReason, setKycRejectReason] = useState(
+    'Mã số thuế trên đơn đăng ký không khớp với Giấy chứng nhận đăng ký doanh nghiệp.',
+  );
+
+  const [orgTargetStatus, setOrgTargetStatus] = useState<'ACTIVE' | 'SUSPENDED'>('SUSPENDED');
+  const [orgStatusReason, setOrgStatusReason] = useState(
+    'Tạm ngưng mở bán mới để rà soát tỷ lệ hoàn vé định kỳ.',
+  );
+
+  const screenMeta = ADMIN_KYC_SCREENS.find((s) => s.id === activeScreen) || ADMIN_KYC_SCREENS[0];
 
   return (
-    <div style={{ maxWidth: '1240px', margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ marginBottom: '28px' }}>
-        <div
-          style={{
-            fontSize: '12px',
-            fontFamily: 'var(--font-display)',
-            fontWeight: 700,
-            letterSpacing: '0.06em',
-            color: 'var(--muted)',
-            marginBottom: '6px',
-            textTransform: 'uppercase',
-          }}
-        >
-          TICKEY / ADMIN / KYC
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h1
+    <div>
+      <FigmaPageHeader
+        overline="TICKEY / ADMIN"
+        title={screenMeta.label}
+        screens={ADMIN_KYC_SCREENS}
+        activeScreen={activeScreen}
+        onSelectScreen={setScreen}
+      />
+
+      {/* 1. a-kyc */}
+      {activeScreen === 'a-kyc' && (
+        <div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              marginBottom: 16,
+              flexWrap: 'wrap',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ position: 'relative', width: 320 }}>
+                <Search
+                  size={15}
+                  style={{
+                    position: 'absolute',
+                    left: 12,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--muted)',
+                  }}
+                />
+                <input
+                  className="form-input"
+                  style={{ paddingLeft: 34 }}
+                  placeholder="Tìm theo tên tổ chức, MST..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setScreen('a-orgs')}
+              >
+                Danh sách tổ chức
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setScreen('a-venue-verifications')}
+              >
+                Xác minh địa điểm
+              </button>
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => showToast('Đã xuất danh sách KYC ra CSV.', 'success')}
+            >
+              Xuất CSV
+            </button>
+          </div>
+
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div
               style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: '28px',
-                fontWeight: 700,
-                color: 'var(--text)',
-                margin: 0,
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
               }}
             >
-              Hồ sơ tổ chức & KYC
-            </h1>
-            <p style={{ margin: '6px 0 0', fontSize: '14px', color: 'var(--muted)' }}>
-              Xét duyệt thông tin pháp lý, mã số thuế và tài khoản ngân hàng của đơn vị tổ chức sự kiện.
-            </p>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700 }}>
+                Tất cả danh sách hồ sơ KYC
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                {kycQueue.length} bản ghi
+              </div>
+            </div>
+            <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>TỔ CHỨC</th>
+                    <th>MÃ SỐ THUẾ</th>
+                    <th>TÀI LIỆU</th>
+                    <th>NGÀY NỘP</th>
+                    <th>TRẠNG THÁI</th>
+                    <th>THAO TÁC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {kycQueue.map((k) => (
+                    <tr key={k.id}>
+                      <td style={{ fontWeight: 700 }}>{k.orgName}</td>
+                      <td>{k.taxCode}</td>
+                      <td>{k.docsCount} tệp PDF</td>
+                      <td>{k.submittedAt}</td>
+                      <td>
+                        <span
+                          className={`badge ${
+                            k.status === 'APPROVED'
+                              ? 'badge-success'
+                              : k.status === 'REJECTED'
+                                ? 'badge-danger'
+                                : 'badge-warning'
+                          }`}
+                        >
+                          {k.status === 'PENDING'
+                            ? 'Chờ duyệt'
+                            : k.status === 'APPROVED'
+                              ? 'Đã duyệt'
+                              : k.status === 'NEED_INFO'
+                                ? 'Chờ bổ sung'
+                                : 'Từ chối'}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedKycId(k.id);
+                            setScreen('a-kyc-review');
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--primary)',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Xét duyệt →
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      </div>
-
-      {actionSuccess && (
-        <div
-          style={{
-            padding: '14px 20px',
-            backgroundColor: 'var(--success-bg)',
-            color: 'var(--success)',
-            borderRadius: 'var(--radius-md)',
-            marginBottom: '24px',
-            fontSize: '14px',
-            fontWeight: 500,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}
-        >
-          <CheckCircle2 size={18} />
-          <span>{actionSuccess}</span>
         </div>
       )}
 
-      {/* Tabs & Search */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '20px',
-          flexWrap: 'wrap',
-          gap: '16px',
-        }}
-      >
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={() => setActiveTab('PENDING')}
-            className={`btn ${activeTab === 'PENDING' ? 'btn-primary' : 'btn-outline'}`}
-            style={{ fontSize: '13px', padding: '8px 16px' }}
-          >
-            Chờ xét duyệt ({kycList.filter((k) => k.status === 'PENDING').length})
-          </button>
-          <button
-            onClick={() => setActiveTab('APPROVED')}
-            className={`btn ${activeTab === 'APPROVED' ? 'btn-primary' : 'btn-outline'}`}
-            style={{ fontSize: '13px', padding: '8px 16px' }}
-          >
-            Đã phê duyệt ({kycList.filter((k) => k.status === 'APPROVED').length})
-          </button>
-          <button
-            onClick={() => setActiveTab('NEED_INFO')}
-            className={`btn ${activeTab === 'NEED_INFO' ? 'btn-primary' : 'btn-outline'}`}
-            style={{ fontSize: '13px', padding: '8px 16px' }}
-          >
-            Cần bổ sung ({kycList.filter((k) => k.status === 'NEED_INFO').length})
-          </button>
-          <button
-            onClick={() => setActiveTab('ALL')}
-            className={`btn ${activeTab === 'ALL' ? 'btn-primary' : 'btn-outline'}`}
-            style={{ fontSize: '13px', padding: '8px 16px' }}
-          >
-            Tất cả hồ sơ
-          </button>
-        </div>
-
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            backgroundColor: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-md)',
-            padding: '8px 14px',
-            width: '280px',
-          }}
-        >
-          <Search size={16} color="var(--muted)" />
-          <input
-            type="text"
-            placeholder="Tìm theo tên tổ chức, MST…"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              border: 'none',
-              background: 'none',
-              outline: 'none',
-              fontSize: '13px',
-              width: '100%',
-            }}
+      {/* 2. a-kyc-review */}
+      {activeScreen === 'a-kyc-review' && (
+        <div>
+          <FigmaNavyContextBanner
+            title={selectedKyc?.orgName || 'Tổ chức'}
+            subtitle="Hồ sơ đang xem · Đúng tổ chức và phạm vi xử lý"
+            badge={selectedKyc?.status === 'APPROVED' ? 'Đã duyệt' : 'Chờ xét duyệt KYC'}
           />
+          <FigmaContextGrid
+            items={[
+              {
+                label: 'Pháp nhân & Mã số thuế',
+                value: `${selectedKyc?.orgName || 'Tổ chức'} · MST ${selectedKyc?.taxCode || '0312456789'}`,
+              },
+              { label: 'Người đại diện pháp luật', value: 'Đại diện hợp pháp · Đã đính kèm CCCD' },
+              {
+                label: 'Trạng thái hiện tại',
+                value:
+                  selectedKyc?.status === 'APPROVED'
+                    ? 'Đã duyệt (Approved)'
+                    : selectedKyc?.status === 'NEED_INFO'
+                      ? 'Cần bổ sung thông tin'
+                      : selectedKyc?.status === 'REJECTED'
+                        ? 'Đã từ chối'
+                        : 'Chờ kiểm tra',
+              },
+              { label: 'Tài liệu đính kèm', value: `${selectedKyc?.docsCount || 2} tệp: GPKD_Scan.pdf · CCCD_Rep.pdf` },
+            ]}
+          />
+          <FigmaDocumentRow onView={() => setPreviewDoc('GPKD_Scan.pdf')} />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                if (selectedKyc) {
+                  reviewAdminKyc(selectedKyc.id, 'APPROVED');
+                  showToast(`Đã phê duyệt hồ sơ KYC của ${selectedKyc.orgName}.`, 'success');
+                  setScreen('a-kyc-outcome');
+                }
+              }}
+            >
+              Phê duyệt KYC
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setScreen('a-kyc-info')}
+            >
+              Yêu cầu bổ sung
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setScreen('a-kyc-reject')}
+            >
+              Từ chối hồ sơ
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* KYC Table */}
-      <div
-        style={{
-          backgroundColor: 'var(--surface)',
-          borderRadius: 'var(--radius-lg)',
-          border: '1px solid var(--border)',
-          overflowX: 'auto',
-          boxShadow: 'var(--shadow-sm)',
-        }}
-      >
-        <table className="table" style={{ width: '100%', minWidth: '960px', margin: 0 }}>
-          <thead>
-            <tr>
-              <th style={{ minWidth: '220px' }}>Tổ chức</th>
-              <th style={{ whiteSpace: 'nowrap' }}>Mã số thuế</th>
-              <th style={{ minWidth: '180px' }}>Người đại diện & SĐT</th>
-              <th style={{ whiteSpace: 'nowrap' }}>Ngày gửi</th>
-              <th style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>Trạng thái</th>
-              <th style={{ textAlign: 'right', whiteSpace: 'nowrap', width: '140px' }}>Thao tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '36px', color: 'var(--muted)' }}>
-                  Không tìm thấy hồ sơ nào trong mục này.
-                </td>
-              </tr>
-            ) : (
-              filtered.map((item) => (
-                <tr key={item.id}>
-                  <td style={{ verticalAlign: 'middle' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div
-                        style={{
-                          width: '32px',
-                          height: '32px',
-                          borderRadius: '8px',
-                          backgroundColor: 'var(--primary-tint)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'var(--primary)',
-                          flexShrink: 0,
-                        }}
-                      >
-                        <Building2 size={16} />
-                      </div>
-                      <div>
-                        <strong style={{ color: 'var(--text)', display: 'block' }}>{item.orgName}</strong>
-                        <span style={{ fontSize: '11px', color: 'var(--muted)' }}>{item.id}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td style={{ verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
-                    <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{item.taxCode}</span>
-                  </td>
-                  <td style={{ verticalAlign: 'middle' }}>
-                    <div style={{ fontWeight: 500 }}>{item.representative}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>{item.phone}</div>
-                  </td>
-                  <td style={{ fontSize: '13px', color: 'var(--muted)', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>{item.submittedAt}</td>
-                  <td style={{ verticalAlign: 'middle', whiteSpace: 'nowrap', textAlign: 'center' }}>
-                    {item.status === 'PENDING' && <span className="badge badge-warning">Chờ review</span>}
-                    {item.status === 'APPROVED' && <span className="badge badge-success">Đã duyệt</span>}
-                    {item.status === 'NEED_INFO' && <span className="badge badge-info">Cần bổ sung</span>}
-                    {item.status === 'REJECTED' && <span className="badge badge-danger">Từ chối</span>}
-                  </td>
-                  <td style={{ textAlign: 'right', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
-                    <button
-                      onClick={() => setSelectedKyc(item)}
-                      className="btn btn-outline"
-                      style={{ fontSize: '12px', padding: '6px 12px', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center' }}
-                    >
-                      <Eye size={14} style={{ marginRight: '6px' }} />
-                      Xem xét hồ sơ
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      {/* 3. a-kyc-info */}
+      {activeScreen === 'a-kyc-info' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 18, alignItems: 'start' }}>
+          <div className="card" style={{ padding: 22 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}>
+              Thông tin chi tiết · Yêu cầu bổ sung KYC
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label className="form-label">Tổ chức nhận yêu cầu</label>
+                <input
+                  className="form-input"
+                  readOnly
+                  value={`${selectedKyc?.orgName || 'Tổ chức'} (MST ${selectedKyc?.taxCode || ''})`}
+                />
+              </div>
+              <div>
+                <label className="form-label">Nội dung cần bổ sung</label>
+                <input
+                  className="form-input"
+                  value={kycInfoNote}
+                  onChange={(e) => setKycInfoNote(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    if (selectedKyc) {
+                      reviewAdminKyc(selectedKyc.id, 'NEED_INFO', kycInfoNote);
+                      showToast(`Đã gửi yêu cầu bổ sung tài liệu cho ${selectedKyc.orgName}.`, 'info');
+                      setScreen('a-kyc');
+                    }
+                  }}
+                >
+                  Gửi yêu cầu bổ sung
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setScreen('a-kyc-review')}
+                >
+                  Quay lại
+                </button>
+              </div>
+            </div>
+          </div>
+          <FigmaRecordInfoCard />
+        </div>
+      )}
 
-      {/* Detail Review Modal (a-kyc-review) */}
-      {selectedKyc && (
+      {/* 4. a-kyc-reject */}
+      {activeScreen === 'a-kyc-reject' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 18, alignItems: 'start' }}>
+          <div className="card" style={{ padding: 22 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}>
+              Thông tin chi tiết · Từ chối hồ sơ KYC
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label className="form-label">Tổ chức</label>
+                <input className="form-input" readOnly value={selectedKyc?.orgName || 'Tổ chức'} />
+              </div>
+              <div>
+                <label className="form-label">Lý do từ chối (Ghi vào Audit Log)</label>
+                <input
+                  className="form-input"
+                  value={kycRejectReason}
+                  onChange={(e) => setKycRejectReason(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    if (selectedKyc) {
+                      reviewAdminKyc(selectedKyc.id, 'REJECTED', kycRejectReason);
+                      showToast(`Đã từ chối hồ sơ KYC của ${selectedKyc.orgName}.`, 'warning');
+                      setScreen('a-kyc');
+                    }
+                  }}
+                >
+                  Xác nhận từ chối
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setScreen('a-kyc-review')}
+                >
+                  Hủy
+                </button>
+              </div>
+            </div>
+          </div>
+          <FigmaRecordInfoCard />
+        </div>
+      )}
+
+      {/* 5. a-kyc-outcome */}
+      {activeScreen === 'a-kyc-outcome' && (
         <div
+          className="card"
           style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(23, 42, 53, 0.6)',
+            padding: '54px 32px',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-            padding: '24px',
+            textAlign: 'center',
           }}
         >
           <div
             style={{
-              backgroundColor: 'var(--surface)',
-              borderRadius: 'var(--radius-lg)',
-              width: '100%',
-              maxWidth: '680px',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              boxShadow: 'var(--shadow-lg)',
-              padding: '32px',
+              width: 48,
+              height: 48,
+              borderRadius: 14,
+              background: '#EAF7F0',
+              color: '#18794E',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
             }}
           >
+            <CheckCircle2 size={24} />
+          </div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, marginBottom: 6 }}>
+            Đã phê duyệt hồ sơ KYC tổ chức
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 480, marginBottom: 14, lineHeight: 1.5 }}>
+            Tổ chức Sóng Việt Events đã được mở khóa toàn bộ chức năng vận hành và tạo địa điểm tổ chức.
+          </div>
+          <span className="badge badge-success" style={{ marginBottom: 18 }}>
+            KYC Approved
+          </span>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setScreen('a-kyc')}
+            >
+              Danh sách KYC
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setScreen('a-orgs')}
+            >
+              Xem danh sách tổ chức
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 6. a-orgs */}
+      {activeScreen === 'a-orgs' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setScreen('a-kyc')}
+            >
+              ← Hồ sơ KYC
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setScreen('a-venue-verifications')}
+            >
+              Xác minh địa điểm
+            </button>
+          </div>
+
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <div
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '20px',
+                padding: '16px 20px',
                 borderBottom: '1px solid var(--border)',
-                paddingBottom: '16px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
               }}
             >
-              <div>
-                <span style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                  REVIEW HỒ SƠ KYC · {selectedKyc.id}
-                </span>
-                <h2
-                  style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: '22px',
-                    fontWeight: 700,
-                    margin: '4px 0 0',
-                    color: 'var(--text)',
-                  }}
-                >
-                  {selectedKyc.orgName}
-                </h2>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700 }}>
+                Danh sách tổ chức trên nền tảng
               </div>
-              <button
-                onClick={() => setSelectedKyc(null)}
-                className="btn-ghost"
-                style={{ fontSize: '18px', border: 'none', background: 'none', cursor: 'pointer' }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Document Details Grid */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '28px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div style={{ backgroundColor: 'var(--bg)', padding: '14px', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>Mã số thuế</div>
-                  <strong style={{ fontSize: '15px', color: 'var(--text)' }}>{selectedKyc.taxCode}</strong>
-                </div>
-                <div style={{ backgroundColor: 'var(--bg)', padding: '14px', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>Loại hình</div>
-                  <strong style={{ fontSize: '14px', color: 'var(--text)' }}>{selectedKyc.businessType}</strong>
-                </div>
-              </div>
-
-              <div style={{ backgroundColor: 'var(--bg)', padding: '14px', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>Địa chỉ trụ sở chính</div>
-                <strong style={{ fontSize: '14px', color: 'var(--text)' }}>{selectedKyc.address}</strong>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div style={{ backgroundColor: 'var(--bg)', padding: '14px', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>Người đại diện</div>
-                  <strong style={{ fontSize: '14px', color: 'var(--text)' }}>{selectedKyc.representative}</strong>
-                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>{selectedKyc.phone}</div>
-                </div>
-                <div style={{ backgroundColor: 'var(--bg)', padding: '14px', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>Tài khoản đối soát</div>
-                  <strong style={{ fontSize: '14px', color: 'var(--text)' }}>{selectedKyc.bankAccount}</strong>
-                </div>
-              </div>
-
-              {/* Uploaded Documents Attachment list */}
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', marginBottom: '8px' }}>
-                  Tài liệu đính kèm đã kiểm tra
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px 14px',
-                      backgroundColor: 'var(--bg)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 'var(--radius-md)',
-                      fontSize: '13px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <FileCheck size={16} color="var(--success)" />
-                      <span>Giấy phép đăng ký kinh doanh (GPKD.pdf)</span>
-                    </div>
-                    <span style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' }}>
-                      Xem trước
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px 14px',
-                      backgroundColor: 'var(--bg)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 'var(--radius-md)',
-                      fontSize: '13px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <FileCheck size={16} color="var(--success)" />
-                      <span>CCCD mặt trước & sau người đại diện pháp luật</span>
-                    </div>
-                    <span style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' }}>
-                      Xem trước
-                    </span>
-                  </div>
-                </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                {state.adminOrgs.length} bản ghi
               </div>
             </div>
-
-            {/* Actions */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px' }}>
-              <button
-                onClick={() => handleReject(selectedKyc.id)}
-                className="btn btn-outline"
-                style={{ color: 'var(--danger)', borderColor: 'var(--danger)', fontSize: '13px' }}
-              >
-                Từ chối hồ sơ
-              </button>
-              <button
-                onClick={() => handleRequestInfo(selectedKyc.id)}
-                className="btn btn-outline"
-                style={{ fontSize: '13px' }}
-              >
-                Yêu cầu bổ sung
-              </button>
-              <button
-                onClick={() => handleApprove(selectedKyc.id)}
-                className="btn btn-primary"
-                style={{ fontSize: '13px' }}
-              >
-                Phê duyệt KYC
-              </button>
+            <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>TỔ CHỨC</th>
+                    <th>MÃ SỐ THUẾ</th>
+                    <th>SỰ KIỆN</th>
+                    <th>TRẠNG THÁI</th>
+                    <th>THAO TÁC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.adminOrgs.map((o) => (
+                    <tr key={o.id}>
+                      <td style={{ fontWeight: 700 }}>{o.name}</td>
+                      <td>{o.taxCode}</td>
+                      <td>{o.eventsCount} sự kiện</td>
+                      <td>
+                        <span
+                          className={`badge ${
+                            o.status === 'ACTIVE' ? 'badge-success' : 'badge-danger'
+                          }`}
+                        >
+                          {o.status === 'ACTIVE' ? 'Đang hoạt động' : 'Tạm ngưng'}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedOrgId(o.id);
+                            setScreen('a-org-status');
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--primary)',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Đổi trạng thái →
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
+      )}
+
+      {/* 7. a-org-status */}
+      {activeScreen === 'a-org-status' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 18, alignItems: 'start' }}>
+          <div className="card" style={{ padding: 22 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}>
+              Thông tin chi tiết · Trạng thái tổ chức
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label className="form-label">Tổ chức</label>
+                <input className="form-input" readOnly value={selectedOrg?.name || 'Tổ chức'} />
+              </div>
+              <div>
+                <label className="form-label">Trạng thái mới</label>
+                <select
+                  className="form-input"
+                  value={orgTargetStatus}
+                  onChange={(e) => setOrgTargetStatus(e.target.value as 'ACTIVE' | 'SUSPENDED')}
+                >
+                  <option value="ACTIVE">Đang hoạt động (Active)</option>
+                  <option value="SUSPENDED">Tạm ngưng mở bán (Suspended)</option>
+                </select>
+              </div>
+              <div>
+                <label className="form-label">Lý do điều chỉnh</label>
+                <input
+                  className="form-input"
+                  value={orgStatusReason}
+                  onChange={(e) => setOrgStatusReason(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    if (selectedOrg) {
+                      updateAdminOrgStatus(selectedOrg.id, orgTargetStatus);
+                      showToast(`Đã cập nhật trạng thái của ${selectedOrg.name}.`, 'success');
+                      setScreen('a-org-result');
+                    }
+                  }}
+                >
+                  Lưu thay đổi
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setScreen('a-orgs')}
+                >
+                  Quay lại
+                </button>
+              </div>
+            </div>
+          </div>
+          <FigmaRecordInfoCard icon="shield" />
+        </div>
+      )}
+
+      {/* 8. a-org-result */}
+      {activeScreen === 'a-org-result' && (
+        <div
+          className="card"
+          style={{
+            padding: '54px 32px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+          }}
+        >
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 14,
+              background: '#EAF7F0',
+              color: '#18794E',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+            }}
+          >
+            <CheckCircle2 size={24} />
+          </div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, marginBottom: 6 }}>
+            Đã cập nhật trạng thái hoạt động của tổ chức
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 460, marginBottom: 14 }}>
+            Thay đổi đã có hiệu lực tức thì và được ghi vào Lịch sử thao tác (Audit Log).
+          </div>
+          <button type="button" className="btn btn-primary" onClick={() => setScreen('a-orgs')}>
+            Danh sách tổ chức
+          </button>
+        </div>
+      )}
+
+      {/* 9. a-venue-verifications */}
+      {activeScreen === 'a-venue-verifications' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setScreen('a-kyc')}
+            >
+              ← Hồ sơ KYC tổ chức
+            </button>
+          </div>
+
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700 }}>
+                Hồ sơ xác minh địa điểm tổ chức
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                {state.adminVenueQueue.length} bản ghi
+              </div>
+            </div>
+            <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>ĐỊA ĐIỂM</th>
+                    <th>TỔ CHỨC</th>
+                    <th>THÀNH PHỐ</th>
+                    <th>TÀI LIỆU</th>
+                    <th>TRẠNG THÁI</th>
+                    <th>THAO TÁC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.adminVenueQueue.map((v) => (
+                    <tr key={v.id}>
+                      <td style={{ fontWeight: 700 }}>{v.venueName}</td>
+                      <td>{v.orgName}</td>
+                      <td>{v.city}</td>
+                      <td>{v.docName}</td>
+                      <td>
+                        <span
+                          className={`badge ${
+                            v.status === 'VERIFIED' ? 'badge-success' : 'badge-warning'
+                          }`}
+                        >
+                          {v.status === 'VERIFIED' ? 'Đã xác minh' : 'Chờ xác minh'}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedVenueQueueId(v.id);
+                            setScreen('a-venue-review');
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--primary)',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Kiểm tra →
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 10. a-venue-review */}
+      {activeScreen === 'a-venue-review' && (
+        <div>
+          <FigmaNavyContextBanner
+            title={selectedVenueQueue?.orgName || 'Tổ chức'}
+            subtitle="Hồ sơ đang xem · Đúng tổ chức và phạm vi xử lý"
+            badge={selectedVenueQueue?.status === 'VERIFIED' ? 'Đã xác minh' : 'Chờ xác minh địa điểm'}
+          />
+          <FigmaContextGrid
+            items={[
+              {
+                label: 'Tên địa điểm',
+                value: `${selectedVenueQueue?.venueName || 'Địa điểm'} · ${selectedVenueQueue?.city || 'TP.HCM'}`,
+              },
+              { label: 'Loại hình & Sức chứa', value: 'Không gian tổ chức · Sơ đồ và sức chứa quản lý riêng' },
+              { label: 'Tổ chức sở hữu', value: `${selectedVenueQueue?.orgName || 'Ánh Trăng Events'}` },
+              { label: 'Hợp đồng / Giấy phép mặt bằng', value: `${selectedVenueQueue?.docName || 'giay-phep.pdf'}` },
+            ]}
+          />
+          <FigmaDocumentRow onView={() => setPreviewDoc(selectedVenueQueue?.docName || 'giay-phep.pdf')} />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                if (selectedVenueQueue) {
+                  reviewAdminVenue(selectedVenueQueue.id, true);
+                  showToast(`Đã xác minh địa điểm ${selectedVenueQueue.venueName}.`, 'success');
+                  setScreen('a-venue-outcome');
+                }
+              }}
+            >
+              Xác minh địa điểm
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                if (selectedVenueQueue) {
+                  reviewAdminVenue(selectedVenueQueue.id, false);
+                  showToast('Đã yêu cầu bổ sung giấy tờ địa điểm.', 'warning');
+                  setScreen('a-venue-verifications');
+                }
+              }}
+            >
+              Yêu cầu bổ sung giấy tờ
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 11. a-venue-outcome */}
+      {activeScreen === 'a-venue-outcome' && (
+        <div
+          className="card"
+          style={{
+            padding: '54px 32px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+          }}
+        >
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 14,
+              background: '#EAF7F0',
+              color: '#18794E',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+            }}
+          >
+            <CheckCircle2 size={24} />
+          </div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, marginBottom: 6 }}>
+            Đã xác minh địa điểm {selectedVenueQueue?.venueName || 'tổ chức'}
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 480, marginBottom: 14 }}>
+            Tổ chức đã có thể phát hành (Publish) các phiên bản sơ đồ chỗ ngồi gắn với {selectedVenueQueue?.venueName || 'địa điểm này'}.
+          </div>
+          <span className="badge badge-success" style={{ marginBottom: 18 }}>
+            Venue Verified
+          </span>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setScreen('a-venue-verifications')}
+          >
+            Danh sách xác minh địa điểm
+          </button>
+        </div>
+      )}
+
+      {previewDoc && (
+        <DocumentPreviewModal
+          isOpen={true}
+          onClose={() => setPreviewDoc(null)}
+          title={previewDoc}
+          organization="Sóng Việt Events"
+          status="Hồ sơ pháp lý"
+        />
       )}
     </div>
   );

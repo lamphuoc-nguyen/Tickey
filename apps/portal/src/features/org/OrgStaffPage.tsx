@@ -1,542 +1,776 @@
-import { useState, type FormEvent } from 'react';
-import { Plus, ShieldCheck, Trash2, Edit3, CheckCircle2, UserCheck, AlertTriangle } from 'lucide-react';
-import { useMockStore, type StaffItem } from '../../lib/mock-store';
+import { useState } from 'react';
+import { useSearchParams } from 'react-router';
+import { CheckCircle2, Search } from 'lucide-react';
+import { useMockStore } from '../../lib/mock-store';
+import { useToast } from '../../components/common/ToastProvider';
+import {
+  FigmaPageHeader,
+  FigmaRecordInfoCard,
+  FigmaEventPreviewCard,
+  type FigmaScreenOption,
+} from '../../components/common/FigmaScreenPrimitives';
+
+const STAFF_SCREENS: FigmaScreenOption[] = [
+  { id: 'o-members', label: 'Thành viên tổ chức' },
+  { id: 'o-member-add', label: 'Thêm nhân sự mới' },
+  { id: 'o-invite-sent', label: 'Đã thêm thành viên' },
+  { id: 'o-staff', label: 'Nhân sự sự kiện' },
+  { id: 'o-staff-assign', label: 'Phân công nhân sự cổng' },
+  { id: 'o-staff-khoa', label: 'Phân công · Lê Minh Khoa' },
+];
 
 export function OrgStaffPage() {
-  const staffList = useMockStore((state) => state.staffList);
-  const addStaff = useMockStore((state) => state.addStaff);
-  const removeStaff = useMockStore((state) => state.removeStaff);
-  const updateStaff = useMockStore((state) => state.updateStaff);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { state, inviteMember, assignStaffShift } = useMockStore();
+  const { showToast } = useToast();
 
-  const [showInviteModal, setShowInviteModal] = useState(false);
+  const activeScreen = searchParams.get('screen') || 'o-members';
+  const setScreen = (screen: string) => setSearchParams({ screen });
+
+  const [search, setSearch] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteName, setInviteName] = useState('');
-  const [inviteRole, setInviteRole] = useState('Nhân viên soát vé');
-  const [inviteAssignment, setInviteAssignment] = useState('Cổng G1 · Đêm nhạc Mùa Thu');
+  const [inviteRole, setInviteRole] = useState('Check-in Staff · Nhân sự soát vé');
+  const [staffActiveNow, setStaffActiveNow] = useState(true);
 
-  const [editingStaff, setEditingStaff] = useState<StaffItem | null>(null);
-  const [editRole, setEditRole] = useState('');
-  const [editAssignment, setEditAssignment] = useState('');
-  const [editStatus, setEditStatus] = useState('');
+  // Extract all sessions from existing events in data
+  const allEventSessions = (state?.events || []).flatMap((ev) => {
+    if (!ev.sessions || ev.sessions.length === 0) {
+      return [
+        {
+          id: `${ev.id}-default`,
+          eventId: ev.id,
+          eventName: ev.name,
+          sessionName: 'Suất chính',
+          display: `${ev.name} · Suất chính`,
+          time: '19:00 – 22:30',
+          gates: 'Cổng chính G1, Cổng phụ G2',
+          poster: ev.poster,
+          venueName: ev.venueName,
+        },
+      ];
+    }
+    return ev.sessions.map((sess) => ({
+      id: `${ev.id}-${sess.id}`,
+      eventId: ev.id,
+      eventName: ev.name,
+      sessionName: sess.name,
+      display: `${ev.name} · ${sess.name}`,
+      time: sess.time || '18:30 – 22:30',
+      gates: sess.gates || 'Cổng chính G1, Cổng VIP G2',
+      poster: ev.poster,
+      venueName: ev.venueName,
+    }));
+  });
 
-  const [deleteConfirm, setDeleteConfirm] = useState<StaffItem | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [selectedSessionKey, setSelectedSessionKey] = useState<string>(
+    allEventSessions[0]?.id || '',
+  );
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+  const activeSessionObj =
+    allEventSessions.find((s) => s.id === selectedSessionKey) || allEventSessions[0];
+
+  const [assignMember, setAssignMember] = useState(
+    state.members[0] ? `${state.members[0].name} (${state.members[0].role})` : 'Trần Quốc Bảo (Staff)',
+  );
+  const [assignSession, setAssignSession] = useState(
+    activeSessionObj ? activeSessionObj.display : 'Đêm nhạc Mùa Thu · Đêm 1 (24/10)',
+  );
+  const [assignGate, setAssignGate] = useState('Cổng chính G1');
+  const [shiftStart, setShiftStart] = useState('18:30');
+  const [shiftEnd, setShiftEnd] = useState('22:30');
+  const [assignShift, setAssignShift] = useState('18:30 – 22:30');
+
+  const updateShiftTimes = (start: string, end: string, label?: string) => {
+    setShiftStart(start);
+    setShiftEnd(end);
+    setAssignShift(label || `${start} – ${end}`);
   };
 
-  const handleInvite = (e: FormEvent) => {
-    e.preventDefault();
-    if (!inviteEmail || !inviteName) return;
+  const [khoaGate, setKhoaGate] = useState('Cổng phụ G2 · VIP');
+  const [khoaShift, setKhoaShift] = useState('18:30 – 22:30 (Cả 2 đêm)');
 
-    addStaff({
-      name: inviteName,
-      email: inviteEmail,
-      role: inviteRole,
-      assignment: inviteAssignment,
-      status: 'Đã gửi lời mời',
-    });
-
-    setShowInviteModal(false);
-    setInviteEmail('');
-    setInviteName('');
-    setInviteRole('Nhân viên soát vé');
-    setInviteAssignment('Cổng G1 · Đêm nhạc Mùa Thu');
-    showToast(`Đã gửi lời mời kích hoạt thành công đến ${inviteName} (${inviteEmail})!`);
-  };
-
-  const handleEditSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!editingStaff) return;
-
-    updateStaff(editingStaff.id, {
-      role: editRole,
-      assignment: editAssignment,
-      status: editStatus,
-    });
-
-    showToast(`Đã cập nhật ca trực và quyền hạn cho ${editingStaff.name}!`);
-    setEditingStaff(null);
-  };
-
-  const handleDeleteStaff = (stf: StaffItem) => {
-    removeStaff(stf.id);
-    setDeleteConfirm(null);
-    showToast(`Đã hủy quyền truy cập của nhân viên ${stf.name}!`);
-  };
-
-  const openEditModal = (stf: StaffItem) => {
-    setEditingStaff(stf);
-    setEditRole(stf.role);
-    setEditAssignment(stf.assignment);
-    setEditStatus(stf.status);
-  };
+  const screenMeta = STAFF_SCREENS.find((s) => s.id === activeScreen) || STAFF_SCREENS[0];
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-      {/* Header */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '28px',
-          flexWrap: 'wrap',
-          gap: '16px',
-        }}
-      >
+    <div>
+      <FigmaPageHeader
+        overline="TICKEY / ORGANIZATION"
+        title={screenMeta.label}
+        screens={STAFF_SCREENS}
+        activeScreen={activeScreen}
+        onSelectScreen={setScreen}
+      />
+
+      {/* 1. o-members */}
+      {activeScreen === 'o-members' && (
         <div>
-          <span className="tag-overline">NHÂN SỰ & PHÂN CÔNG</span>
-          <h1
+          <div
             style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: '32px',
-              fontWeight: 700,
-              color: 'var(--text)',
-              margin: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              marginBottom: 16,
+              flexWrap: 'wrap',
             }}
           >
-            Nhân viên soát vé & Quầy POS
-          </h1>
-          <p style={{ margin: '6px 0 0', fontSize: '14px', color: 'var(--muted)' }}>
-            Quản lý đội ngũ nhân sự vận hành sự kiện, phân luồng cửa vào và cấp tài khoản ứng dụng Mobile Staff.
-          </p>
-        </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ position: 'relative', width: 320 }}>
+                <Search
+                  size={15}
+                  style={{
+                    position: 'absolute',
+                    left: 12,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--muted)',
+                  }}
+                />
+                <input
+                  className="form-input"
+                  style={{ paddingLeft: 34 }}
+                  placeholder="Tìm theo tên, mã, email..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setScreen('o-staff')}
+              >
+                Nhân sự sự kiện
+              </button>
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => showToast('Đã xuất danh sách thành viên ra CSV.', 'success')}
+              >
+                Xuất CSV
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  setInviteName('');
+                  setInviteEmail('');
+                  setInviteRole('Check-in Staff · Nhân sự soát vé');
+                  setStaffActiveNow(true);
+                  setScreen('o-member-add');
+                }}
+              >
+                + Thêm nhân sự
+              </button>
+            </div>
+          </div>
 
-        <button onClick={() => setShowInviteModal(true)} className="btn btn-primary">
-          <Plus size={18} />
-          <span>Mời nhân viên mới</span>
-        </button>
-      </div>
-
-      {toastMessage && (
-        <div
-          style={{
-            padding: '12px 18px',
-            backgroundColor: 'var(--success-bg)',
-            color: 'var(--success)',
-            borderRadius: 'var(--radius-md)',
-            marginBottom: '20px',
-            fontSize: '14px',
-            fontWeight: 500,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}
-        >
-          <CheckCircle2 size={18} />
-          <span>{toastMessage}</span>
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700 }}>
+                Tất cả danh sách
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                {state.members.length} bản ghi
+              </div>
+            </div>
+            <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>THÀNH VIÊN</th>
+                    <th>EMAIL</th>
+                    <th>VAI TRÒ</th>
+                    <th>PHẠM VI</th>
+                    <th>TRẠNG THÁI</th>
+                    <th>THAO TÁC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.members.map((m) => (
+                    <tr key={m.id}>
+                      <td style={{ fontWeight: 700 }}>{m.name}</td>
+                      <td>{m.email}</td>
+                      <td>{m.role}</td>
+                      <td>{m.scope}</td>
+                      <td>
+                        <span
+                          className={`badge ${
+                            m.status === 'ACTIVE' ? 'badge-success' : 'badge-warning'
+                          }`}
+                        >
+                          {m.status === 'ACTIVE' ? 'Đang hoạt động' : 'Đã gửi lời mời'}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setScreen(m.name.includes('Khoa') ? 'o-staff-khoa' : 'o-staff-assign')
+                          }
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--primary)',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Phân quyền →
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Staff Table Card */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid var(--border)', backgroundColor: 'var(--bg)' }}>
-              <th style={{ padding: '14px 24px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                Họ tên & Email
-              </th>
-              <th style={{ padding: '14px 24px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                Vai trò
-              </th>
-              <th style={{ padding: '14px 24px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                Phân công hiện tại
-              </th>
-              <th style={{ padding: '14px 24px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                Trạng thái
-              </th>
-              <th style={{ padding: '14px 24px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600, textAlign: 'right' }}>
-                Thao tác
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {staffList.map((stf) => (
-              <tr key={stf.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                <td style={{ padding: '16px 24px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div
-                      style={{
-                        width: '36px',
-                        height: '36px',
-                        borderRadius: '50%',
-                        backgroundColor: 'var(--primary-container)',
-                        color: 'var(--primary-text)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontWeight: 700,
-                        fontSize: '13px',
-                      }}
-                    >
-                      {stf.name ? stf.name.slice(0, 2).toUpperCase() : 'NV'}
-                    </div>
-                    <div>
-                      <strong style={{ fontSize: '14px', color: 'var(--text)' }}>{stf.name}</strong>
-                      <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{stf.email}</div>
-                    </div>
-                  </div>
-                </td>
-                <td style={{ padding: '16px 24px', fontSize: '13px' }}>
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      color: 'var(--text)',
-                      fontWeight: 500,
-                    }}
-                  >
-                    <ShieldCheck size={14} color="var(--primary)" />
-                    {stf.role}
-                  </span>
-                </td>
-                <td style={{ padding: '16px 24px', fontSize: '13px', color: 'var(--muted)' }}>
-                  {stf.assignment}
-                </td>
-                <td style={{ padding: '16px 24px' }}>
-                  <span
-                    className={`badge ${stf.status === 'Đang hoạt động' ? 'badge-success' : 'badge-warning'}`}
-                  >
-                    {stf.status}
-                  </span>
-                </td>
-                <td style={{ padding: '16px 24px', textAlign: 'right' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-                    <button
-                      className="btn btn-outline"
-                      style={{ fontSize: '12px', padding: '6px 12px' }}
-                      onClick={() => openEditModal(stf)}
-                    >
-                      <Edit3 size={13} style={{ marginRight: '4px' }} />
-                      Phân công ca
-                    </button>
-                    <button
-                      className="btn btn-ghost"
-                      style={{ fontSize: '12px', padding: '6px 8px', color: 'var(--danger, #dc2626)' }}
-                      title="Xóa nhân viên"
-                      onClick={() => setDeleteConfirm(stf)}
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <div
-          style={{
-            padding: '12px 24px',
-            fontSize: '12px',
-            color: 'var(--muted)',
-            backgroundColor: 'var(--bg)',
-          }}
-        >
-          Tổng cộng {staffList.length} nhân sự trong ban vận hành
-        </div>
-      </div>
-
-      {/* Invite Modal */}
-      {showInviteModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-            padding: '20px',
-          }}
-        >
-          <div
-            className="card"
-            style={{
-              width: '100%',
-              maxWidth: '480px',
-              backgroundColor: 'var(--surface)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <h2
-                style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: '22px',
-                  fontWeight: 700,
-                  margin: 0,
-                }}
-              >
-                Mời nhân viên mới
-              </h2>
-              <button
-                type="button"
-                onClick={() => setShowInviteModal(false)}
-                className="btn-ghost"
-                style={{ border: 'none', background: 'none', fontSize: '18px', cursor: 'pointer' }}
-              >
-                ✕
-              </button>
+      {/* 2. o-member-add */}
+      {activeScreen === 'o-member-add' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 18, alignItems: 'start' }}>
+          <div className="card" style={{ padding: 22 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}>
+              Thêm nhân sự mới vào tổ chức
             </div>
-            <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '20px' }}>
-              Người được mời sẽ nhận email kích hoạt và đăng nhập ứng dụng Mobile Staff để soát vé. Dữ liệu sẽ được lưu cố định vào hệ thống.
-            </p>
-
-            <form onSubmit={handleInvite} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Họ và tên nhân viên *
-                </label>
+                <label className="form-label">Họ và tên nhân sự</label>
                 <input
-                  type="text"
-                  placeholder="Ví dụ: Lê Minh Khoa"
+                  className="form-input"
+                  placeholder="Ví dụ: Nguyễn Văn Hoàng"
                   value={inviteName}
                   onChange={(e) => setInviteName(e.target.value)}
-                  required
-                  style={{ width: '100%', height: '40px', padding: '0 12px' }}
                 />
               </div>
-
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Email đăng nhập ứng dụng *
-                </label>
+                <label className="form-label">Email tài khoản</label>
                 <input
-                  type="email"
-                  placeholder="name@gmail.com"
+                  className="form-input"
+                  placeholder="hoang.nguyen@anhtrangevents.vn"
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
-                  required
-                  style={{ width: '100%', height: '40px', padding: '0 12px' }}
+                />
+              </div>
+              <div>
+                <label className="form-label">Vai trò trong tổ chức</label>
+                <select
+                  className="form-input"
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value)}
+                >
+                  <option value="Check-in Staff · Nhân sự soát vé">Check-in Staff · Nhân sự soát vé</option>
+                  <option value="Event Manager · Quản lý sự kiện">Event Manager · Quản lý sự kiện</option>
+                  <option value="Finance · Kế toán đối soát">Finance · Kế toán đối soát</option>
+                </select>
+              </div>
+              <div>
+                <label className="form-label">Trạng thái kích hoạt</label>
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    cursor: 'pointer',
+                    fontSize: 13.5,
+                    padding: '10px 14px',
+                    border: '1px solid var(--border)',
+                    borderRadius: 8,
+                    background: staffActiveNow ? '#F0F9F4' : '#FFFFFF',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={staffActiveNow}
+                    onChange={(e) => setStaffActiveNow(e.target.checked)}
+                  />
+                  <span>
+                    <strong>Kích hoạt và cho phép làm việc ngay</strong>
+                    <span style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                      Nhân sự được cấp quyền làm việc trực tiếp, sẵn sàng phân công cổng soát vé.
+                    </span>
+                  </span>
+                </label>
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    if (!inviteName.trim()) {
+                      showToast('Vui lòng nhập họ tên nhân sự.', 'warning');
+                      return;
+                    }
+                    const email =
+                      inviteEmail.trim() ||
+                      `${inviteName.toLowerCase().replace(/\s+/g, '')}@anhtrangevents.vn`;
+                    inviteMember({
+                      name: inviteName,
+                      email,
+                      role: inviteRole.split(' · ')[0],
+                      scope: 'Toàn bộ sự kiện',
+                      status: staffActiveNow ? 'ACTIVE' : 'INVITED',
+                    });
+                    showToast(
+                      `Đã thêm nhân sự "${inviteName}" vào tổ chức (${staffActiveNow ? 'Đang hoạt động' : 'Đã gửi lời mời'}).`,
+                      'success',
+                    );
+                    setScreen('o-members');
+                  }}
+                >
+                  Thêm & kích hoạt nhân sự
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setScreen('o-members')}
+                >
+                  Hủy
+                </button>
+              </div>
+            </div>
+          </div>
+          <FigmaRecordInfoCard />
+        </div>
+      )}
+
+      {/* 3. o-invite-sent */}
+      {activeScreen === 'o-invite-sent' && (
+        <div
+          className="card"
+          style={{
+            padding: '54px 32px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+          }}
+        >
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 14,
+              background: '#EAF7F0',
+              color: '#18794E',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+            }}
+          >
+            <CheckCircle2 size={24} />
+          </div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, marginBottom: 6 }}>
+            Đã gửi lời mời thành viên
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 460, marginBottom: 14, lineHeight: 1.5 }}>
+            Liên kết kích hoạt quyền truy cập đã được gửi tới {inviteEmail} (hiệu lực trong 48 giờ).
+          </div>
+          <span className="badge badge-success" style={{ marginBottom: 18 }}>
+            Invited · {inviteRole.split(' · ')[0]}
+          </span>
+          <button type="button" className="btn btn-primary" onClick={() => setScreen('o-members')}>
+            Danh sách thành viên
+          </button>
+        </div>
+      )}
+
+      {/* 4. o-staff */}
+      {activeScreen === 'o-staff' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setScreen('o-members')}
+            >
+              ← Thành viên tổ chức
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setScreen('o-staff-assign')}
+            >
+              + Phân công ca trực
+            </button>
+          </div>
+
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700 }}>
+                Nhân sự vận hành · Đêm nhạc Mùa Thu
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                {state.staffAssignments.length} bản ghi
+              </div>
+            </div>
+            <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>NHÂN SỰ</th>
+                    <th>SUẤT DIỄN</th>
+                    <th>CỔNG PHỤ TRÁCH</th>
+                    <th>CA TRỰC</th>
+                    <th>TRẠNG THÁI</th>
+                    <th>THAO TÁC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.staffAssignments.map((s) => (
+                    <tr key={s.id}>
+                      <td style={{ fontWeight: 700 }}>{s.staffName}</td>
+                      <td>{s.sessionName}</td>
+                      <td>{s.gateName}</td>
+                      <td>{s.shift}</td>
+                      <td>
+                        <span className="badge badge-success">Sẵn sàng</span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setScreen(
+                              s.staffName.includes('Khoa') ? 'o-staff-khoa' : 'o-staff-assign',
+                            )
+                          }
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--primary)',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Đổi ca →
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 5. o-staff-assign */}
+      {activeScreen === 'o-staff-assign' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 18, alignItems: 'start' }}>
+          <div className="card" style={{ padding: 22 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}>
+              Thông tin chi tiết · Phân công cổng
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* 1. CHỌN NHÂN SỰ */}
+              <div>
+                <label className="form-label" style={{ fontWeight: 600 }}>
+                  👤 Nhân sự phụ trách
+                </label>
+                <select
+                  className="form-select"
+                  value={assignMember}
+                  onChange={(e) => setAssignMember(e.target.value)}
+                >
+                  {state.members.map((m) => (
+                    <option key={m.id} value={`${m.name} (${m.role})`}>
+                      {m.name} ({m.role}) · {m.scope}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 2. CHỌN SUẤT DIỄN TỪ DATA SỰ KIỆN */}
+              <div
+                style={{
+                  border: '1.5px solid #E2E8F0',
+                  borderRadius: 10,
+                  padding: '14px 16px',
+                  background: '#F8FAFC',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--ink)', margin: 0 }}>
+                    🎪 Chọn Sự kiện & Suất diễn trong Data
+                  </label>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#4F46E5', background: '#EEF2FF', padding: '2px 8px', borderRadius: 4 }}>
+                    {allEventSessions.length} suất diễn sẵn sàng
+                  </span>
+                </div>
+                <select
+                  className="form-select"
+                  value={selectedSessionKey}
+                  onChange={(e) => {
+                    const key = e.target.value;
+                    setSelectedSessionKey(key);
+                    const chosen = allEventSessions.find((s) => s.id === key);
+                    if (chosen) {
+                      setAssignSession(chosen.display);
+                      if (chosen.gates) {
+                        const firstGate = chosen.gates.split(',')[0]?.trim();
+                        if (firstGate) setAssignGate(firstGate);
+                      }
+                      if (chosen.time) {
+                        setAssignShift(`18:30 – 22:30 (Trực theo suất: ${chosen.time})`);
+                      }
+                    }
+                  }}
+                  style={{ fontWeight: 600 }}
+                >
+                  {allEventSessions.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.eventName} ➔ {s.sessionName} {s.time ? `(${s.time})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>📍 Địa điểm: <strong>{activeSessionObj?.venueName || 'Chưa định'}</strong></span>
+                  <span>·</span>
+                  <span>⏰ Giờ diễn: <strong>{activeSessionObj?.time || 'Chưa định'}</strong></span>
+                </div>
+              </div>
+
+              {/* 3. CHỌN CỔNG SOÁT VÉ */}
+              <div>
+                <label className="form-label" style={{ fontWeight: 600 }}>
+                  🚪 Cổng soát vé
+                </label>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                  {Array.from(
+                    new Set([
+                      ...(activeSessionObj?.gates || 'Cổng chính G1, Cổng VIP G2')
+                        .split(',')
+                        .map((g) => g.trim()),
+                      'Cổng chính G1',
+                      'Cổng phụ G2',
+                      'Cổng VIP',
+                      'Cổng Sảnh A',
+                      'Cổng Sảnh B',
+                    ]),
+                  )
+                    .filter(Boolean)
+                    .map((g) => (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => setAssignGate(g)}
+                        style={{
+                          fontSize: 12,
+                          padding: '4px 10px',
+                          borderRadius: 16,
+                          border: assignGate === g ? '1.5px solid var(--brand)' : '1px solid var(--border)',
+                          background: assignGate === g ? '#FDF0EC' : '#FFFFFF',
+                          color: assignGate === g ? 'var(--brand)' : 'var(--ink)',
+                          fontWeight: assignGate === g ? 700 : 500,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {assignGate === g ? '✓ ' : '+ '} {g}
+                      </button>
+                    ))}
+                </div>
+                <input
+                  className="form-input"
+                  value={assignGate}
+                  onChange={(e) => setAssignGate(e.target.value)}
+                  placeholder="Chọn từ gợi ý trên hoặc tự nhập tên cổng..."
                 />
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Vai trò phân quyền
-                </label>
-                <select
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value)}
-                  style={{ width: '100%', height: '40px', padding: '0 12px' }}
-                >
-                  <option value="Nhân viên soát vé">Nhân viên soát vé (Scan QR cổng)</option>
-                  <option value="Thu ngân quầy POS">Thu ngân quầy POS (Bán vé tại chỗ)</option>
-                  <option value="Quản lý ca trực">Quản lý ca trực (Supervisor)</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Phân công ca trực ban đầu
-                </label>
-                <select
-                  value={inviteAssignment}
-                  onChange={(e) => setInviteAssignment(e.target.value)}
-                  style={{ width: '100%', height: '40px', padding: '0 12px' }}
-                >
-                  <option value="Cổng G1 · Đêm nhạc Mùa Thu">Cổng G1 · Sảnh Mặt Tiền (Đêm nhạc Mùa Thu)</option>
-                  <option value="Cổng G2 · Đêm nhạc Mùa Thu">Cổng G2 · Lối Vào Tầng 2 (Đêm nhạc Mùa Thu)</option>
-                  <option value="Quầy vé sảnh A">Quầy vé sảnh A · Bán vé POS</option>
-                  <option value="Hỗ trợ check-in luân phiên">Hỗ trợ check-in luân phiên</option>
-                </select>
-              </div>
-
+              {/* 4. KHUNG GIỜ CA TRỰC (CHỌN GIỜ TRỰC TIẾP QUA PICKER & NÚT GỢI Ý) */}
               <div
                 style={{
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  gap: '12px',
-                  marginTop: '12px',
+                  border: '1px solid var(--border)',
+                  borderRadius: 10,
+                  padding: '12px 14px',
+                  background: '#FAF9F6',
                 }}
               >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 6 }}>
+                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--ink)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    ⏰ Chọn khung giờ ca trực
+                  </label>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: 'var(--brand)',
+                      background: '#FDF0EC',
+                      padding: '2px 8px',
+                      borderRadius: 6,
+                      border: '1px solid #F9C3B4',
+                    }}
+                  >
+                    ✓ {assignShift || `${shiftStart} – ${shiftEnd}`}
+                  </span>
+                </div>
+
+                {/* 2 time inputs: Start and End */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                  <div>
+                    <span style={{ fontSize: 11, color: 'var(--muted)', display: 'block', marginBottom: 4, fontWeight: 500 }}>
+                      Giờ bắt đầu ca
+                    </span>
+                    <input
+                      type="time"
+                      className="form-input"
+                      value={shiftStart}
+                      onChange={(e) => updateShiftTimes(e.target.value, shiftEnd)}
+                    />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 11, color: 'var(--muted)', display: 'block', marginBottom: 4, fontWeight: 500 }}>
+                      Giờ kết thúc ca
+                    </span>
+                    <input
+                      type="time"
+                      className="form-input"
+                      value={shiftEnd}
+                      onChange={(e) => updateShiftTimes(shiftStart, e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Quick preset chips */}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>Chọn ca nhanh:</span>
+                  {[
+                    { label: 'Ca chính (18:30 – 22:30)', start: '18:30', end: '22:30' },
+                    { label: 'Mở sớm (17:30 – 23:00)', start: '17:30', end: '23:00' },
+                    { label: 'Suất tối (19:00 – 22:00)', start: '19:00', end: '22:00' },
+                    { label: 'Ca ngày (08:00 – 17:00)', start: '08:00', end: '17:00' },
+                  ].map((p) => {
+                    const isMatch = shiftStart === p.start && shiftEnd === p.end;
+                    return (
+                      <button
+                        key={p.label}
+                        type="button"
+                        onClick={() => updateShiftTimes(p.start, p.end, `${p.start} – ${p.end}`)}
+                        style={{
+                          fontSize: 11,
+                          padding: '3px 8px',
+                          borderRadius: 6,
+                          border: isMatch ? '1.5px solid var(--brand)' : '1px solid var(--border)',
+                          background: isMatch ? '#FDF0EC' : '#FFFFFF',
+                          color: isMatch ? 'var(--brand)' : 'var(--ink)',
+                          fontWeight: isMatch ? 700 : 500,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {p.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
                 <button
                   type="button"
-                  onClick={() => setShowInviteModal(false)}
-                  className="btn btn-outline"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    assignStaffShift({
+                      staffName: assignMember.split(' (')[0],
+                      sessionName: assignSession || activeSessionObj?.display || 'Đêm 1',
+                      gateName: assignGate,
+                      shift: assignShift,
+                    });
+                    showToast(`Đã phân công ${assignMember.split(' (')[0]} vào ${assignGate} thành công!`, 'success');
+                    setScreen('o-staff');
+                  }}
                 >
-                  Hủy
+                  Lưu phân công
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  <UserCheck size={16} />
-                  Gửi lời mời & Lưu
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setScreen('o-staff')}
+                >
+                  Quay lại danh sách
                 </button>
               </div>
-            </form>
+            </div>
           </div>
+          <FigmaEventPreviewCard
+            title={activeSessionObj?.eventName || 'Đêm nhạc Mùa Thu'}
+            subtitle={activeSessionObj?.venueName || 'Nhà hát Ánh Trăng'}
+            badge={activeSessionObj?.sessionName || 'Đêm 1'}
+            image={activeSessionObj?.poster || null}
+          />
         </div>
       )}
 
-      {/* Edit Assignment Modal */}
-      {editingStaff && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-            padding: '20px',
-          }}
-        >
-          <div
-            className="card"
-            style={{
-              width: '100%',
-              maxWidth: '480px',
-              backgroundColor: 'var(--surface)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <h2
-                style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: '20px',
-                  fontWeight: 700,
-                  margin: 0,
-                }}
-              >
-                Phân công ca & Quyền hạn: {editingStaff.name}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setEditingStaff(null)}
-                className="btn-ghost"
-                style={{ border: 'none', background: 'none', fontSize: '18px', cursor: 'pointer' }}
-              >
-                ✕
-              </button>
+      {/* 6. o-staff-khoa */}
+      {activeScreen === 'o-staff-khoa' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 18, alignItems: 'start' }}>
+          <div className="card" style={{ padding: 22 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}>
+              Thông tin chi tiết · Nhân sự Lê Minh Khoa
             </div>
-            <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '18px' }}>
-              Mã NV: <strong>{editingStaff.id}</strong> · Email: {editingStaff.email}
-            </p>
-
-            <form onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Vai trò
-                </label>
-                <select
-                  value={editRole}
-                  onChange={(e) => setEditRole(e.target.value)}
-                  style={{ width: '100%', height: '40px', padding: '0 12px' }}
-                >
-                  <option value="Nhân viên soát vé">Nhân viên soát vé (Scan QR cổng)</option>
-                  <option value="Thu ngân quầy POS">Thu ngân quầy POS (Bán vé tại chỗ)</option>
-                  <option value="Quản lý ca trực">Quản lý ca trực (Supervisor)</option>
-                </select>
+                <label className="form-label">Nhân sự</label>
+                <input className="form-input" readOnly value="Lê Minh Khoa · Trưởng nhóm Check-in" />
               </div>
-
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Cổng / Vị trí trực
-                </label>
-                <select
-                  value={editAssignment}
-                  onChange={(e) => setEditAssignment(e.target.value)}
-                  style={{ width: '100%', height: '40px', padding: '0 12px' }}
-                >
-                  <option value="Cổng G1 · Đêm nhạc Mùa Thu">Cổng G1 · Sảnh Mặt Tiền (Đêm nhạc Mùa Thu)</option>
-                  <option value="Cổng G2 · Đêm nhạc Mùa Thu">Cổng G2 · Lối Vào Tầng 2 (Đêm nhạc Mùa Thu)</option>
-                  <option value="Quầy vé sảnh A">Quầy vé sảnh A · Bán vé POS</option>
-                  <option value="Hỗ trợ check-in luân phiên">Hỗ trợ check-in luân phiên</option>
-                  <option value="Chưa phân công ca">Chưa phân công ca</option>
-                </select>
+                <label className="form-label">Cổng phụ trách</label>
+                <input
+                  className="form-input"
+                  value={khoaGate}
+                  onChange={(e) => setKhoaGate(e.target.value)}
+                />
               </div>
-
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Trạng thái làm việc
-                </label>
-                <select
-                  value={editStatus}
-                  onChange={(e) => setEditStatus(e.target.value)}
-                  style={{ width: '100%', height: '40px', padding: '0 12px' }}
-                >
-                  <option value="Đang hoạt động">Đang hoạt động</option>
-                  <option value="Đã gửi lời mời">Đã gửi lời mời (Chờ xác nhận)</option>
-                  <option value="Tạm nghỉ">Tạm nghỉ</option>
-                </select>
+                <label className="form-label">Ca trực</label>
+                <input
+                  className="form-input"
+                  value={khoaShift}
+                  onChange={(e) => setKhoaShift(e.target.value)}
+                />
               </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  gap: '12px',
-                  marginTop: '12px',
-                }}
-              >
+              <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
                 <button
                   type="button"
-                  onClick={() => setEditingStaff(null)}
-                  className="btn btn-outline"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    showToast('Đã cập nhật phân công của Lê Minh Khoa.', 'success');
+                    setScreen('o-staff');
+                  }}
                 >
-                  Hủy
+                  Cập nhật ca trực
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  Cập nhật phân công
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setScreen('o-staff')}
+                >
+                  Danh sách nhân sự
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {deleteConfirm && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 110,
-            padding: '20px',
-          }}
-        >
-          <div
-            className="card"
-            style={{
-              width: '100%',
-              maxWidth: '440px',
-              backgroundColor: 'var(--surface)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px', color: 'var(--danger, #dc2626)' }}>
-              <AlertTriangle size={24} />
-              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Xác nhận xóa nhân sự</h3>
-            </div>
-            <p style={{ fontSize: '14px', color: 'var(--text)', lineHeight: 1.5, margin: '0 0 20px' }}>
-              Bạn có chắc chắn muốn xóa nhân viên <strong>{deleteConfirm.name}</strong> ({deleteConfirm.email}) khỏi hệ thống? Người này sẽ bị thu hồi quyền truy cập ứng dụng soát vé ngay lập tức.
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-              <button
-                type="button"
-                className="btn btn-outline"
-                onClick={() => setDeleteConfirm(null)}
-              >
-                Hủy bỏ
-              </button>
-              <button
-                type="button"
-                className="btn btn-danger"
-                style={{ backgroundColor: 'var(--danger, #dc2626)', color: '#fff', border: 'none' }}
-                onClick={() => handleDeleteStaff(deleteConfirm)}
-              >
-                Xác nhận xóa
-              </button>
             </div>
           </div>
+          <FigmaEventPreviewCard />
         </div>
       )}
     </div>

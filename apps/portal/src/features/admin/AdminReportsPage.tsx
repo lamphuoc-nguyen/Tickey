@@ -1,433 +1,414 @@
+import { useState } from 'react';
+import { useSearchParams } from 'react-router';
+import { Search } from 'lucide-react';
+import { useMockStore } from '../../lib/mock-store';
+import { useToast } from '../../components/common/ToastProvider';
+import { DocumentPreviewModal } from '../../components/common/DocumentPreviewModal';
 import {
-  CheckCircle2,
-  Eye,
-  Search,
-  Download,
-  Send,
-  MessageSquare,
-} from 'lucide-react';
-import { useState, type FormEvent } from 'react';
-import { useMockStore, exportToCsv, type DisputeItem } from '../../lib/mock-store';
+  FigmaPageHeader,
+  FigmaNavyContextBanner,
+  FigmaContextGrid,
+  FigmaDocumentRow,
+  FigmaRecordInfoCard,
+  type FigmaScreenOption,
+} from '../../components/common/FigmaScreenPrimitives';
+
+const ADMIN_REPORT_SCREENS: FigmaScreenOption[] = [
+  { id: 'a-reports', label: 'Phản ánh & tranh chấp khách hàng' },
+  { id: 'a-dispute', label: 'Chi tiết tranh chấp · DP-09' },
+  { id: 'a-dispute-12', label: 'Chi tiết tranh chấp · DP-12' },
+  { id: 'a-dispute-resolve', label: 'Phán quyết tranh chấp' },
+  { id: 'a-support', label: 'Phiếu hỗ trợ kỹ thuật (Support Tickets)' },
+  { id: 'a-support-detail', label: 'Chi tiết phiếu hỗ trợ · SUP-204' },
+];
 
 export function AdminReportsPage() {
-  const disputes = useMockStore((state) => state.disputes);
-  const resolveDispute = useMockStore((state) => state.resolveDispute);
-  const replyDispute = useMockStore((state) => state.replyDispute);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { state, resolveAdminDispute } = useMockStore();
+  const { showToast } = useToast();
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDispute, setSelectedDispute] = useState<DisputeItem | null>(null);
-  const [resolutionNote, setResolutionNote] = useState('');
-  const [replyText, setReplyText] = useState('');
-  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const activeScreen = searchParams.get('screen') || 'a-reports';
+  const setScreen = (screen: string) => setSearchParams({ screen });
 
-  const filtered = disputes.filter((d) => {
-    if (!searchTerm) return true;
-    return (
-      d.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.eventName.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  });
+  const [search, setSearch] = useState('');
+  const [previewDoc, setPreviewDoc] = useState<string | null>(null);
 
-  const handleResolve = (id: string) => {
-    resolveDispute(id, resolutionNote);
-    setSelectedDispute(null);
-    setResolutionNote('');
-    setActionSuccess(`Hồ sơ khiếu nại ${id} đã được giải quyết thành công.`);
-    setTimeout(() => setActionSuccess(null), 4000);
-  };
+  const [verdict, setVerdict] = useState('Hoàn tiền 50% thiện chí cho khách hàng (900.000đ)');
+  const [verdictNote, setVerdictNote] = useState(
+    'Tổ chức đã hỗ trợ đổi suất tại cổng, hỗ trợ hoàn một phần do nhầm lẫn thông tin giờ mở cổng.',
+  );
 
-  const handleSendReply = (e: FormEvent) => {
-    e.preventDefault();
-    if (!selectedDispute || !replyText.trim()) return;
+  const [supportReply, setSupportReply] = useState(
+    'Đã làm mới chứng chỉ đồng bộ thiết bị tại Cổng G2. Vui lòng quét lại mã QR.',
+  );
 
-    replyDispute(selectedDispute.id, replyText.trim(), 'IN_PROGRESS');
-    setActionSuccess(`Đã gửi tin nhắn phản hồi tới khách hàng ${selectedDispute.customerName}!`);
-    setTimeout(() => setActionSuccess(null), 4000);
-    setReplyText('');
-    // refresh active selection
-    const updated = disputes.find((d) => d.id === selectedDispute.id);
-    if (updated) setSelectedDispute({ ...updated });
-  };
-
-  const handleExportExcel = () => {
-    const headers = [
-      'Mã khiếu nại',
-      'Khách hàng',
-      'Email',
-      'Mã đơn hàng',
-      'Sự kiện',
-      'Nội dung khiếu nại',
-      'Thời gian gửi',
-      'Trạng thái',
-      'Ghi chú kết luận',
-    ];
-
-    const rows = filtered.map((d) => [
-      d.id,
-      d.customerName,
-      d.customerEmail,
-      d.orderId,
-      d.eventName,
-      d.issue,
-      d.submittedAt,
-      d.status === 'RESOLVED' ? 'Đã giải quyết' : d.status === 'IN_PROGRESS' ? 'Đang xử lý' : 'Đang mở',
-      d.resolutionNote || 'Chưa có',
-    ]);
-
-    exportToCsv(`Tickey_Bao_Cao_Tranh_Chap_${new Date().toISOString().slice(0, 10)}`, headers, rows);
-    setActionSuccess(`Đã xuất file Excel/CSV ${rows.length} hồ sơ khiếu nại!`);
-    setTimeout(() => setActionSuccess(null), 4000);
-  };
+  const screenMeta =
+    ADMIN_REPORT_SCREENS.find((s) => s.id === activeScreen) || ADMIN_REPORT_SCREENS[0];
 
   return (
-    <div style={{ maxWidth: '1240px', margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ marginBottom: '28px' }}>
-        <div
-          style={{
-            fontSize: '12px',
-            fontFamily: 'var(--font-display)',
-            fontWeight: 700,
-            letterSpacing: '0.06em',
-            color: 'var(--muted)',
-            marginBottom: '6px',
-            textTransform: 'uppercase',
-          }}
-        >
-          TICKEY / ADMIN / DISPUTES & SUPPORT
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-          <div>
-            <h1
-              style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: '28px',
-                fontWeight: 700,
-                color: 'var(--text)',
-                margin: 0,
-              }}
+    <div>
+      <FigmaPageHeader
+        overline="TICKEY / ADMIN"
+        title={screenMeta.label}
+        screens={ADMIN_REPORT_SCREENS}
+        activeScreen={activeScreen}
+        onSelectScreen={setScreen}
+      />
+
+      {/* 1. a-reports */}
+      {activeScreen === 'a-reports' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ position: 'relative', width: 320 }}>
+                <Search
+                  size={15}
+                  style={{
+                    position: 'absolute',
+                    left: 12,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--muted)',
+                  }}
+                />
+                <input
+                  className="form-input"
+                  style={{ paddingLeft: 34 }}
+                  placeholder="Tìm theo mã DP-..., mã đơn..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setScreen('a-support')}
+              >
+                Phiếu hỗ trợ kỹ thuật
+              </button>
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => showToast('Đã xuất danh sách phản ánh ra CSV.', 'success')}
             >
-              Phản ánh & Tranh chấp người mua vé
-            </h1>
-            <p style={{ margin: '6px 0 0', fontSize: '14px', color: 'var(--muted)' }}>
-              Tiếp nhận, xử lý khiếu nại giao dịch vé, lỗi thanh toán và tranh chấp giữa khách hàng với nhà tổ chức.
-            </p>
+              Xuất CSV
+            </button>
           </div>
 
-          <button
-            onClick={handleExportExcel}
-            className="btn btn-outline"
-            style={{ fontSize: '13px' }}
-          >
-            <Download size={16} style={{ marginRight: '6px' }} />
-            <span>Xuất file Excel</span>
-          </button>
-        </div>
-      </div>
-
-      {actionSuccess && (
-        <div
-          style={{
-            padding: '14px 20px',
-            backgroundColor: 'var(--success-bg)',
-            color: 'var(--success)',
-            borderRadius: 'var(--radius-md)',
-            marginBottom: '24px',
-            fontSize: '14px',
-            fontWeight: 500,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}
-        >
-          <CheckCircle2 size={18} />
-          <span>{actionSuccess}</span>
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700 }}>
+                Tất cả danh sách tranh chấp
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                {state.disputes.length} bản ghi
+              </div>
+            </div>
+            <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>MÃ HS</th>
+                    <th>ĐƠN VÉ</th>
+                    <th>CHỦ ĐỀ</th>
+                    <th>HẠN SLA</th>
+                    <th>TRẠNG THÁI</th>
+                    <th>THAO TÁC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.disputes.map((d) => (
+                    <tr key={d.id}>
+                      <td style={{ fontWeight: 700 }}>{d.code}</td>
+                      <td>{d.orderCode}</td>
+                      <td>{d.topic}</td>
+                      <td>{d.sla}</td>
+                      <td>
+                        <span
+                          className={`badge ${
+                            d.status === 'RESOLVED' ? 'badge-success' : 'badge-warning'
+                          }`}
+                        >
+                          {d.status === 'RESOLVED' ? 'Đã phán quyết' : 'Đang xử lý'}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setScreen(d.code === 'DP-12' ? 'a-dispute-12' : 'a-dispute')
+                          }
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--primary)',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Xem xét →
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Search Bar */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '20px',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            backgroundColor: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-md)',
-            padding: '8px 14px',
-            width: '320px',
-          }}
-        >
-          <Search size={16} color="var(--muted)" />
-          <input
-            type="text"
-            placeholder="Tìm theo mã DS, khách hàng, mã đơn…"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              border: 'none',
-              background: 'none',
-              outline: 'none',
-              fontSize: '13px',
-              width: '100%',
-            }}
+      {/* 2. a-dispute (DP-09) */}
+      {activeScreen === 'a-dispute' && (
+        <div>
+          <FigmaNavyContextBanner
+            title="Ánh Trăng Events"
+            subtitle="Hồ sơ đang xem · Đúng tổ chức và phạm vi xử lý"
+            badge="Tranh chấp DP-09"
           />
-        </div>
-
-        <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
-          Tổng cộng <strong>{filtered.length}</strong> vụ việc
-        </div>
-      </div>
-
-      {/* Disputes Table */}
-      <div
-        style={{
-          backgroundColor: 'var(--surface)',
-          borderRadius: 'var(--radius-lg)',
-          border: '1px solid var(--border)',
-          overflow: 'hidden',
-          boxShadow: 'var(--shadow-sm)',
-        }}
-      >
-        <table className="table" style={{ width: '100%', margin: 0 }}>
-          <thead>
-            <tr>
-              <th>Mã vụ việc</th>
-              <th>Khách hàng</th>
-              <th>Đơn hàng & Sự kiện</th>
-              <th>Nội dung khiếu nại</th>
-              <th>Trạng thái</th>
-              <th style={{ textAlign: 'right' }}>Thao tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((item) => (
-              <tr key={item.id}>
-                <td>
-                  <strong style={{ color: 'var(--text)', fontFamily: 'monospace' }}>{item.id}</strong>
-                </td>
-                <td>
-                  <div>{item.customerName}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{item.customerEmail}</div>
-                </td>
-                <td>
-                  <div style={{ fontWeight: 600 }}>{item.orderId}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{item.eventName}</div>
-                </td>
-                <td style={{ maxWidth: '320px' }}>
-                  <div
-                    style={{
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      fontSize: '13px',
-                    }}
-                  >
-                    {item.issue}
-                  </div>
-                </td>
-                <td>
-                  {item.status === 'OPEN' && <span className="badge badge-warning">Đang mở</span>}
-                  {item.status === 'IN_PROGRESS' && (
-                    <span className="badge badge-info">Đang xử lý</span>
-                  )}
-                  {item.status === 'RESOLVED' && (
-                    <span className="badge badge-success">Đã giải quyết</span>
-                  )}
-                </td>
-                <td style={{ textAlign: 'right' }}>
-                  <button
-                    onClick={() => setSelectedDispute(item)}
-                    className="btn btn-outline"
-                    style={{ fontSize: '12px', padding: '6px 12px' }}
-                  >
-                    <Eye size={14} style={{ marginRight: '4px' }} />
-                    Xem & Trả lời
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Dispute Modal */}
-      {selectedDispute && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(23, 42, 53, 0.6)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-            padding: '24px',
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: 'var(--surface)',
-              borderRadius: 'var(--radius-lg)',
-              width: '100%',
-              maxWidth: '640px',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              boxShadow: 'var(--shadow-lg)',
-              padding: '32px',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '20px',
-                borderBottom: '1px solid var(--border)',
-                paddingBottom: '16px',
-              }}
+          <FigmaContextGrid
+            items={[
+              { label: 'Mã hồ sơ & Đơn vé', value: 'DP-09 · Đơn TK-1024 (Khách báo lỗi quét QR tại Cổng G1)' },
+              { label: 'Giải trình từ Tổ chức', value: 'Khách xuất trình nhầm mã QR của Đêm 2, đã hỗ trợ tại cổng' },
+              { label: 'Log thiết bị quét vé', value: 'DEV-G1-01 ghi nhận mã QR hợp lệ cho suất 25/10' },
+              { label: 'Trạng thái SLA', value: 'Trong hạn phản hồi · Đủ bằng chứng hai bên' },
+            ]}
+          />
+          <FigmaDocumentRow onView={() => setPreviewDoc('LogQuetVe_CongG1_DP09.pdf')} />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setScreen('a-dispute-resolve')}
             >
-              <div>
-                <span style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                  XỬ LÝ KHIẾU NẠI · {selectedDispute.id}
-                </span>
-                <h2
-                  style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: '20px',
-                    fontWeight: 700,
-                    margin: '4px 0 0',
-                    color: 'var(--text)',
-                  }}
-                >
-                  {selectedDispute.eventName}
-                </h2>
-              </div>
-              <button
-                onClick={() => setSelectedDispute(null)}
-                className="btn-ghost"
-                style={{ fontSize: '18px', border: 'none', background: 'none', cursor: 'pointer' }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
-              <div style={{ backgroundColor: 'var(--bg)', padding: '14px', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>Khách hàng</div>
-                <div style={{ fontWeight: 600 }}>{selectedDispute.customerName} ({selectedDispute.customerEmail})</div>
-                <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>
-                  Đơn hàng: {selectedDispute.orderId} · Thời gian gửi: {selectedDispute.submittedAt}
-                </div>
-              </div>
-
-              <div style={{ backgroundColor: 'var(--bg)', padding: '14px', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>Chi tiết phản ánh</div>
-                <p style={{ margin: 0, fontSize: '14px', lineHeight: 1.5 }}>{selectedDispute.issue}</p>
-              </div>
-
-              {/* Chat Thread */}
-              {selectedDispute.replies && selectedDispute.replies.length > 0 && (
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', marginBottom: '8px', textTransform: 'uppercase' }}>
-                    Nhật ký trả lời khách hàng ({selectedDispute.replies.length})
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {selectedDispute.replies.map((r, i) => (
-                      <div key={i} style={{ backgroundColor: 'var(--bg)', padding: '10px 12px', borderRadius: '6px', borderLeft: '3px solid var(--primary)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '2px' }}>
-                          <strong style={{ color: 'var(--primary)' }}>{r.sender}</strong>
-                          <span style={{ color: 'var(--muted)' }}>{r.time}</span>
-                        </div>
-                        <div style={{ fontSize: '13px' }}>{r.text}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Quick Reply Form */}
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  <MessageSquare size={14} style={{ display: 'inline', marginRight: '4px' }} />
-                  Gửi phản hồi trực tiếp tới email khách hàng:
-                </label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    type="text"
-                    placeholder="VD: Đã gửi lại mã QR qua email và kích hoạt vé thủ công trên hệ thống…"
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    style={{ flex: 1, height: '38px', fontSize: '13px', padding: '0 12px' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleSendReply}
-                    className="btn btn-outline"
-                    style={{ height: '38px', padding: '0 14px', fontSize: '13px' }}
-                  >
-                    <Send size={14} style={{ marginRight: '4px' }} />
-                    Gửi
-                  </button>
-                </div>
-              </div>
-
-              {selectedDispute.status !== 'RESOLVED' && (
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                    Ghi chú kết luận vụ việc & đóng hồ sơ:
-                  </label>
-                  <textarea
-                    rows={2}
-                    placeholder="Ghi chú nội bộ: Lý do giải quyết xong tranh chấp..."
-                    value={resolutionNote}
-                    onChange={(e) => setResolutionNote(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 14px',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--border)',
-                      fontSize: '13px',
-                      resize: 'none',
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px' }}>
-              <button
-                onClick={() => setSelectedDispute(null)}
-                className="btn btn-outline"
-                style={{ fontSize: '13px' }}
-              >
-                Đóng
-              </button>
-              {selectedDispute.status !== 'RESOLVED' && (
-                <button
-                  onClick={() => handleResolve(selectedDispute.id)}
-                  className="btn btn-primary"
-                  style={{ fontSize: '13px' }}
-                >
-                  Giải quyết & Đóng hồ sơ khiếu nại
-                </button>
-              )}
-            </div>
+              Ra phán quyết tranh chấp
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setScreen('a-dispute-12')}
+            >
+              Xem hồ sơ DP-12
+            </button>
           </div>
         </div>
+      )}
+
+      {/* 3. a-dispute-12 */}
+      {activeScreen === 'a-dispute-12' && (
+        <div>
+          <FigmaNavyContextBanner
+            title="Ánh Trăng Events"
+            subtitle="Hồ sơ đang xem · Đúng tổ chức và phạm vi xử lý"
+            badge="Tranh chấp DP-12"
+          />
+          <FigmaContextGrid
+            items={[
+              { label: 'Mã hồ sơ & Đơn vé', value: 'DP-12 · Đơn TK-1028 (Ghế bị che khuất tầm nhìn)' },
+              { label: 'Vị trí ghế phản ánh', value: 'Hàng E · Ghế E09, E10 (Standard)' },
+              { label: 'Đề xuất của Tổ chức', value: 'Nâng hạng miễn phí lên Hàng C (VIP) cho suất kế tiếp' },
+              { label: 'Trạng thái', value: 'Khách hàng đồng ý phương án nâng hạng' },
+            ]}
+          />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setScreen('a-dispute-resolve')}
+            >
+              Đóng hồ sơ & ghi nhận
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setScreen('a-reports')}
+            >
+              Quay lại danh sách
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 4. a-dispute-resolve */}
+      {activeScreen === 'a-dispute-resolve' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 18, alignItems: 'start' }}>
+          <div className="card" style={{ padding: 22 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}>
+              Thông tin chi tiết · Phán quyết tranh chấp
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label className="form-label">Kết luận xử lý của Admin</label>
+                <input
+                  className="form-input"
+                  value={verdict}
+                  onChange={(e) => setVerdict(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="form-label">Biên bản giải quyết gửi 2 bên</label>
+                <input
+                  className="form-input"
+                  value={verdictNote}
+                  onChange={(e) => setVerdictNote(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    resolveAdminDispute('dp-1', verdict);
+                    showToast('Đã ban hành phán quyết và đóng hồ sơ tranh chấp.', 'success');
+                    setScreen('a-reports');
+                  }}
+                >
+                  Xác nhận phán quyết
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setScreen('a-dispute')}
+                >
+                  Quay lại
+                </button>
+              </div>
+            </div>
+          </div>
+          <FigmaRecordInfoCard icon="shield" />
+        </div>
+      )}
+
+      {/* 5. a-support */}
+      {activeScreen === 'a-support' && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div
+            style={{
+              padding: '16px 20px',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700 }}>
+              Phiếu hỗ trợ vận hành từ Tổ chức & Khách hàng
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => setScreen('a-reports')}
+            >
+              ← Hồ sơ tranh chấp
+            </button>
+          </div>
+          <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>MÃ PHIẾU</th>
+                  <th>NGƯỜI GỬI</th>
+                  <th>CHỦ ĐỀ</th>
+                  <th>MỨC ĐỘ</th>
+                  <th>THAO TÁC</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ fontWeight: 700 }}>SUP-204</td>
+                  <td>Ánh Trăng Events</td>
+                  <td>Hỗ trợ đồng bộ máy quét Cổng G2</td>
+                  <td>
+                    <span className="badge badge-warning">Cao</span>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      onClick={() => setScreen('a-support-detail')}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--primary)',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Phản hồi →
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 6. a-support-detail */}
+      {activeScreen === 'a-support-detail' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 18, alignItems: 'start' }}>
+          <div className="card" style={{ padding: 22 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}>
+              Thông tin chi tiết · Phiếu hỗ trợ SUP-204
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label className="form-label">Yêu cầu từ Tổ chức</label>
+                <input
+                  className="form-input"
+                  readOnly
+                  value="Ánh Trăng Events · Thiết bị iPad Mini 6 tại Cổng G2 báo trễ đồng bộ."
+                />
+              </div>
+              <div>
+                <label className="form-label">Nội dung phản hồi kỹ thuật</label>
+                <input
+                  className="form-input"
+                  value={supportReply}
+                  onChange={(e) => setSupportReply(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    showToast('Đã gửi phản hồi kỹ thuật và đóng phiếu SUP-204.', 'success');
+                    setScreen('a-support');
+                  }}
+                >
+                  Gửi phản hồi & đóng phiếu
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setScreen('a-support')}
+                >
+                  Quay lại
+                </button>
+              </div>
+            </div>
+          </div>
+          <FigmaRecordInfoCard />
+        </div>
+      )}
+
+      {previewDoc && (
+        <DocumentPreviewModal
+          isOpen={true}
+          onClose={() => setPreviewDoc(null)}
+          title={previewDoc}
+          organization="Ánh Trăng Events"
+          status="Bằng chứng log hệ thống"
+        />
       )}
     </div>
   );

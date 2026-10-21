@@ -1,413 +1,469 @@
-import {
-  Calendar,
-  CheckCircle2,
-  Eye,
-  FileCheck,
-  MapPin,
-  Search,
-  Users,
-} from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router';
+import { CheckCircle2, Search } from 'lucide-react';
+import { useMockStore } from '../../lib/mock-store';
+import { useToast } from '../../components/common/ToastProvider';
+import { DocumentPreviewModal } from '../../components/common/DocumentPreviewModal';
+import {
+  FigmaPageHeader,
+  FigmaNavyContextBanner,
+  FigmaContextGrid,
+  FigmaDocumentRow,
+  FigmaEventPreviewCard,
+  type FigmaScreenOption,
+} from '../../components/common/FigmaScreenPrimitives';
 
-interface EventItem {
-  id: string;
-  name: string;
-  organizer: string;
-  venue: string;
-  dateTime: string;
-  capacity: string;
-  ticketPriceRange: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
-  permitStatus: string;
-}
+const ADMIN_EVENT_SCREENS: FigmaScreenOption[] = [
+  { id: 'a-events', label: 'Kiểm duyệt sự kiện' },
+  { id: 'a-event-review', label: 'Chi tiết duyệt · Đêm nhạc Mùa Thu' },
+  { id: 'a-event-reject', label: 'Từ chối mở bán sự kiện' },
+  { id: 'a-event-result', label: 'Đã phê duyệt mở bán sự kiện' },
+  { id: 'a-cancellations', label: 'Yêu cầu hủy sự kiện' },
+  { id: 'a-cancel-review', label: 'Xem xét hủy sự kiện · Đêm nhạc Mùa Thu' },
+];
 
 export function AdminEventsPage() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
-  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { state, reviewAdminEvent } = useMockStore();
+  const { showToast } = useToast();
 
-  const [events, setEvents] = useState<EventItem[]>([
-    {
-      id: 'EV-091',
-      name: 'Đêm nhạc Mùa Thu - Live in Saigon',
-      organizer: 'Sóng Việt Events',
-      venue: 'Nhà hát Hòa Bình, 240 Đường 3/2, Q.10, TP.HCM',
-      dateTime: '15/11/2026 · 19:30',
-      capacity: '2,500 vé',
-      ticketPriceRange: '450.000đ - 1.800.000đ',
-      status: 'PENDING',
-      permitStatus: 'Đã đính kèm giấy phép Sở VHTT số 281/GP-SVHTT',
-    },
-    {
-      id: 'EV-088',
-      name: 'Hòa nhạc Giao hưởng Hoàng Gia',
-      organizer: 'Royal Music Vietnam',
-      venue: 'Nhà hát Lớn Hà Nội, 1 Tràng Tiền, Hoàn Kiếm, HN',
-      dateTime: '20/11/2026 · 20:00',
-      capacity: '600 vé',
-      ticketPriceRange: '800.000đ - 3.200.000đ',
-      status: 'PENDING',
-      permitStatus: 'Đã đính kèm công văn chấp thuận địa điểm biểu diễn',
-    },
-    {
-      id: 'EV-075',
-      name: 'Rock Fest 2026: Sức Sống Tuổi Trẻ',
-      organizer: 'Saigon Live Concerts',
-      venue: 'Sân vận động Quân khu 7, TP.HCM',
-      dateTime: '05/12/2026 · 18:00',
-      capacity: '12,000 vé',
-      ticketPriceRange: '350.000đ - 950.000đ',
-      status: 'PENDING',
-      permitStatus: 'Chờ bổ sung phương án PCCC và cứu thương',
-    },
-    {
-      id: 'EV-062',
-      name: 'Indie Soul Acoustic Night',
-      organizer: 'Ánh Trăng Events',
-      venue: 'Soul Live Project Complex, Q.3, TP.HCM',
-      dateTime: '02/11/2026 · 19:00',
-      capacity: '350 vé',
-      ticketPriceRange: '300.000đ - 550.000đ',
-      status: 'APPROVED',
-      permitStatus: 'Đã hoàn tất kiểm duyệt pháp lý',
-    },
-  ]);
+  const activeScreen = searchParams.get('screen') || 'a-events';
+  const setScreen = (screen: string) => setSearchParams({ screen });
 
-  const filtered = events.filter((e) => {
-    if (!searchTerm) return true;
-    return (
-      e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      e.organizer.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  });
+  const [search, setSearch] = useState('');
+  const [previewDoc, setPreviewDoc] = useState<string | null>(null);
+  const queueIdParam = searchParams.get('queueId');
+  const eventsQueue = state?.adminEventsQueue || [];
+  const firstPending = eventsQueue.find((e) => e.status === 'PENDING') || eventsQueue[0];
+  const [selectedEventQueueId, setSelectedEventQueueId] = useState<string>(
+    queueIdParam || firstPending?.id || 'ae-1',
+  );
 
-  const handleApprove = (id: string) => {
-    setEvents((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, status: 'APPROVED' } : e))
-    );
-    setSelectedEvent(null);
-    setActionSuccess('Đã phê duyệt sự kiện. Ban tổ chức đã có thể mở bán vé trên Tickey Marketplace!');
-    setTimeout(() => setActionSuccess(null), 4000);
-  };
+  const selectedEvent =
+    eventsQueue.find((e) => e.id === (queueIdParam || selectedEventQueueId)) ||
+    firstPending ||
+    eventsQueue[0];
 
-  const handleReject = (id: string) => {
-    setEvents((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, status: 'REJECTED' } : e))
-    );
-    setSelectedEvent(null);
-    setActionSuccess('Đã từ chối kiểm duyệt sự kiện.');
-    setTimeout(() => setActionSuccess(null), 4000);
-  };
+  const [rejectReason, setRejectReason] = useState(
+    'Giấy phép biểu diễn của Sở Văn hóa chưa có trang phụ lục danh sách bài hát.',
+  );
+
+  const screenMeta =
+    ADMIN_EVENT_SCREENS.find((s) => s.id === activeScreen) || ADMIN_EVENT_SCREENS[0];
 
   return (
-    <div style={{ maxWidth: '1240px', margin: '0 auto' }}>
-      {/* Page Header */}
-      <div style={{ marginBottom: '28px' }}>
-        <div
-          style={{
-            fontSize: '12px',
-            fontFamily: 'var(--font-display)',
-            fontWeight: 700,
-            letterSpacing: '0.06em',
-            color: 'var(--muted)',
-            marginBottom: '6px',
-            textTransform: 'uppercase',
-          }}
-        >
-          TICKEY / ADMIN / EVENTS
-        </div>
-        <h1
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: '28px',
-            fontWeight: 700,
-            color: 'var(--text)',
-            margin: 0,
-          }}
-        >
-          Kiểm duyệt sự kiện
-        </h1>
-        <p style={{ margin: '6px 0 0', fontSize: '14px', color: 'var(--muted)' }}>
-          Thẩm tra giấy phép biểu diễn, sơ đồ phân hạng vé và cam kết an toàn trước khi kích hoạt mở bán vé.
-        </p>
-      </div>
+    <div>
+      <FigmaPageHeader
+        overline="TICKEY / ADMIN"
+        title={screenMeta.label}
+        screens={ADMIN_EVENT_SCREENS}
+        activeScreen={activeScreen}
+        onSelectScreen={setScreen}
+      />
 
-      {actionSuccess && (
-        <div
-          style={{
-            padding: '14px 20px',
-            backgroundColor: 'var(--success-bg)',
-            color: 'var(--success)',
-            borderRadius: 'var(--radius-md)',
-            marginBottom: '24px',
-            fontSize: '14px',
-            fontWeight: 500,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}
-        >
-          <CheckCircle2 size={18} />
-          <span>{actionSuccess}</span>
-        </div>
-      )}
-
-      {/* Filter Bar */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '20px',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            backgroundColor: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-md)',
-            padding: '8px 14px',
-            width: '320px',
-          }}
-        >
-          <Search size={16} color="var(--muted)" />
-          <input
-            type="text"
-            placeholder="Tìm theo tên sự kiện, nhà tổ chức…"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              border: 'none',
-              background: 'none',
-              outline: 'none',
-              fontSize: '13px',
-              width: '100%',
-            }}
-          />
-        </div>
-
-        <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
-          Hiển thị <strong>{filtered.length}</strong> sự kiện
-        </div>
-      </div>
-
-      {/* Events List */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        {filtered.map((item) => (
+      {/* 1. a-events */}
+      {activeScreen === 'a-events' && (
+        <div>
           <div
-            key={item.id}
             style={{
-              backgroundColor: 'var(--surface)',
-              borderRadius: 'var(--radius-lg)',
-              border: '1px solid var(--border)',
-              padding: '24px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              gap: '24px',
-              boxShadow: 'var(--shadow-sm)',
+              gap: 12,
+              marginBottom: 16,
+              flexWrap: 'wrap',
             }}
           >
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                <span
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ position: 'relative', width: 320 }}>
+                <Search
+                  size={15}
                   style={{
-                    fontSize: '12px',
-                    fontWeight: 600,
+                    position: 'absolute',
+                    left: 12,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
                     color: 'var(--muted)',
-                    fontFamily: 'monospace',
                   }}
-                >
-                  {item.id}
-                </span>
-                <span
-                  style={{
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    color: 'var(--primary)',
-                    backgroundColor: 'var(--primary-tint)',
-                    padding: '2px 8px',
-                    borderRadius: '4px',
-                  }}
-                >
-                  {item.organizer}
-                </span>
-                {item.status === 'PENDING' && <span className="badge badge-warning">Chờ kiểm duyệt</span>}
-                {item.status === 'APPROVED' && <span className="badge badge-success">Đang mở bán</span>}
-                {item.status === 'REJECTED' && <span className="badge badge-danger">Từ chối</span>}
-              </div>
-
-              <h3
-                style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: '18px',
-                  fontWeight: 700,
-                  margin: '0 0 10px',
-                  color: 'var(--text)',
-                }}
-              >
-                {item.name}
-              </h3>
-
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '24px',
-                  fontSize: '13px',
-                  color: 'var(--muted)',
-                  flexWrap: 'wrap',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Calendar size={15} color="var(--primary)" />
-                  <span>{item.dateTime}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <MapPin size={15} color="var(--primary)" />
-                  <span>{item.venue}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Users size={15} color="var(--primary)" />
-                  <span>{item.capacity}</span>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
-                {item.ticketPriceRange}
+                />
+                <input
+                  className="form-input"
+                  style={{ paddingLeft: 34 }}
+                  placeholder="Tìm theo tên sự kiện, tổ chức..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
               </div>
               <button
-                onClick={() => setSelectedEvent(item)}
-                className="btn btn-primary"
-                style={{ fontSize: '13px', padding: '8px 16px' }}
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setScreen('a-cancellations')}
               >
-                <Eye size={14} style={{ marginRight: '6px' }} />
-                Kiểm duyệt chi tiết
+                Yêu cầu hủy sự kiện
               </button>
             </div>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => showToast('Đã xuất danh sách kiểm duyệt sự kiện.', 'success')}
+            >
+              Xuất CSV
+            </button>
           </div>
-        ))}
-      </div>
 
-      {/* Review Event Modal (a-event-review) */}
-      {selectedEvent && (
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700 }}>
+                Tất cả danh sách sự kiện chờ kiểm duyệt
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                {eventsQueue.length} bản ghi
+              </div>
+            </div>
+            <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>SỰ KIỆN</th>
+                    <th>TỔ CHỨC</th>
+                    <th>ĐỊA ĐIỂM</th>
+                    <th>SƠ ĐỒ GHẾ</th>
+                    <th>TRẠNG THÁI</th>
+                    <th>THAO TÁC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {eventsQueue.map((e) => (
+                    <tr key={e.id}>
+                      <td style={{ fontWeight: 700 }}>{e.eventName}</td>
+                      <td>{e.orgName}</td>
+                      <td>{e.venueName}</td>
+                      <td>{e.layoutName}</td>
+                      <td>
+                        <span
+                          className={`badge ${
+                            e.status === 'APPROVED'
+                              ? 'badge-success'
+                              : e.status === 'REJECTED'
+                                ? 'badge-danger'
+                                : 'badge-warning'
+                          }`}
+                        >
+                          {e.status === 'PENDING'
+                            ? 'Chờ duyệt'
+                            : e.status === 'APPROVED'
+                              ? 'Đã duyệt'
+                              : 'Từ chối'}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedEventQueueId(e.id);
+                            setScreen('a-event-review');
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--primary)',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Kiểm duyệt →
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. a-event-review */}
+      {activeScreen === 'a-event-review' && (
+        <div>
+          <FigmaNavyContextBanner
+            title={selectedEvent?.orgName || 'Tổ chức'}
+            subtitle="Hồ sơ đang xem · Đúng tổ chức và phạm vi xử lý"
+            badge={
+              selectedEvent?.status === 'APPROVED'
+                ? 'Đã duyệt mở bán'
+                : selectedEvent?.status === 'REJECTED'
+                  ? 'Đã từ chối'
+                  : 'Đang kiểm duyệt'
+            }
+          />
+          <FigmaContextGrid
+            items={[
+              {
+                label: 'Sự kiện & Tổ chức',
+                value: `${selectedEvent?.eventName || 'Sự kiện'} · ${selectedEvent?.orgName || 'Ánh Trăng Events'}`,
+              },
+              {
+                label: 'Địa điểm & Pháp lý',
+                value: `${selectedEvent?.venueName || 'Địa điểm'} · Đã kiểm tra địa điểm`,
+              },
+              {
+                label: 'Sơ đồ & Định giá ghế',
+                value: `${selectedEvent?.layoutName || 'Sơ đồ'} · Quota & Suất diễn hợp lệ`,
+              },
+              { label: 'Giấy phép biểu diễn', value: 'GPBD_SoVanHoa_2026.pdf · Hợp lệ' },
+            ]}
+          />
+          <FigmaDocumentRow onView={() => setPreviewDoc('GPBD_SoVanHoa_2026.pdf')} />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                if (selectedEvent) {
+                  reviewAdminEvent(selectedEvent.id, true);
+                  showToast(`Đã phê duyệt mở bán sự kiện "${selectedEvent.eventName}".`, 'success');
+                  setScreen('a-event-result');
+                }
+              }}
+            >
+              Phê duyệt mở bán
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setScreen('a-event-reject')}
+            >
+              Từ chối hồ sơ
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 3. a-event-reject */}
+      {activeScreen === 'a-event-reject' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 18, alignItems: 'start' }}>
+          <div className="card" style={{ padding: 22 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}>
+              Thông tin chi tiết · Từ chối mở bán sự kiện
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label className="form-label">Sự kiện</label>
+                <input
+                  className="form-input"
+                  readOnly
+                  value={`${selectedEvent?.eventName || 'Sự kiện'} · ${selectedEvent?.orgName || 'Tổ chức'}`}
+                />
+              </div>
+              <div>
+                <label className="form-label">Lý do từ chối / Yêu cầu chỉnh sửa</label>
+                <input
+                  className="form-input"
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    if (selectedEvent) {
+                      reviewAdminEvent(selectedEvent.id, false, rejectReason);
+                      showToast(
+                        `Đã từ chối mở bán sự kiện "${selectedEvent.eventName}" và thông báo cho Tổ chức.`,
+                        'warning',
+                      );
+                      setScreen('a-events');
+                    }
+                  }}
+                >
+                  Xác nhận từ chối
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setScreen('a-event-review')}
+                >
+                  Quay lại
+                </button>
+              </div>
+            </div>
+          </div>
+          <FigmaEventPreviewCard />
+        </div>
+      )}
+
+      {/* 4. a-event-result */}
+      {activeScreen === 'a-event-result' && (
         <div
+          className="card"
           style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(23, 42, 53, 0.6)',
+            padding: '54px 32px',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-            padding: '24px',
+            textAlign: 'center',
           }}
         >
           <div
             style={{
-              backgroundColor: 'var(--surface)',
-              borderRadius: 'var(--radius-lg)',
-              width: '100%',
-              maxWidth: '720px',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              boxShadow: 'var(--shadow-lg)',
-              padding: '32px',
+              width: 48,
+              height: 48,
+              borderRadius: 14,
+              background: '#EAF7F0',
+              color: '#18794E',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
             }}
           >
+            <CheckCircle2 size={24} />
+          </div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, marginBottom: 6 }}>
+            Đã phê duyệt mở bán sự kiện
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 480, marginBottom: 14 }}>
+            Sự kiện Đêm nhạc Mùa Thu đã chuyển sang trạng thái Đang mở bán (On Sale) theo lịch cấu hình của các suất diễn.
+          </div>
+          <span className="badge badge-success" style={{ marginBottom: 18 }}>
+            Approved · On Sale
+          </span>
+          <button type="button" className="btn btn-primary" onClick={() => setScreen('a-events')}>
+            Danh sách sự kiện
+          </button>
+        </div>
+      )}
+
+      {/* 5. a-cancellations */}
+      {activeScreen === 'a-cancellations' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setScreen('a-events')}
+            >
+              ← Kiểm duyệt sự kiện
+            </button>
+          </div>
+
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <div
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '20px',
+                padding: '16px 20px',
                 borderBottom: '1px solid var(--border)',
-                paddingBottom: '16px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
               }}
             >
-              <div>
-                <span style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                  KIỂM DUYỆT SỰ KIỆN · {selectedEvent.id}
-                </span>
-                <h2
-                  style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: '22px',
-                    fontWeight: 700,
-                    margin: '4px 0 0',
-                    color: 'var(--text)',
-                  }}
-                >
-                  {selectedEvent.name}
-                </h2>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700 }}>
+                Yêu cầu hủy sự kiện & hoàn tiền hàng loạt
               </div>
-              <button
-                onClick={() => setSelectedEvent(null)}
-                className="btn-ghost"
-                style={{ fontSize: '18px', border: 'none', background: 'none', cursor: 'pointer' }}
-              >
-                ✕
-              </button>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>1 bản ghi</div>
             </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '28px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div style={{ backgroundColor: 'var(--bg)', padding: '14px', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>Nhà tổ chức</div>
-                  <strong style={{ fontSize: '15px', color: 'var(--text)' }}>{selectedEvent.organizer}</strong>
-                </div>
-                <div style={{ backgroundColor: 'var(--bg)', padding: '14px', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>Thời gian tổ chức</div>
-                  <strong style={{ fontSize: '15px', color: 'var(--text)' }}>{selectedEvent.dateTime}</strong>
-                </div>
-              </div>
-
-              <div style={{ backgroundColor: 'var(--bg)', padding: '14px', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>Địa điểm & Sức chứa</div>
-                <strong style={{ fontSize: '14px', color: 'var(--text)' }}>{selectedEvent.venue}</strong>
-                <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px' }}>
-                  Tổng quy mô phát hành: <strong>{selectedEvent.capacity}</strong>
-                </div>
-              </div>
-
-              <div style={{ backgroundColor: 'var(--bg)', padding: '14px', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>
-                  Pháp lý & Giấy phép biểu diễn
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text)', fontSize: '13px' }}>
-                  <FileCheck size={16} color="var(--success)" />
-                  <span>{selectedEvent.permitStatus}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px' }}>
-              <button
-                onClick={() => handleReject(selectedEvent.id)}
-                className="btn btn-outline"
-                style={{ color: 'var(--danger)', borderColor: 'var(--danger)', fontSize: '13px' }}
-              >
-                Từ chối sự kiện
-              </button>
-              <button
-                onClick={() => handleApprove(selectedEvent.id)}
-                className="btn btn-primary"
-                style={{ fontSize: '13px' }}
-              >
-                Phê duyệt mở bán vé
-              </button>
+            <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>MÃ YÊU CẦU</th>
+                    <th>SỰ KIỆN</th>
+                    <th>TỔ CHỨC</th>
+                    <th>VÉ BỊ ẢNH HƯỞNG</th>
+                    <th>GIÁ TRỊ HOÀN</th>
+                    <th>TRẠNG THÁI</th>
+                    <th>THAO TÁC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={{ fontWeight: 700 }}>CAN-04</td>
+                    <td>Đêm nhạc Mùa Thu</td>
+                    <td>Ánh Trăng Events</td>
+                    <td>214 vé</td>
+                    <td>128.400.000đ</td>
+                    <td>
+                      <span className="badge badge-warning">Cần phê duyệt kép</span>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() => setScreen('a-cancel-review')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--primary)',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Xem xét →
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
+      )}
+
+      {/* 6. a-cancel-review */}
+      {activeScreen === 'a-cancel-review' && (
+        <div>
+          <FigmaNavyContextBanner
+            title="Ánh Trăng Events"
+            subtitle="Hồ sơ đang xem · Đúng tổ chức và phạm vi xử lý"
+            badge="Yêu cầu hủy sự kiện"
+          />
+          <FigmaContextGrid
+            items={[
+              { label: 'Sự kiện & Tổ chức', value: 'Đêm nhạc Mùa Thu · Ánh Trăng Events' },
+              { label: 'Quy mô hoàn tiền', value: '214 vé đã bán · Tổng hoàn 128.400.000đ' },
+              { label: 'Lý do từ Tổ chức', value: 'Nghệ sĩ chính gặp sự cố sức khỏe đột xuất' },
+              { label: 'Quy tắc phê duyệt', value: 'Dual Control · Cần 2 Admin xác nhận (Phiếu AP-015)' },
+            ]}
+          />
+          <FigmaDocumentRow onView={() => setPreviewDoc('ThongBaoHuyShow_BienBan_2026.pdf')} />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => navigate('/admin/approvals?screen=a-approval-cancel')}
+            >
+              Chuyển sang Phiếu phê duyệt kép (AP-015)
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setScreen('a-cancellations')}
+            >
+              Quay lại
+            </button>
+          </div>
+        </div>
+      )}
+
+      {previewDoc && (
+        <DocumentPreviewModal
+          isOpen={true}
+          onClose={() => setPreviewDoc(null)}
+          title={previewDoc}
+          organization="Ánh Trăng Events"
+          status="Hồ sơ kiểm duyệt sự kiện"
+        />
       )}
     </div>
   );

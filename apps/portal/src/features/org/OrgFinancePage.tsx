@@ -1,502 +1,521 @@
-import { useState, type FormEvent } from 'react';
-import { ArrowUpRight, Building2, CheckCircle2, Wallet, Clock, CheckCircle } from 'lucide-react';
+import { useState } from 'react';
+import { useSearchParams } from 'react-router';
+import { Search } from 'lucide-react';
 import { useMockStore } from '../../lib/mock-store';
+import { useToast } from '../../components/common/ToastProvider';
+import {
+  FigmaPageHeader,
+  FigmaNavyContextBanner,
+  FigmaContextGrid,
+  FigmaRecordInfoCard,
+  type FigmaScreenOption,
+} from '../../components/common/FigmaScreenPrimitives';
+
+const FINANCE_SCREENS: FigmaScreenOption[] = [
+  { id: 'o-finance', label: 'Tổng quan tài chính' },
+  { id: 'o-settlements', label: 'Kỳ đối soát doanh thu' },
+  { id: 'o-payouts', label: 'Lệnh chi trả (Payouts)' },
+  { id: 'o-bank', label: 'Tài khoản ngân hàng nhận tiền' },
+  { id: 'o-bank-mfa', label: 'Xác thực 2FA đổi ngân hàng' },
+  { id: 'o-bank-pending', label: 'Yêu cầu ngân hàng chờ duyệt' },
+];
 
 export function OrgFinancePage() {
-  const payouts = useMockStore((state) => state.payouts);
-  const requestPayout = useMockStore((state) => state.requestPayout);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { state, requestBankChange, requestPayout } = useMockStore();
+  const { showToast } = useToast();
 
-  const [showPayoutModal, setShowPayoutModal] = useState(false);
-  const [payoutAmount, setPayoutAmount] = useState<number>(21060000);
-  const [bankName, setBankName] = useState('Vietcombank - CN Tân Định');
-  const [accountNumber, setAccountNumber] = useState('0123456789');
-  const [accountHolder, setAccountHolder] = useState('CÔNG TY CỔ PHẦN ÁNH TRĂNG');
-  const [payoutNote, setPayoutNote] = useState('Chi trả doanh thu đợt 1');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const activeScreen = searchParams.get('screen') || 'o-finance';
+  const setScreen = (screen: string) => setSearchParams({ screen });
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 4000);
-  };
+  const [search, setSearch] = useState('');
+  const [bankName, setBankName] = useState(state.orgBank.bankName || 'Vietcombank · CN TP.HCM');
+  const [accountNumber, setAccountNumber] = useState(state.orgBank.accountNumber || '0071001234567');
+  const [accountHolder, setAccountHolder] = useState(
+    state.orgBank.accountHolder || 'CONG TY TNHH ANH TRANG EVENTS',
+  );
+  const [otpCode, setOtpCode] = useState('482910');
 
-  const handlePayoutSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!payoutAmount || payoutAmount <= 0) return;
-
-    const newPayout = requestPayout({
-      amount: payoutAmount,
-      bankName,
-      accountNumber,
-      accountHolder,
-      note: payoutNote,
-      organizer: 'Ánh Trăng Events',
-      eventName: 'Đêm nhạc Mùa Thu (Đợt 1)',
-    });
-
-    setShowPayoutModal(false);
-    showToast(
-      `Đã gửi thành công lệnh chi trả ${newPayout.id} (${newPayout.grossAmount}) đến Ban Quản trị Tickey duyệt giải ngân!`
-    );
-  };
-
-  const settlements = [
-    {
-      id: 'STL-01',
-      session: 'Đêm nhạc Mùa Thu (Đêm 1)',
-      gross: '14.200.000đ',
-      fee: '1.420.000đ',
-      net: '12.780.000đ',
-      status: 'Đã quyết toán',
-    },
-    {
-      id: 'STL-02',
-      session: 'Đêm nhạc Mùa Thu (Đêm 2)',
-      gross: '9.200.000đ',
-      fee: '920.000đ',
-      net: '8.280.000đ',
-      status: 'Chờ đối soát sau show',
-    },
-  ];
-
-  // Filter payouts requested by this organizer
-  const orgPayouts = payouts.filter((p) => p.organizer.includes('Ánh Trăng'));
+  const screenMeta = FINANCE_SCREENS.find((s) => s.id === activeScreen) || FINANCE_SCREENS[0];
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-      {/* Header */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '28px',
-          flexWrap: 'wrap',
-          gap: '16px',
-        }}
-      >
+    <div>
+      <FigmaPageHeader
+        overline="TICKEY / ORGANIZATION"
+        title={screenMeta.label}
+        screens={FINANCE_SCREENS}
+        activeScreen={activeScreen}
+        onSelectScreen={setScreen}
+      />
+
+      {/* 1. o-finance */}
+      {activeScreen === 'o-finance' && (
         <div>
-          <span className="tag-overline">TÀI CHÍNH & ĐỐI SOÁT</span>
-          <h1
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: '32px',
-              fontWeight: 700,
-              color: 'var(--text)',
-              margin: 0,
-            }}
-          >
-            Doanh thu & Số dư chi trả
-          </h1>
-          <p style={{ margin: '6px 0 0', fontSize: '14px', color: 'var(--muted)' }}>
-            Theo dõi dòng tiền bán vé thực tế, khấu trừ phí nền tảng và tạo lệnh rút tiền về tài khoản ngân hàng doanh nghiệp.
-          </p>
-        </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14, marginBottom: 18 }}>
+            {[
+              { label: 'Tổng doanh thu gộp', value: '128.400.000đ', note: '214 vé đã thanh toán' },
+              { label: 'Phí nền tảng (5%)', value: '6.420.000đ', note: 'Theo hợp đồng đối tác' },
+              { label: 'Quỹ dự phòng hoàn/tranh chấp', value: '12.840.000đ', note: 'Tạm giữ 10% đến sau sự kiện' },
+              { label: 'Số dư khả dụng chi trả', value: '109.140.000đ', note: 'Kỳ đối soát T+3' },
+            ].map((k) => (
+              <div key={k.label} className="card" style={{ padding: 18 }}>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>{k.label}</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
+                  {k.value}
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{k.note}</div>
+              </div>
+            ))}
+          </div>
 
-        <button
-          onClick={() => setShowPayoutModal(true)}
-          className="btn btn-primary"
-        >
-          <ArrowUpRight size={18} />
-          <span>Yêu cầu chi trả (Payout)</span>
-        </button>
-      </div>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setScreen('o-settlements')}
+            >
+              Xem kỳ đối soát
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setScreen('o-payouts')}
+            >
+              Lệnh chi trả
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setScreen('o-bank')}
+            >
+              Tài khoản ngân hàng
+            </button>
+          </div>
 
-      {toastMessage && (
-        <div
-          style={{
-            padding: '12px 18px',
-            backgroundColor: 'var(--success-bg)',
-            color: 'var(--success)',
-            borderRadius: 'var(--radius-md)',
-            marginBottom: '20px',
-            fontSize: '14px',
-            fontWeight: 500,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}
-        >
-          <CheckCircle2 size={18} />
-          <span>{toastMessage}</span>
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700 }}>
+                Biến động doanh thu theo sự kiện
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>2 bản ghi</div>
+            </div>
+            <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>SỰ KIỆN</th>
+                    <th>DOANH THU GỘP</th>
+                    <th>PHÍ NỀN TẢNG</th>
+                    <th>THỰC NHẬN DỰ KIẾN</th>
+                    <th>TRẠNG THÁI</th>
+                    <th>THAO TÁC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={{ fontWeight: 700 }}>Đêm nhạc Mùa Thu · Đêm 1</td>
+                    <td>72.400.000đ</td>
+                    <td>3.620.000đ</td>
+                    <td>68.780.000đ</td>
+                    <td>
+                      <span className="badge badge-success">Đang tích lũy</span>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() => setScreen('o-settlements')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--primary)',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Đối soát →
+                      </button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: 700 }}>Đêm nhạc Mùa Thu · Đêm 2</td>
+                    <td>56.000.000đ</td>
+                    <td>2.800.000đ</td>
+                    <td>53.200.000đ</td>
+                    <td>
+                      <span className="badge badge-success">Đang tích lũy</span>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() => setScreen('o-settlements')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--primary)',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Đối soát →
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Finance Overview Cards */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-          gap: '20px',
-          marginBottom: '32px',
-        }}
-      >
-        <div className="card" style={{ padding: '24px' }}>
-          <div style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '8px' }}>
-            Tổng doanh thu ghi nhận
-          </div>
-          <div
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: '34px',
-              fontWeight: 700,
-              color: 'var(--text)',
-              marginBottom: '10px',
-            }}
-          >
-            23.400.000đ
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Từ 2 suất diễn đang bán</div>
-        </div>
-
-        <div className="card" style={{ padding: '24px' }}>
-          <div style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '8px' }}>
-            Số dư khả dụng để rút
-          </div>
-          <div
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: '34px',
-              fontWeight: 700,
-              color: 'var(--primary)',
-              marginBottom: '10px',
-            }}
-          >
-            21.060.000đ
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Đã khấu trừ 10% phí nền tảng Tickey</div>
-        </div>
-
-        <div className="card" style={{ padding: '24px' }}>
-          <div style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '8px' }}>
-            Tài khoản ngân hàng thụ hưởng
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '8px 0' }}>
-            <Building2 size={20} color="var(--primary)" />
-            <strong style={{ fontSize: '16px' }}>Vietcombank · CN Tân Định</strong>
-          </div>
-          <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
-            STK: <strong>0123456789</strong> (CÔNG TY CP ÁNH TRĂNG)
-          </div>
-        </div>
-      </div>
-
-      {/* Payout Requests History */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: '32px' }}>
-        <div
-          style={{
-            padding: '18px 24px',
-            borderBottom: '1px solid var(--border)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Wallet size={18} color="var(--primary)" />
-            <h3
-              style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: '18px',
-                fontWeight: 700,
-                margin: 0,
-              }}
-            >
-              Lịch sử lệnh yêu cầu chi trả ({orgPayouts.length})
-            </h3>
-          </div>
-          <button
-            onClick={() => setShowPayoutModal(true)}
-            className="btn btn-outline"
-            style={{ fontSize: '12px', padding: '6px 14px' }}
-          >
-            + Tạo yêu cầu mới
-          </button>
-        </div>
-
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid var(--border)', backgroundColor: 'var(--bg)' }}>
-              <th style={{ padding: '14px 24px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                Mã lệnh
-              </th>
-              <th style={{ padding: '14px 24px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                Thời gian tạo
-              </th>
-              <th style={{ padding: '14px 24px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                Nội dung yêu cầu
-              </th>
-              <th style={{ padding: '14px 24px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                Tài khoản nhận
-              </th>
-              <th style={{ padding: '14px 24px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                Số tiền thực nhận
-              </th>
-              <th style={{ padding: '14px 24px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                Trạng thái duyệt
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {orgPayouts.map((po) => (
-              <tr key={po.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                <td style={{ padding: '16px 24px', fontSize: '13px', fontWeight: 700, color: 'var(--primary)', fontFamily: 'monospace' }}>
-                  {po.id}
-                </td>
-                <td style={{ padding: '16px 24px', fontSize: '13px', color: 'var(--muted)' }}>
-                  {po.createdAt || 'Hôm nay'}
-                </td>
-                <td style={{ padding: '16px 24px' }}>
-                  <div style={{ fontSize: '14px', fontWeight: 600 }}>{po.eventName}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Gốc: {po.grossAmount} (Phí: {po.feeAmount})</div>
-                </td>
-                <td style={{ padding: '16px 24px', fontSize: '13px', color: 'var(--text)' }}>
-                  {po.bankInfo}
-                </td>
-                <td style={{ padding: '16px 24px', fontSize: '15px', fontWeight: 700, color: 'var(--primary)' }}>
-                  {po.netPayout}
-                </td>
-                <td style={{ padding: '16px 24px' }}>
-                  {po.status === 'PENDING_FIRST' && (
-                    <span className="badge badge-warning" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <Clock size={12} /> Chờ Admin duyệt 1
-                    </span>
-                  )}
-                  {po.status === 'PENDING_SECOND' && (
-                    <span className="badge badge-info" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <Clock size={12} /> Cần Admin duyệt 2
-                    </span>
-                  )}
-                  {po.status === 'COMPLETED' && (
-                    <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <CheckCircle size={12} /> Đã giải ngân
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Settlements Table Card */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
-          <h3
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: '18px',
-              fontWeight: 700,
-              margin: 0,
-            }}
-          >
-            Đối soát theo từng suất diễn
-          </h3>
-        </div>
-
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid var(--border)', backgroundColor: 'var(--bg)' }}>
-              <th style={{ padding: '14px 24px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                Mã đối soát
-              </th>
-              <th style={{ padding: '14px 24px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                Suất diễn
-              </th>
-              <th style={{ padding: '14px 24px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                Doanh thu gộp
-              </th>
-              <th style={{ padding: '14px 24px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                Phí nền tảng
-              </th>
-              <th style={{ padding: '14px 24px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                Thực nhận (Net)
-              </th>
-              <th style={{ padding: '14px 24px', fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                Trạng thái
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {settlements.map((set) => (
-              <tr key={set.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                <td style={{ padding: '16px 24px', fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>
-                  {set.id}
-                </td>
-                <td style={{ padding: '16px 24px', fontSize: '14px', fontWeight: 600 }}>
-                  {set.session}
-                </td>
-                <td style={{ padding: '16px 24px', fontSize: '14px', color: 'var(--text)' }}>
-                  {set.gross}
-                </td>
-                <td style={{ padding: '16px 24px', fontSize: '14px', color: 'var(--muted)' }}>
-                  {set.fee}
-                </td>
-                <td style={{ padding: '16px 24px', fontSize: '14px', fontWeight: 700, color: 'var(--success)' }}>
-                  {set.net}
-                </td>
-                <td style={{ padding: '16px 24px' }}>
-                  <span className={`badge ${set.status === 'Đã quyết toán' ? 'badge-success' : 'badge-warning'}`}>
-                    {set.status}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Payout Request Modal */}
-      {showPayoutModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-            padding: '20px',
-          }}
-        >
-          <div
-            className="card"
-            style={{
-              width: '100%',
-              maxWidth: '520px',
-              backgroundColor: 'var(--surface)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ArrowUpRight size={22} color="var(--primary)" />
-                <h2
-                  style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: '20px',
-                    fontWeight: 700,
-                    margin: 0,
-                  }}
-                >
-                  Yêu cầu chi trả doanh thu (Payout)
-                </h2>
-              </div>
+      {/* 2. o-settlements */}
+      {activeScreen === 'o-settlements' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+            <div style={{ position: 'relative', width: 320 }}>
+              <Search
+                size={15}
+                style={{
+                  position: 'absolute',
+                  left: 12,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'var(--muted)',
+                }}
+              />
+              <input
+                className="form-input"
+                style={{ paddingLeft: 34 }}
+                placeholder="Tìm theo mã kỳ đối soát..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
               <button
                 type="button"
-                onClick={() => setShowPayoutModal(false)}
-                className="btn-ghost"
-                style={{ border: 'none', background: 'none', fontSize: '18px', cursor: 'pointer' }}
+                className="btn btn-secondary"
+                onClick={() => setScreen('o-payouts')}
               >
-                ✕
+                Lệnh chi trả
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => showToast('Đã tải xuống biên bản đối soát PDF.', 'success')}
+              >
+                Xuất biên bản
               </button>
             </div>
-            <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '20px' }}>
-              Lệnh chi trả sẽ được chuyển sang hàng đợi kiểm soát 2 người duyệt của Admin Tickey trước khi chuyển khoản.
-            </p>
+          </div>
 
-            <form onSubmit={handlePayoutSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ backgroundColor: 'var(--bg)', padding: '12px 16px', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Số dư khả dụng hiện tại:</div>
-                <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--primary)', marginTop: '2px' }}>
-                  21.060.000 VNĐ
-                </div>
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700 }}>
+                Tất cả danh sách kỳ đối soát
               </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>2 bản ghi</div>
+            </div>
+            <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>MÃ KỲ</th>
+                    <th>CHU KỲ</th>
+                    <th>DOANH THU RÒNG</th>
+                    <th>TRẠNG THÁI</th>
+                    <th>THAO TÁC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={{ fontWeight: 700 }}>STL-2026-10A</td>
+                    <td>01/10 – 15/10/2026</td>
+                    <td>64.200.000đ</td>
+                    <td>
+                      <span className="badge badge-success">Đã chốt sổ</span>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() => setScreen('o-payouts')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--primary)',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Xem chi trả →
+                      </button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: 700 }}>STL-2026-10B</td>
+                    <td>16/10 – 31/10/2026</td>
+                    <td>44.940.000đ</td>
+                    <td>
+                      <span className="badge badge-warning">Đang tạm tính</span>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() => setScreen('o-finance')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--primary)',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Chi tiết
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Số tiền yêu cầu chi trả (VNĐ) *
-                </label>
-                <input
-                  type="number"
-                  min={1000000}
-                  max={21060000}
-                  step={100000}
-                  value={payoutAmount}
-                  onChange={(e) => setPayoutAmount(Number(e.target.value))}
-                  required
-                  style={{ width: '100%', height: '40px', padding: '0 12px', fontSize: '15px', fontWeight: 600 }}
-                />
-                <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px' }}>
-                  Phí nền tảng tạm tính 3.5%: {(Math.round(payoutAmount * 0.035)).toLocaleString('vi-VN')} VNĐ. Thực nhận: {(payoutAmount - Math.round(payoutAmount * 0.035)).toLocaleString('vi-VN')} VNĐ.
-                </div>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Ngân hàng thụ hưởng
-                </label>
-                <select
-                  value={bankName}
-                  onChange={(e) => setBankName(e.target.value)}
-                  style={{ width: '100%', height: '40px', padding: '0 12px' }}
-                >
-                  <option value="Vietcombank - CN Tân Định">Vietcombank - CN Tân Định</option>
-                  <option value="Techcombank - CN Sài Gòn">Techcombank - CN Sài Gòn</option>
-                  <option value="MB Bank - CN Hội Sở">MB Bank - CN Hội Sở</option>
-                  <option value="ACB - CN Bến Thành">ACB - CN Bến Thành</option>
-                </select>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                    Số tài khoản *
-                  </label>
-                  <input
-                    type="text"
-                    value={accountNumber}
-                    onChange={(e) => setAccountNumber(e.target.value)}
-                    required
-                    style={{ width: '100%', height: '40px', padding: '0 12px' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                    Chủ tài khoản *
-                  </label>
-                  <input
-                    type="text"
-                    value={accountHolder}
-                    onChange={(e) => setAccountHolder(e.target.value)}
-                    required
-                    style={{ width: '100%', height: '40px', padding: '0 12px' }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                  Nội dung chuyển khoản / Ghi chú
-                </label>
-                <input
-                  type="text"
-                  value={payoutNote}
-                  onChange={(e) => setPayoutNote(e.target.value)}
-                  style={{ width: '100%', height: '40px', padding: '0 12px' }}
-                />
-              </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  gap: '12px',
-                  marginTop: '12px',
+      {/* 3. o-payouts */}
+      {activeScreen === 'o-payouts' && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div
+            style={{
+              padding: '16px 20px',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700 }}>
+              Lịch sử lệnh chi trả về tài khoản tổ chức
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  const res = requestPayout({
+                    amount: 64200000,
+                    bankName: state.orgBank.bankName,
+                    accountNumber: state.orgBank.accountNumber,
+                    accountHolder: state.orgBank.accountHolder,
+                    organizer: state.orgOnboarding.orgName,
+                    eventName: 'Đêm nhạc Mùa Thu',
+                  });
+                  showToast(`Đã gửi yêu cầu quyết toán ${res.id} (64.200.000đ) tới Admin.`, 'success');
                 }}
               >
+                + Yêu cầu quyết toán mới
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setScreen('o-bank')}
+              >
+                Cập nhật ngân hàng nhận
+              </button>
+            </div>
+          </div>
+          <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>MÃ CHI TRẢ</th>
+                  <th>KỲ ĐỐI SOÁT</th>
+                  <th>NGÂN HÀNG NHẬN</th>
+                  <th>SỐ TIỀN</th>
+                  <th>TRẠNG THÁI</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(state?.adminPayouts || []).map((p) => (
+                  <tr key={p.id}>
+                    <td style={{ fontWeight: 700 }}>{p.code}</td>
+                    <td>{p.settlementCode}</td>
+                    <td>{state.orgBank.bankName} (*{state.orgBank.accountNumber.slice(-4)})</td>
+                    <td>{p.amount}</td>
+                    <td>
+                      <span
+                        className={`badge ${
+                          p.status === 'PAID'
+                            ? 'badge-success'
+                            : p.status === 'CANCELLED'
+                              ? 'badge-danger'
+                              : 'badge-warning'
+                        }`}
+                      >
+                        {p.status === 'PAID'
+                          ? 'Đã chuyển khoản'
+                          : p.status === 'CANCELLED'
+                            ? 'Đã từ chối'
+                            : 'Chờ Admin giải ngân'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 4. o-bank */}
+      {activeScreen === 'o-bank' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 18, alignItems: 'start' }}>
+          <div className="card" style={{ padding: 22 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}>
+              Thông tin chi tiết · Tài khoản ngân hàng
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label className="form-label">Ngân hàng & Chi nhánh</label>
+                <input
+                  className="form-input"
+                  value={bankName}
+                  onChange={(e) => setBankName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="form-label">Số tài khoản doanh nghiệp</label>
+                <input
+                  className="form-input"
+                  value={accountNumber}
+                  onChange={(e) => setAccountNumber(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="form-label">Tên chủ tài khoản (Trùng tên pháp nhân KYC)</label>
+                <input
+                  className="form-input"
+                  value={accountHolder}
+                  onChange={(e) => setAccountHolder(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
                 <button
                   type="button"
-                  onClick={() => setShowPayoutModal(false)}
-                  className="btn btn-outline"
+                  className="btn btn-primary"
+                  onClick={() => setScreen('o-bank-mfa')}
                 >
-                  Hủy
+                  Tiếp tục xác thực 2FA
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  Gửi yêu cầu chi trả
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setScreen('o-finance')}
+                >
+                  Quay lại
                 </button>
               </div>
-            </form>
+            </div>
+          </div>
+          <FigmaRecordInfoCard />
+        </div>
+      )}
+
+      {/* 5. o-bank-mfa */}
+      {activeScreen === 'o-bank-mfa' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 18, alignItems: 'start' }}>
+          <div className="card" style={{ padding: 22 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}>
+              Xác thực bảo mật 2 lớp (2FA / OTP)
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label className="form-label">Tài khoản nhận mới</label>
+                <input
+                  className="form-input"
+                  readOnly
+                  value={`${bankName} · ${accountNumber}`}
+                />
+              </div>
+              <div>
+                <label className="form-label">Mã OTP gửi tới email Owner (ops@anhtrangevents.vn)</label>
+                <input
+                  className="form-input"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    requestBankChange(bankName, accountNumber, accountHolder);
+                    showToast('Đã xác thực OTP và gửi yêu cầu đổi ngân hàng tới Admin.', 'success');
+                    setScreen('o-bank-pending');
+                  }}
+                >
+                  Xác nhận & gửi duyệt
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setScreen('o-bank')}
+                >
+                  Quay lại
+                </button>
+              </div>
+            </div>
+          </div>
+          <FigmaRecordInfoCard icon="shield" />
+        </div>
+      )}
+
+      {/* 6. o-bank-pending */}
+      {activeScreen === 'o-bank-pending' && (
+        <div>
+          <FigmaNavyContextBanner
+            title="Ánh Trăng Events"
+            subtitle="Hồ sơ đang xem · Đúng tổ chức và phạm vi xử lý"
+            badge="Chờ xác minh ngân hàng"
+          />
+          <FigmaContextGrid
+            items={[
+              { label: 'Ngân hàng đề xuất', value: bankName },
+              { label: 'Số tài khoản & Chủ TK', value: `${accountNumber} · ${accountHolder}` },
+              { label: 'Xác thực 2FA', value: 'Đã xác thực OTP bởi Owner · 21/10/2026' },
+              { label: 'Trạng thái xử lý', value: 'Đang chờ Admin đối chiếu tên pháp nhân KYC' },
+            ]}
+          />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setScreen('o-finance')}
+            >
+              Về tổng quan tài chính
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setScreen('o-payouts')}
+            >
+              Xem lệnh chi trả
+            </button>
           </div>
         </div>
       )}

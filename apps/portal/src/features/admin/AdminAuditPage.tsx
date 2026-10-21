@@ -1,187 +1,136 @@
-import { Search } from 'lucide-react';
 import { useState } from 'react';
+import { Search } from 'lucide-react';
+import { useMockStore } from '../../lib/mock-store';
+import { useToast } from '../../components/common/ToastProvider';
+import { FigmaPageHeader } from '../../components/common/FigmaScreenPrimitives';
 
 export function AdminAuditPage() {
-  const [searchTerm, setSearchTerm] = useState('');
+  const { state } = useMockStore();
+  const { showToast } = useToast();
+  const [search, setSearch] = useState('');
+  const [actorFilter, setActorFilter] = useState('ALL');
 
-  const logs = [
-    {
-      id: 'LOG-9921',
-      timestamp: '19/10/2026 10:15:24',
-      actor: 'admin-hung@tickey.vn',
-      action: 'APPROVE_PAYOUT_FIRST',
-      target: 'PO-014 (Ánh Trăng Events - 320.000.000đ)',
-      ip: '118.69.182.42',
-      status: 'SUCCESS',
-    },
-    {
-      id: 'LOG-9918',
-      timestamp: '19/10/2026 09:40:11',
-      actor: 'admin-lan@tickey.vn',
-      action: 'APPROVE_CANCEL_SHOW_FIRST',
-      target: 'AP-024 (Sóng Việt Events - Đêm 1)',
-      ip: '14.161.22.95',
-      status: 'SUCCESS',
-    },
-    {
-      id: 'LOG-9892',
-      timestamp: '19/10/2026 08:30:00',
-      actor: 'system-reconcile-bot',
-      action: 'AUTO_RECONCILIATION_RUN',
-      target: 'Gateways: MoMo, VNPay, VietQR',
-      ip: '10.0.4.12 (Internal)',
-      status: 'SUCCESS',
-    },
-    {
-      id: 'LOG-9840',
-      timestamp: '18/10/2026 17:22:15',
-      actor: 'admin-hung@tickey.vn',
-      action: 'KYC_APPROVE',
-      target: 'ORG: Ánh Trăng Events (ACTIVE)',
-      ip: '118.69.182.42',
-      status: 'SUCCESS',
-    },
-  ];
-
-  const filtered = logs.filter((l) => {
-    if (!searchTerm) return true;
-    return (
-      l.actor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      l.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      l.target.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  const filteredLogs = state.auditLogs.filter((log) => {
+    const matchText =
+      !search ||
+      log.action.toLowerCase().includes(search.toLowerCase()) ||
+      log.actor.toLowerCase().includes(search.toLowerCase()) ||
+      log.target.toLowerCase().includes(search.toLowerCase());
+    const matchActor =
+      actorFilter === 'ALL' ||
+      (actorFilter === 'ADMIN' && log.actor.includes('admin')) ||
+      (actorFilter === 'ORG' && !log.actor.includes('admin'));
+    return matchText && matchActor;
   });
 
-  return (
-    <div style={{ maxWidth: '1240px', margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ marginBottom: '28px' }}>
-        <div
-          style={{
-            fontSize: '12px',
-            fontFamily: 'var(--font-display)',
-            fontWeight: 700,
-            letterSpacing: '0.06em',
-            color: 'var(--muted)',
-            marginBottom: '6px',
-            textTransform: 'uppercase',
-          }}
-        >
-          TICKEY / ADMIN / AUDIT LOG
-        </div>
-        <h1
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: '28px',
-            fontWeight: 700,
-            color: 'var(--text)',
-            margin: 0,
-          }}
-        >
-          Nhật ký thao tác hệ thống (Audit Trail)
-        </h1>
-        <p style={{ margin: '6px 0 0', fontSize: '14px', color: 'var(--muted)' }}>
-          Ghi nhận toàn bộ thao tác nhạy cảm, phê duyệt lệnh và truy cập quản trị viên bất biến để phục vụ kiểm toán an toàn.
-        </p>
-      </div>
+  const handleExportCsv = () => {
+    const rows = [
+      ['Thoi gian', 'Nguoi thuc hien', 'Hanh dong', 'Doi tuong'],
+      ...filteredLogs.map((l) => [l.timestamp, l.actor, l.action, l.target]),
+    ];
+    const csv = rows.map((r) => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'tickey-audit-logs.csv';
+    a.click();
+    showToast('Đã xuất sổ cái lịch sử thao tác (Audit Log) ra CSV.', 'success');
+  };
 
-      {/* Search Bar */}
+  return (
+    <div>
+      <FigmaPageHeader overline="TICKEY / ADMIN" title="Lịch sử thao tác hệ thống (Audit Log)" />
+
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: '20px',
+          gap: 12,
+          marginBottom: 16,
+          flexWrap: 'wrap',
         }}
       >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            backgroundColor: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-md)',
-            padding: '8px 14px',
-            width: '320px',
-          }}
-        >
-          <Search size={16} color="var(--muted)" />
-          <input
-            type="text"
-            placeholder="Tìm theo actor, hành động, target…"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              border: 'none',
-              background: 'none',
-              outline: 'none',
-              fontSize: '13px',
-              width: '100%',
-            }}
-          />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ position: 'relative', width: 320 }}>
+            <Search
+              size={15}
+              style={{
+                position: 'absolute',
+                left: 12,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--muted)',
+              }}
+            />
+            <input
+              className="form-input"
+              style={{ paddingLeft: 34 }}
+              placeholder="Tìm theo tài khoản, hành động, mã hồ sơ..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <select
+            className="form-input"
+            style={{ width: 180 }}
+            value={actorFilter}
+            onChange={(e) => setActorFilter(e.target.value)}
+          >
+            <option value="ALL">Lọc đối tượng</option>
+            <option value="ADMIN">Admin nền tảng</option>
+            <option value="ORG">Tổ chức (Tenant)</option>
+          </select>
         </div>
-
-        <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
-          Ghi nhận <strong>{filtered.length}</strong> sự kiện gần nhất
-        </div>
+        <button type="button" className="btn btn-secondary" onClick={handleExportCsv}>
+          Xuất CSV
+        </button>
       </div>
 
-      {/* Audit Table */}
-      <div
-        style={{
-          backgroundColor: 'var(--surface)',
-          borderRadius: 'var(--radius-lg)',
-          border: '1px solid var(--border)',
-          overflowX: 'auto',
-          boxShadow: 'var(--shadow-sm)',
-        }}
-      >
-        <table className="table" style={{ width: '100%', minWidth: '960px', margin: 0 }}>
-          <thead>
-            <tr>
-              <th style={{ whiteSpace: 'nowrap' }}>Thời gian</th>
-              <th style={{ minWidth: '160px' }}>Người thực hiện</th>
-              <th style={{ whiteSpace: 'nowrap' }}>Hành động</th>
-              <th style={{ minWidth: '240px' }}>Đối tượng tác động</th>
-              <th style={{ whiteSpace: 'nowrap' }}>Địa chỉ IP</th>
-              <th style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>Kết quả</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((log) => (
-              <tr key={log.id}>
-                <td style={{ fontSize: '13px', color: 'var(--muted)', fontFamily: 'monospace' }}>
-                  {log.timestamp}
-                </td>
-                <td>
-                  <strong style={{ color: 'var(--text)' }}>{log.actor}</strong>
-                </td>
-                <td>
-                  <span
-                    style={{
-                      fontFamily: 'monospace',
-                      fontSize: '12px',
-                      padding: '2px 6px',
-                      backgroundColor: 'var(--bg)',
-                      borderRadius: '4px',
-                      border: '1px solid var(--border)',
-                    }}
-                  >
-                    {log.action}
-                  </span>
-                </td>
-                <td style={{ fontSize: '13px' }}>{log.target}</td>
-                <td style={{ fontSize: '12px', color: 'var(--muted)', fontFamily: 'monospace' }}>
-                  {log.ip}
-                </td>
-                <td>
-                  <span className="badge badge-success">Thành công</span>
-                </td>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div
+          style={{
+            padding: '16px 20px',
+            borderBottom: '1px solid var(--border)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700 }}>
+            Tất cả bản ghi bất biến (Immutable Audit Trail)
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+            {filteredLogs.length} bản ghi
+          </div>
+        </div>
+        <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>THỜI GIAN</th>
+                <th>TÀI KHOẢN</th>
+                <th>HÀNH ĐỘNG</th>
+                <th>ĐỐI TƯỢNG TÁC ĐỘNG</th>
+                <th>TRẠNG THÁI</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredLogs.map((log) => (
+                <tr key={log.id}>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{log.timestamp}</td>
+                  <td style={{ fontWeight: 700 }}>{log.actor}</td>
+                  <td>{log.action}</td>
+                  <td>{log.target}</td>
+                  <td>
+                    <span className="badge badge-success">Đã ghi sổ</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

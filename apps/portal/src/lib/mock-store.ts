@@ -75,28 +75,750 @@ export interface DisputeItem {
   replies?: { sender: string; text: string; time: string }[];
 }
 
+export interface EventItem {
+  id: string;
+  name: string;
+  orgName: string;
+  venueId?: string;
+  venueName: string;
+  layoutId?: string;
+  layoutName: string;
+  category: string;
+  poster?: string | null;
+  status: 'DRAFT' | 'PENDING' | 'PUBLISHED' | 'CANCEL_REQUESTED' | 'CANCELLED' | 'REJECTED';
+  rejectionReason?: string;
+  cancellationReason?: string;
+  sessions: {
+    id: string;
+    name: string;
+    time: string;
+    saleWindow?: string;
+    gates?: string;
+    status: 'ACTIVE' | 'PAUSED' | 'SOLD_OUT';
+  }[];
+  ticketTiers: {
+    id: string;
+    name: string;
+    price: string;
+    quota: number;
+    sold: number;
+  }[];
+  totalRevenue?: string;
+  ticketsSold?: number;
+  totalTickets?: number;
+}
+
+export interface FigmaPortalDomainState {
+  orgOnboarding: {
+    orgName: string;
+    taxCode: string;
+    email: string;
+    phone: string;
+    gpkdFile: string;
+    cccdFile: string;
+    status: 'DRAFT' | 'PENDING' | 'APPROVED' | 'NEED_INFO' | 'REJECTED';
+    rejectionReason?: string;
+  };
+  events: EventItem[];
+  venues: {
+    id: string;
+    name: string;
+    city: string;
+    address?: string;
+    type: string;
+    layoutsCount: number;
+    status: 'VERIFIED' | 'PENDING';
+    documentName?: string;
+  }[];
+  layouts: {
+    id: string;
+    name: string;
+    venueName: string;
+    structure: string;
+    totalSeats: string;
+    status: 'PUBLISHED' | 'DRAFT' | 'ARCHIVED';
+  }[];
+  seatRowPricing: Record<string, string>;
+  seatStatuses: Record<string, 'AVAILABLE' | 'HOLD' | 'BLOCKED' | 'SOLD'>;
+  members: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    scope: string;
+    status: 'ACTIVE' | 'INVITED';
+  }[];
+  staffAssignments: {
+    id: string;
+    staffName: string;
+    sessionName: string;
+    gateName: string;
+    shift: string;
+  }[];
+  gates: {
+    id: string;
+    code: string;
+    name: string;
+    allowedTiers: string;
+    devicesCount: number;
+  }[];
+  devices: {
+    id: string;
+    code: string;
+    model: string;
+    gateCode: string;
+    staffName: string;
+    status: 'ONLINE' | 'REVOKED';
+  }[];
+  orders: {
+    id: string;
+    code: string;
+    customerName: string;
+    sessionName: string;
+    seats: string;
+    total: string;
+    status: 'PAID' | 'COMP' | 'REFUND_REQUESTED';
+  }[];
+  compTickets: {
+    id: string;
+    code: string;
+    guestName: string;
+    email: string;
+    seat: string;
+    note: string;
+  }[];
+  orgBank: {
+    bankName: string;
+    accountNumber: string;
+    accountHolder: string;
+    status: 'VERIFIED' | 'PENDING';
+  };
+  disputes: {
+    id: string;
+    code: string;
+    orderCode: string;
+    topic: string;
+    sla: string;
+    status: 'OPEN' | 'RESPONDED' | 'RESOLVED';
+  }[];
+  refunds: {
+    id: string;
+    code: string;
+    orderCode: string;
+    customerName: string;
+    amount: string;
+    reason: string;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'TRANSFERRED';
+  }[];
+  adminKycQueue: {
+    id: string;
+    orgName: string;
+    taxCode: string;
+    docsCount: number;
+    submittedAt: string;
+    status: 'PENDING' | 'APPROVED' | 'NEED_INFO' | 'REJECTED';
+  }[];
+  adminOrgs: {
+    id: string;
+    name: string;
+    taxCode: string;
+    eventsCount: number;
+    status: 'ACTIVE' | 'SUSPENDED';
+  }[];
+  adminVenueQueue: {
+    id: string;
+    venueName: string;
+    orgName: string;
+    city: string;
+    docName: string;
+    status: 'PENDING' | 'VERIFIED';
+  }[];
+  adminEventsQueue: {
+    id: string;
+    eventName: string;
+    orgName: string;
+    venueName: string;
+    layoutName: string;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  }[];
+  adminApprovals: {
+    id: string;
+    code: string;
+    type: string;
+    target: string;
+    firstAdmin: string;
+    secondAdmin?: string;
+    status: 'PENDING_2ND' | 'APPROVED_2_OF_2' | 'REJECTED';
+  }[];
+  adminPayouts: {
+    id: string;
+    code: string;
+    orgName: string;
+    settlementCode: string;
+    amount: string;
+    status: 'PENDING' | 'PAID' | 'CANCELLED';
+  }[];
+  auditLogs: {
+    id: string;
+    timestamp: string;
+    actor: string;
+    action: string;
+    target: string;
+  }[];
+}
+
+const initialFigmaState: FigmaPortalDomainState = {
+  orgOnboarding: {
+    orgName: 'Ánh Trăng Events',
+    taxCode: '0312456789',
+    email: 'ops@anhtrangevents.vn',
+    phone: '0901 234 567',
+    gpkdFile: 'GPKD_AnhTrang_2026.pdf · 2.4 MB',
+    cccdFile: 'CCCD_Rep_2026.pdf · 1.1 MB',
+    status: 'APPROVED',
+  },
+  events: [
+    {
+      id: 'ev-1',
+      name: 'Đêm nhạc Mùa Thu',
+      orgName: 'Ánh Trăng Events',
+      venueId: 'v-1',
+      venueName: 'Nhà hát Ánh Trăng',
+      layoutId: 'l-1',
+      layoutName: 'Sơ đồ nhà hát v4 · 80 ghế',
+      category: 'Âm nhạc · Biểu diễn nghệ thuật',
+      status: 'PENDING',
+      sessions: [
+        {
+          id: 'sess-1',
+          name: 'Đêm 1 · Khai màn',
+          time: '24/10/2026 · 20:00 – 22:30',
+          saleWindow: '01/10/2026 09:00 → 24/10/2026 19:30',
+          gates: 'Cổng chính G1, Cổng phụ G2',
+          status: 'ACTIVE',
+        },
+        {
+          id: 'sess-2',
+          name: 'Đêm 2 · Bế mạc',
+          time: '25/10/2026 · 20:00 – 22:30',
+          saleWindow: '01/10/2026 09:00 → 25/10/2026 19:30',
+          gates: 'Cổng chính G1',
+          status: 'ACTIVE',
+        },
+      ],
+      ticketTiers: [
+        { id: 'tt-1', name: 'Standard', price: '500.000đ', quota: 50, sold: 34 },
+        { id: 'tt-2', name: 'VIP', price: '900.000đ', quota: 20, sold: 18 },
+        { id: 'tt-3', name: 'COMP', price: '0đ', quota: 10, sold: 6 },
+      ],
+      totalRevenue: '33.200.000đ',
+      ticketsSold: 58,
+      totalTickets: 80,
+    },
+    {
+      id: 'ev-2',
+      name: 'Hội thảo Công nghệ AI & Tương lai',
+      orgName: 'Ánh Trăng Events',
+      venueId: 'v-3',
+      venueName: 'Nhà thi đấu Phú Thọ',
+      layoutId: 'l-arena',
+      layoutName: 'Sơ đồ Arena v2 · 1.400 chỗ',
+      category: 'Hội thảo · Công nghệ',
+      status: 'PUBLISHED',
+      sessions: [
+        {
+          id: 'sess-ai-1',
+          name: 'Phiên toàn thể',
+          time: '15/11/2026 · 08:30 – 17:30',
+          status: 'ACTIVE',
+        },
+      ],
+      ticketTiers: [
+        { id: 'tt-ai-1', name: 'Vé tham dự', price: '250.000đ', quota: 1200, sold: 980 },
+        { id: 'tt-ai-2', name: 'Vé VIP Networking', price: '1.200.000đ', quota: 200, sold: 195 },
+      ],
+      totalRevenue: '479.000.000đ',
+      ticketsSold: 1175,
+      totalTickets: 1400,
+    },
+  ],
+  venues: [
+    {
+      id: 'v-1',
+      name: 'Nhà hát Ánh Trăng',
+      city: 'TP.HCM',
+      type: 'Khán phòng · 320 ghế',
+      layoutsCount: 2,
+      status: 'VERIFIED',
+    },
+    {
+      id: 'v-2',
+      name: 'Sân khấu Bến Sông',
+      city: 'TP. Thủ Đức',
+      type: 'Ngoài trời · 2.500 khách',
+      layoutsCount: 1,
+      status: 'PENDING',
+    },
+    {
+      id: 'v-3',
+      name: 'Nhà thi đấu Phú Thọ',
+      city: 'TP.HCM',
+      type: 'Arena đa năng · 1.400 ghế',
+      layoutsCount: 1,
+      status: 'VERIFIED',
+    },
+  ],
+  layouts: [
+    {
+      id: 'l-1',
+      name: 'Sơ đồ nhà hát v4',
+      venueName: 'Nhà hát Ánh Trăng',
+      structure: '8 hàng × 10 ghế',
+      totalSeats: '80 ghế',
+      status: 'PUBLISHED',
+    },
+    {
+      id: 'l-2',
+      name: 'Sơ đồ nhà hát v3',
+      venueName: 'Nhà hát Ánh Trăng',
+      structure: '8 hàng × 10 ghế',
+      totalSeats: '80 ghế',
+      status: 'ARCHIVED',
+    },
+    {
+      id: 'l-3',
+      name: 'Sơ đồ khu đứng v1',
+      venueName: 'Sân khấu Bến Sông',
+      structure: '4 khu đứng (Standing)',
+      totalSeats: '2.500 chỗ',
+      status: 'DRAFT',
+    },
+    {
+      id: 'l-4',
+      name: 'Sơ đồ Arena v1',
+      venueName: 'Nhà thi đấu Phú Thọ',
+      structure: '4 Khán đài A-B-C-D',
+      totalSeats: '1.400 chỗ',
+      status: 'PUBLISHED',
+    },
+  ],
+  seatRowPricing: {
+    A: 'Standard',
+    B: 'Standard',
+    C: 'VIP',
+    D: 'VIP',
+    E: 'Standard',
+    F: 'Standard',
+    G: 'COMP',
+    H: 'Free',
+  },
+  seatStatuses: {
+    A04: 'SOLD',
+    A05: 'SOLD',
+    B04: 'SOLD',
+    B05: 'SOLD',
+    C05: 'SOLD',
+    E01: 'HOLD',
+    E02: 'HOLD',
+    H09: 'BLOCKED',
+    H10: 'BLOCKED',
+  },
+  members: [
+    {
+      id: 'm-1',
+      name: 'Nguyễn Phước Lâm',
+      email: 'owner@anhtrangevents.vn',
+      role: 'Owner',
+      scope: 'Toàn bộ workspace',
+      status: 'ACTIVE',
+    },
+    {
+      id: 'm-2',
+      name: 'Lê Minh Khoa',
+      email: 'khoa.le@anhtrangevents.vn',
+      role: 'Check-in Lead',
+      scope: 'Cổng G1, G2',
+      status: 'ACTIVE',
+    },
+    {
+      id: 'm-3',
+      name: 'Trần Quốc Bảo',
+      email: 'bao.tran@anhtrangevents.vn',
+      role: 'Check-in Staff',
+      scope: 'Cổng chính G1',
+      status: 'INVITED',
+    },
+  ],
+  staffAssignments: [
+    {
+      id: 'sa-1',
+      staffName: 'Lê Minh Khoa',
+      sessionName: 'Đêm nhạc Mùa Thu · Đêm 1 (24/10)',
+      gateName: 'Cổng phụ G2 · VIP',
+      shift: '18:30 – 22:30',
+    },
+    {
+      id: 'sa-2',
+      staffName: 'Trần Quốc Bảo',
+      sessionName: 'Đêm nhạc Mùa Thu · Đêm 1 (24/10)',
+      gateName: 'Cổng chính G1',
+      shift: '18:30 – 22:30',
+    },
+  ],
+  gates: [
+    {
+      id: 'g-1',
+      code: 'G1',
+      name: 'Cổng chính G1 · Sảnh A',
+      allowedTiers: 'Standard, Vé Sinh viên 0đ',
+      devicesCount: 2,
+    },
+    {
+      id: 'g-2',
+      code: 'G2',
+      name: 'Cổng phụ G2 · Lối vào VIP',
+      allowedTiers: 'VIP, COMP · Khách mời',
+      devicesCount: 1,
+    },
+  ],
+  devices: [
+    {
+      id: 'd-1',
+      code: 'DEV-G1-01',
+      model: 'Sunmi V2 Pro · POS',
+      gateCode: 'G1',
+      staffName: 'Trần Quốc Bảo',
+      status: 'ONLINE',
+    },
+    {
+      id: 'd-2',
+      code: 'DEV-G1-02',
+      model: 'iPhone 15 Pro · Staff App',
+      gateCode: 'G1',
+      staffName: 'Nguyễn Văn An',
+      status: 'ONLINE',
+    },
+    {
+      id: 'd-3',
+      code: 'DEV-G2-01',
+      model: 'iPad Mini 6 · VIP Scanner',
+      gateCode: 'G2',
+      staffName: 'Lê Minh Khoa',
+      status: 'ONLINE',
+    },
+  ],
+  orders: [
+    {
+      id: 'o-1',
+      code: 'TK-1024',
+      customerName: 'Nguyễn Minh Anh',
+      sessionName: 'Đêm 1 · 24/10/2026',
+      seats: 'C04, C05 (VIP)',
+      total: '1.800.000đ',
+      status: 'PAID',
+    },
+    {
+      id: 'o-2',
+      code: 'TK-1025',
+      customerName: 'Trần Hoàng Nam',
+      sessionName: 'Đêm 1 · 24/10/2026',
+      seats: 'A06, A07 (Standard)',
+      total: '1.000.000đ',
+      status: 'PAID',
+    },
+    {
+      id: 'o-3',
+      code: 'TK-COMP-01',
+      customerName: 'Võ Bích Ngọc',
+      sessionName: 'Đêm 1 · 24/10/2026',
+      seats: 'G01 (COMP)',
+      total: '0đ',
+      status: 'COMP',
+    },
+  ],
+  compTickets: [
+    {
+      id: 'c-1',
+      code: 'COMP-801',
+      guestName: 'Võ Bích Ngọc',
+      email: 'ngoc.vo@press.vn',
+      seat: 'G01',
+      note: 'Báo chí truyền thông',
+    },
+    {
+      id: 'c-2',
+      code: 'COMP-802',
+      guestName: 'Đặng Quốc Khánh',
+      email: 'khanh.dang@sponsor.vn',
+      seat: 'G02',
+      note: 'Nhà tài trợ Kim Cương',
+    },
+  ],
+  orgBank: {
+    bankName: 'Vietcombank · CN TP.HCM',
+    accountNumber: '0071001234567',
+    accountHolder: 'CONG TY TNHH ANH TRANG EVENTS',
+    status: 'VERIFIED',
+  },
+  disputes: [
+    {
+      id: 'dp-1',
+      code: 'DP-09',
+      orderCode: 'TK-1024',
+      topic: 'Báo lỗi quét mã QR tại Cổng G1',
+      sla: 'Còn 4 giờ',
+      status: 'OPEN',
+    },
+    {
+      id: 'dp-2',
+      code: 'DP-12',
+      orderCode: 'TK-1028',
+      topic: 'Phản ánh tầm nhìn ghế Hàng E',
+      sla: 'Còn 12 giờ',
+      status: 'RESPONDED',
+    },
+  ],
+  refunds: [
+    {
+      id: 'rf-1',
+      code: 'RF-024',
+      orderCode: 'TK-1024',
+      customerName: 'Nguyễn Minh Anh',
+      amount: '1.800.000đ',
+      reason: 'Đổi lịch công tác trước 96h',
+      status: 'PENDING',
+    },
+    {
+      id: 'rf-2',
+      code: 'RF-019',
+      orderCode: 'TK-1012',
+      customerName: 'Lê Thanh Tùng',
+      amount: '500.000đ',
+      reason: 'Đặt trùng suất diễn',
+      status: 'TRANSFERRED',
+    },
+  ],
+  adminKycQueue: [
+    {
+      id: 'kyc-1',
+      orgName: 'Sóng Việt Events',
+      taxCode: '0318899221',
+      docsCount: 2,
+      submittedAt: '21/10/2026 · 08:30',
+      status: 'PENDING',
+    },
+    {
+      id: 'kyc-2',
+      orgName: 'Ánh Trăng Events',
+      taxCode: '0312456789',
+      docsCount: 2,
+      submittedAt: '10/10/2026 · 14:20',
+      status: 'APPROVED',
+    },
+  ],
+  adminOrgs: [
+    {
+      id: 'org-1',
+      name: 'Ánh Trăng Events',
+      taxCode: '0312456789',
+      eventsCount: 3,
+      status: 'ACTIVE',
+    },
+    {
+      id: 'org-2',
+      name: 'Sóng Việt Events',
+      taxCode: '0318899221',
+      eventsCount: 1,
+      status: 'ACTIVE',
+    },
+  ],
+  adminVenueQueue: [
+    {
+      id: 'vq-1',
+      venueName: 'Sân khấu Bến Sông',
+      orgName: 'Ánh Trăng Events',
+      city: 'TP. Thủ Đức',
+      docName: 'GiayPhepSuDungMatBang_BenSong.pdf',
+      status: 'PENDING',
+    },
+    {
+      id: 'vq-2',
+      venueName: 'Nhà hát Ánh Trăng',
+      orgName: 'Ánh Trăng Events',
+      city: 'TP.HCM',
+      docName: 'GPKD_NhaHat_AnhTrang.pdf',
+      status: 'VERIFIED',
+    },
+  ],
+  adminEventsQueue: [
+    {
+      id: 'ae-1',
+      eventName: 'Đêm nhạc Mùa Thu',
+      orgName: 'Ánh Trăng Events',
+      venueName: 'Nhà hát Ánh Trăng',
+      layoutName: 'Sơ đồ nhà hát v4',
+      status: 'APPROVED',
+    },
+    {
+      id: 'ae-2',
+      eventName: 'Hội thảo Công nghệ AI',
+      orgName: 'Ánh Trăng Events',
+      venueName: 'Nhà thi đấu Phú Thọ',
+      layoutName: 'Sơ đồ Arena v2',
+      status: 'APPROVED',
+    },
+  ],
+  adminApprovals: [
+    {
+      id: 'ap-1',
+      code: 'AP-014',
+      type: 'Giải ngân chi trả > 50M',
+      target: 'PO-8821 · 64.200.000đ',
+      firstAdmin: 'admin-ops@tickey.vn',
+      status: 'PENDING_2ND',
+    },
+    {
+      id: 'ap-2',
+      code: 'AP-015',
+      type: 'Hủy sự kiện & Hoàn hàng loạt',
+      target: 'Đêm nhạc Mùa Thu · 214 vé',
+      firstAdmin: 'admin-ops@tickey.vn',
+      status: 'PENDING_2ND',
+    },
+    {
+      id: 'ap-3',
+      code: 'AP-016',
+      type: 'Tạm giữ quỹ đối soát',
+      target: 'Sóng Việt Events · 14 ngày',
+      firstAdmin: 'admin-risk@tickey.vn',
+      status: 'PENDING_2ND',
+    },
+  ],
+  adminPayouts: [
+    {
+      id: 'po-1',
+      code: 'PO-8821',
+      orgName: 'Ánh Trăng Events',
+      settlementCode: 'STL-2026-10A',
+      amount: '64.200.000đ',
+      status: 'PENDING',
+    },
+    {
+      id: 'po-2',
+      code: 'PO-8790',
+      orgName: 'Ánh Trăng Events',
+      settlementCode: 'STL-2026-09B',
+      amount: '82.500.000đ',
+      status: 'PAID',
+    },
+  ],
+  auditLogs: [
+    {
+      id: 'al-1',
+      timestamp: '21/10/2026 11:20:05',
+      actor: 'admin-ops@tickey.vn',
+      action: 'Ký duyệt lớp 1 (Dual Control)',
+      target: 'Phiếu AP-014 · Giải ngân PO-8821',
+    },
+    {
+      id: 'al-2',
+      timestamp: '21/10/2026 10:42:18',
+      actor: 'owner@anhtrangevents.vn',
+      action: 'Phát hành phiên bản sơ đồ ghế',
+      target: 'Nhà hát Ánh Trăng · Sơ đồ nhà hát v4',
+    },
+    {
+      id: 'al-3',
+      timestamp: '21/10/2026 09:15:00',
+      actor: 'admin-kyc@tickey.vn',
+      action: 'Xác minh pháp lý địa điểm',
+      target: 'Nhà hát Ánh Trăng (v-1)',
+    },
+  ],
+};
+
 interface MockStoreState {
+  state: FigmaPortalDomainState;
+  updateOrgOnboarding: (patch: Partial<FigmaPortalDomainState['orgOnboarding']>) => void;
+  submitOrgKyc: (
+    gpkdFile: string,
+    cccdFile: string,
+    orgDetails?: { orgName?: string; taxCode?: string; email?: string; phone?: string },
+  ) => void;
+  createVenue: (venue: {
+    name: string;
+    city: string;
+    address?: string;
+    type: string;
+    documentName?: string;
+  }) => void;
+  deleteVenue: (venueId: string) => void;
+  submitVenueVerification: (venueId: string, docName: string) => void;
+  publishLayout: (layoutId: string) => void;
+  updateTicketTier: (tierId: string, patch: { price: string }) => void;
+  applySeatRowTier: (rows: string[], tier: string) => void;
+  updateSeatStatus: (
+    seats: string[],
+    status: 'AVAILABLE' | 'HOLD' | 'BLOCKED' | 'SOLD',
+  ) => void;
+  createEvent: (event: Omit<EventItem, 'id'>) => string;
+  updateEvent: (eventId: string, patch: Partial<EventItem>) => void;
+  submitEventForReview: (eventId: string, patch?: Partial<EventItem>) => void;
+  reviewAdminEvent: (eventQueueId: string, approve: boolean, reason?: string) => void;
+  requestEventCancellation: (eventId: string, reason: string, refundPlan?: string) => void;
+  inviteMember: (member: {
+    name: string;
+    email: string;
+    role: string;
+    scope: string;
+    status?: 'ACTIVE' | 'INVITED';
+  }) => void;
+  assignStaffShift: (assignment: {
+    staffName: string;
+    sessionName: string;
+    gateName: string;
+    shift: string;
+  }) => void;
+  createGate: (data: { code?: string; name: string; allowedTiers: string }) => string;
+  updateGate: (gateId: string, patch: { name: string; allowedTiers: string }) => void;
+  createDevice: (data: { code?: string; model: string; gateCode: string; staffName: string }) => string;
+  revokeDevice: (deviceId: string) => void;
+  reactivateDevice: (deviceId: string) => void;
+  issueCompTicket: (data: {
+    guestName?: string;
+    customer?: string;
+    email: string;
+    seat?: string;
+    event?: string;
+    tier?: string;
+    quantity?: number;
+    note?: string;
+  }) => { id: string };
+  importCompCsv: () => void;
+  requestBankChange: (bankName: string, accountNumber: string, accountHolder: string) => void;
+  respondDispute: (disputeId: string, reply: string) => void;
+  reviewOrgRefund: (refundId: string, approve: boolean) => void;
+  reviewAdminKyc: (
+    kycId: string,
+    status: 'APPROVED' | 'NEED_INFO' | 'REJECTED',
+    note?: string,
+  ) => void;
+  updateAdminOrgStatus: (orgId: string, status: 'ACTIVE' | 'SUSPENDED') => void;
+  reviewAdminVenue: (venueQueueId: string, verified: boolean) => void;
+  signDualApproval: (approvalId: string, approve: boolean) => void;
+  resolveAdminDispute: (disputeId: string, verdict: string) => void;
+  executeAdminRefundTransfer: (refundId: string) => void;
+  processAdminPayout: (payoutId: string, status: 'PAID' | 'CANCELLED') => void;
+  approveAdminBank: () => void;
+  runAdminReconciliationImport: (fileName: string) => void;
+
+  // Legacy fields preserved for any other consumers
   staffList: StaffItem[];
   addStaff: (staff: Omit<StaffItem, 'id'>) => void;
-  removeStaff: (id: string) => void;
   updateStaff: (id: string, updates: Partial<StaffItem>) => void;
-
   gates: GateItem[];
-  addGate: (gate: Omit<GateItem, 'id' | 'scannedCount'>) => void;
-  removeGate: (id: string) => void;
   addDeviceToGate: (gateId: string, device: Omit<GateDevice, 'id'>) => void;
-
   orders: OrderItem[];
-  addOrder: (order: OrderItem) => void;
-  issueCompTicket: (data: {
-    customer: string;
-    email: string;
-    event: string;
-    tier: string;
-    quantity: number;
-    note?: string;
-  }) => OrderItem;
-
   payouts: PayoutItem[];
   requestPayout: (data: {
     amount: number;
@@ -106,472 +828,949 @@ interface MockStoreState {
     note?: string;
     organizer?: string;
     eventName?: string;
-  }) => PayoutItem;
-  approveFirstPayout: (id: string) => void;
-  approveSecondPayout: (id: string) => void;
-
+  }) => { id: string };
   reports: ReportItem[];
-  replyReport: (id: string, replyText: string, newStatus?: 'Chờ phản hồi' | 'Đã giải quyết' | 'Đã phản hồi') => void;
-
   disputes: DisputeItem[];
-  resolveDispute: (id: string, note?: string) => void;
-  replyDispute: (id: string, replyText: string, newStatus?: 'OPEN' | 'RESOLVED' | 'IN_PROGRESS') => void;
 }
-
-const initialStaff: StaffItem[] = [
-  {
-    id: 'STF-01',
-    name: 'Lê Minh Khoa',
-    email: 'khoa.le@dev.local',
-    role: 'Nhân viên soát vé',
-    assignment: 'Cổng G1 · Đêm nhạc Mùa Thu',
-    status: 'Đang hoạt động',
-  },
-  {
-    id: 'STF-02',
-    name: 'Nguyễn Văn An',
-    email: 'an.nguyen@dev.local',
-    role: 'Thu ngân quầy POS',
-    assignment: 'Quầy vé sảnh A',
-    status: 'Đang hoạt động',
-  },
-  {
-    id: 'STF-03',
-    name: 'Trần Thị Bích',
-    email: 'bich.tran@dev.local',
-    role: 'Nhân viên soát vé',
-    assignment: 'Cổng G2 · Đêm nhạc Mùa Thu',
-    status: 'Đã gửi lời mời',
-  },
-];
-
-const initialGates: GateItem[] = [
-  {
-    id: 'G1',
-    name: 'Cổng chính G1 · Sảnh Mặt Tiền',
-    zones: ['Khu VIP', 'Khu Standard (Hàng D - J)'],
-    devices: [
-      { id: 'DEV-01', name: 'Máy quét cầm tay POS-01', staff: 'Lê Minh Khoa', status: 'Online' },
-      { id: 'DEV-02', name: 'Điện thoại Staff Android-02', staff: 'Trần Thị Bích', status: 'Online' },
-    ],
-    scannedCount: 42,
-    totalExpected: 140,
-  },
-  {
-    id: 'G2',
-    name: 'Cổng phụ G2 · Lối Vào Tầng 2',
-    zones: ['Khu Balcony Tầng 2', 'Khu đứng (Standing)'],
-    devices: [
-      { id: 'DEV-03', name: 'Máy quét cầm tay POS-03', staff: 'Nguyễn Văn An', status: 'Online' },
-    ],
-    scannedCount: 22,
-    totalExpected: 60,
-  },
-];
-
-const initialOrders: OrderItem[] = [
-  {
-    id: 'TK-1024',
-    customer: 'Trần Văn Hoàng',
-    email: 'hoang.tran@gmail.com',
-    event: 'Đêm nhạc Mùa Thu (Đêm 1)',
-    tier: 'Khu VIP · Hàng A',
-    quantity: 2,
-    total: '1.700.000đ',
-    paymentMethod: 'Chuyển khoản QR',
-    time: '19/10/2026 14:20',
-    status: 'Đã thanh toán',
-  },
-  {
-    id: 'TK-1025',
-    customer: 'Lê Thị Mai',
-    email: 'mai.le@gmail.com',
-    event: 'Đêm nhạc Mùa Thu (Đêm 1)',
-    tier: 'Khu Standard · Hàng D',
-    quantity: 1,
-    total: '450.000đ',
-    paymentMethod: 'Thẻ ATM nội địa',
-    time: '19/10/2026 13:45',
-    status: 'Đã thanh toán',
-  },
-  {
-    id: 'TK-1026',
-    customer: 'Phạm Minh Đức',
-    email: 'duc.pham@gmail.com',
-    event: 'Hòa Nhạc Acoustic Bên Sông',
-    tier: 'Khu Đứng',
-    quantity: 3,
-    total: '450.000đ',
-    paymentMethod: 'Ví MoMo',
-    time: '19/10/2026 11:10',
-    status: 'Đã thanh toán',
-  },
-  {
-    id: 'TK-1027',
-    customer: 'Ngô Bảo Châu',
-    email: 'chau.ngo@gmail.com',
-    event: 'Đêm nhạc Mùa Thu (Đêm 2)',
-    tier: 'Vé mời Ban Tổ Chức (COMP)',
-    quantity: 2,
-    total: '0đ',
-    paymentMethod: 'Vé mời (COMP)',
-    time: '18/10/2026 16:30',
-    status: 'Đã cấp vé',
-  },
-];
-
-const initialPayouts: PayoutItem[] = [
-  {
-    id: 'PO-014',
-    organizer: 'Ánh Trăng Events',
-    eventName: 'Indie Soul Acoustic Night',
-    grossAmount: '331.600.000 VNĐ',
-    feeAmount: '11.600.000 VNĐ (3.5%)',
-    netPayout: '320.000.000 VNĐ',
-    bankInfo: '0071009876543 · Vietcombank Nam Sài Gòn',
-    status: 'PENDING_SECOND',
-    createdAt: '19/10/2026 10:15',
-  },
-  {
-    id: 'PO-015',
-    organizer: 'Sóng Việt Events',
-    eventName: 'Đêm nhạc Mùa Thu (Tạm ứng đợt 1)',
-    grossAmount: '518.000.000 VNĐ',
-    feeAmount: '18.000.000 VNĐ (3.5%)',
-    netPayout: '500.000.000 VNĐ',
-    bankInfo: '0071001234567 · Vietcombank TP.HCM',
-    status: 'PENDING_FIRST',
-    createdAt: '19/10/2026 09:30',
-  },
-  {
-    id: 'PO-011',
-    organizer: 'Royal Music Vietnam',
-    eventName: 'Hòa nhạc Thính phòng Mùa Hạ',
-    grossAmount: '186.400.000 VNĐ',
-    feeAmount: '6.400.000 VNĐ (3.5%)',
-    netPayout: '180.000.000 VNĐ',
-    bankInfo: '19034567890123 · Techcombank Thăng Long',
-    status: 'COMPLETED',
-    createdAt: '15/10/2026 14:00',
-  },
-];
-
-const initialReports: ReportItem[] = [
-  {
-    id: 'RP-018',
-    customer: 'Vũ Minh Tuấn',
-    session: 'Đêm nhạc Mùa Thu (Đêm 1)',
-    topic: 'Yêu cầu đổi chỗ ngồi khu VIP',
-    content: 'Tôi muốn đổi từ ghế A-04 sang ghế A-06 do đi cùng bạn bè.',
-    status: 'Chờ phản hồi',
-    time: '19/10/2026 10:15',
-    replies: [],
-  },
-  {
-    id: 'RP-019',
-    customer: 'Hoàng Lan Anh',
-    session: 'Đêm nhạc Mùa Thu (Đêm 1)',
-    topic: 'Hỏi về quy định mang trẻ em',
-    content: 'Chương trình có giới hạn độ tuổi không? Trẻ em 5 tuổi có cần mua vé riêng không ạ?',
-    status: 'Đã giải quyết',
-    time: '18/10/2026 15:30',
-    replies: [
-      {
-        sender: 'Ban Tổ Chức (Ánh Trăng)',
-        text: 'Chào bạn Lan Anh, theo quy định trẻ em dưới 6 tuổi không cần mua vé riêng nếu ngồi cùng ghế với bố mẹ. Chúc bạn và bé có trải nghiệm âm nhạc vui vẻ!',
-        time: '18/10/2026 16:00',
-      },
-    ],
-  },
-];
-
-const initialDisputes: DisputeItem[] = [
-  {
-    id: 'DS-018',
-    customerName: 'Hoàng Minh Đức',
-    customerEmail: 'duc.hoang@gmail.com',
-    orderId: 'TK-84920',
-    eventName: 'Đêm nhạc Mùa Thu - Live in Saigon',
-    issue: 'Đã trừ tiền MoMo thành công nhưng chưa nhận được mã vé QR qua email sau 15 phút.',
-    submittedAt: '19/10/2026 10:12',
-    status: 'OPEN',
-    replies: [],
-  },
-  {
-    id: 'DS-019',
-    customerName: 'Nguyễn Thị Bích',
-    customerEmail: 'bich.nguyen@yahoo.com',
-    orderId: 'TK-84905',
-    eventName: 'Rock Fest 2026',
-    issue: 'Mua nhầm 2 vé khán đài B, muốn đổi sang khán đài A hoặc hỗ trợ hoàn tiền chênh lệch.',
-    submittedAt: '18/10/2026 18:30',
-    status: 'IN_PROGRESS',
-    replies: [
-      {
-        sender: 'Tickey Admin Hỗ trợ',
-        text: 'Đang liên hệ Ban Tổ Chức Rock Fest để hỗ trợ đổi khán đài cho khách hàng.',
-        time: '18/10/2026 19:00',
-      },
-    ],
-  },
-  {
-    id: 'DS-012',
-    customerName: 'Trần Văn Cường',
-    customerEmail: 'cuong.tran@outlook.com',
-    orderId: 'TK-83411',
-    eventName: 'Indie Soul Acoustic Night',
-    issue: 'Mã vé báo đã check-in tại Gate 1 khi khách chưa tới cổng.',
-    submittedAt: '15/10/2026 19:45',
-    status: 'RESOLVED',
-    resolutionNote: 'Đã kiểm tra lại camera cổng G1 và cấp lại vé QR thay thế cho khách.',
-    replies: [
-      {
-        sender: 'Tickey Admin',
-        text: 'Đã gửi lại mã vé QR thay thế qua email cuong.tran@outlook.com. Xin lỗi anh vì sự cố.',
-        time: '15/10/2026 20:00',
-      },
-    ],
-  },
-];
 
 export const useMockStore = create<MockStoreState>()(
   persist(
-    (set, get) => ({
-      staffList: initialStaff,
-      addStaff: (staff) =>
-        set((state) => {
-          const nextIndex = state.staffList.length + 1;
-          const newId = `STF-${String(nextIndex).padStart(2, '0')}`;
+    (set) => ({
+      state: initialFigmaState,
+
+      updateOrgOnboarding: (patch) =>
+        set((curr) => ({
+          state: {
+            ...curr.state,
+            orgOnboarding: { ...curr.state.orgOnboarding, ...patch },
+          },
+        })),
+
+      submitOrgKyc: (gpkdFile, cccdFile, orgDetails) =>
+        set((curr) => {
+          const orgName = orgDetails?.orgName || curr.state.orgOnboarding.orgName || 'Ánh Trăng Events';
+          const taxCode = orgDetails?.taxCode || curr.state.orgOnboarding.taxCode || '0312456789';
+          const existingKyc = curr.state.adminKycQueue.find((k) => k.orgName === orgName);
+          const kycId = existingKyc ? existingKyc.id : `kyc-${Date.now()}`;
+          const updatedKycItem = {
+            id: kycId,
+            orgName,
+            taxCode,
+            docsCount: 2,
+            submittedAt: 'Vừa xong',
+            status: 'PENDING' as const,
+          };
+          const nextQueue = existingKyc
+            ? curr.state.adminKycQueue.map((k) => (k.id === kycId ? updatedKycItem : k))
+            : [updatedKycItem, ...curr.state.adminKycQueue];
+
+          const orgExists = curr.state.adminOrgs.some((o) => o.name === orgName);
+          const nextOrgs = orgExists
+            ? curr.state.adminOrgs
+            : [
+                ...curr.state.adminOrgs,
+                {
+                  id: `org-${Date.now()}`,
+                  name: orgName,
+                  taxCode,
+                  eventsCount: 0,
+                  status: 'ACTIVE' as const,
+                },
+              ];
+
           return {
-            staffList: [
-              ...state.staffList,
-              {
-                id: newId,
-                name: staff.name,
-                email: staff.email,
-                role: staff.role,
-                assignment: staff.assignment || 'Chưa phân công ca',
-                status: staff.status || 'Đã gửi lời mời',
+            state: {
+              ...curr.state,
+              orgOnboarding: {
+                ...curr.state.orgOnboarding,
+                ...orgDetails,
+                gpkdFile,
+                cccdFile,
+                status: 'PENDING',
+                rejectionReason: undefined,
               },
-            ],
+              adminKycQueue: nextQueue,
+              adminOrgs: nextOrgs,
+              auditLogs: [
+                {
+                  id: `al-${Date.now()}`,
+                  timestamp: new Date().toLocaleString('vi-VN'),
+                  actor: 'owner@tickey.vn',
+                  action: 'Nộp hồ sơ xác minh KYC doanh nghiệp',
+                  target: `${orgName} (MST: ${taxCode})`,
+                },
+                ...curr.state.auditLogs,
+              ],
+            },
           };
         }),
-      removeStaff: (id) =>
-        set((state) => ({
-          staffList: state.staffList.filter((s) => s.id !== id),
-        })),
-      updateStaff: (id, updates) =>
-        set((state) => ({
-          staffList: state.staffList.map((s) => (s.id === id ? { ...s, ...updates } : s)),
-        })),
 
-      gates: initialGates,
-      addGate: (gate) =>
-        set((state) => {
-          const nextId = `G${state.gates.length + 1}`;
+      createVenue: (venue) =>
+        set((curr) => {
+          const newVenueId = `v-${Date.now()}`;
+          const newVenue = {
+            id: newVenueId,
+            name: venue.name,
+            city: venue.city,
+            address: venue.address || '',
+            type: venue.type,
+            layoutsCount: 0,
+            status: 'PENDING' as const,
+            documentName: venue.documentName || 'giay-phep-dia-diem.pdf',
+          };
+          const newVenueQueueItem = {
+            id: `vq-${newVenueId}`,
+            venueName: venue.name,
+            orgName: curr.state.orgOnboarding.orgName || 'Ánh Trăng Events',
+            city: venue.city,
+            docName: venue.documentName || 'giay-phep-dia-diem.pdf',
+            status: 'PENDING' as const,
+          };
+
           return {
-            gates: [
-              ...state.gates,
-              {
-                id: nextId,
-                name: gate.name,
-                zones: gate.zones,
-                devices: gate.devices,
-                scannedCount: 0,
-                totalExpected: gate.totalExpected || 100,
-              },
-            ],
+            state: {
+              ...curr.state,
+              venues: [newVenue, ...curr.state.venues],
+              adminVenueQueue: [newVenueQueueItem, ...curr.state.adminVenueQueue],
+              auditLogs: [
+                {
+                  id: `al-${Date.now()}`,
+                  timestamp: new Date().toLocaleString('vi-VN'),
+                  actor: 'owner@tickey.vn',
+                  action: 'Tạo địa điểm mới & gửi hồ sơ xác minh',
+                  target: `${venue.name} · ${venue.city}`,
+                },
+                ...curr.state.auditLogs,
+              ],
+            },
           };
         }),
-      removeGate: (id) =>
-        set((state) => ({
-          gates: state.gates.filter((g) => g.id !== id),
-        })),
-      addDeviceToGate: (gateId, device) =>
-        set((state) => ({
-          gates: state.gates.map((g) => {
-            if (g.id !== gateId) return g;
-            const devId = `DEV-${String(g.devices.length + 1).padStart(2, '0')}`;
-            return {
-              ...g,
-              devices: [...g.devices, { ...device, id: devId }],
-            };
-          }),
+
+      deleteVenue: (venueId) =>
+        set((curr) => {
+          const target = curr.state.venues.find((v) => v.id === venueId);
+          return {
+            state: {
+              ...curr.state,
+              venues: curr.state.venues.filter((v) => v.id !== venueId),
+              adminVenueQueue: curr.state.adminVenueQueue.filter((q) => q.venueName !== target?.name),
+              auditLogs: [
+                {
+                  id: `al-${Date.now()}`,
+                  timestamp: new Date().toLocaleString('vi-VN'),
+                  actor: 'owner@tickey.vn',
+                  action: 'Xóa địa điểm',
+                  target: target ? `${target.name} · ${target.city}` : venueId,
+                },
+                ...curr.state.auditLogs,
+              ],
+            },
+          };
+        }),
+
+      submitVenueVerification: (venueId, docName) =>
+        set((curr) => {
+          const targetVenue = curr.state.venues.find((v) => v.id === venueId);
+          const venueName = targetVenue ? targetVenue.name : 'Địa điểm';
+          const existingQueue = curr.state.adminVenueQueue.find((vq) => vq.venueName === venueName);
+          const vqId = existingQueue ? existingQueue.id : `vq-${venueId}`;
+          const queueItem = {
+            id: vqId,
+            venueName,
+            orgName: curr.state.orgOnboarding.orgName || 'Ánh Trăng Events',
+            city: targetVenue?.city || 'TP.HCM',
+            docName,
+            status: 'PENDING' as const,
+          };
+
+          return {
+            state: {
+              ...curr.state,
+              venues: curr.state.venues.map((v) =>
+                v.id === venueId ? { ...v, documentName: docName, status: 'PENDING' } : v,
+              ),
+              adminVenueQueue: existingQueue
+                ? curr.state.adminVenueQueue.map((vq) => (vq.id === vqId ? queueItem : vq))
+                : [queueItem, ...curr.state.adminVenueQueue],
+              auditLogs: [
+                {
+                  id: `al-${Date.now()}`,
+                  timestamp: new Date().toLocaleString('vi-VN'),
+                  actor: 'owner@tickey.vn',
+                  action: 'Gửi bổ sung hồ sơ xác minh địa điểm',
+                  target: `${venueName} (${docName})`,
+                },
+                ...curr.state.auditLogs,
+              ],
+            },
+          };
+        }),
+
+      publishLayout: (layoutId) =>
+        set((curr) => {
+          const target = curr.state.layouts.find((l) => l.id === layoutId);
+          return {
+            state: {
+              ...curr.state,
+              layouts: curr.state.layouts.map((l) =>
+                l.id === layoutId ? { ...l, status: 'PUBLISHED' } : l,
+              ),
+              auditLogs: [
+                {
+                  id: `al-${Date.now()}`,
+                  timestamp: new Date().toLocaleString('vi-VN'),
+                  actor: 'owner@tickey.vn',
+                  action: 'Phát hành phiên bản sơ đồ ghế',
+                  target: `${target?.venueName || 'Địa điểm'} · ${target?.name || 'Sơ đồ'}`,
+                },
+                ...curr.state.auditLogs,
+              ],
+            },
+          };
+        }),
+
+      updateTicketTier: () =>
+        set((curr) => ({
+          state: { ...curr.state },
         })),
 
-      orders: initialOrders,
-      addOrder: (order) =>
-        set((state) => ({
-          orders: [order, ...state.orders],
-        })),
-      issueCompTicket: ({ customer, email, event, tier, quantity, note }) => {
-        const orderId = `TK-COMP-${Math.floor(1000 + Math.random() * 9000)}`;
-        const now = new Date();
-        const timeStr = `${String(now.getDate()).padStart(2, '0')}/${String(
-          now.getMonth() + 1
-        ).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(
-          2,
-          '0'
-        )}:${String(now.getMinutes()).padStart(2, '0')}`;
+      applySeatRowTier: (rows, tier) =>
+        set((curr) => {
+          const nextMap = { ...curr.state.seatRowPricing };
+          rows.forEach((r) => {
+            nextMap[r] = tier;
+          });
+          return {
+            state: {
+              ...curr.state,
+              seatRowPricing: nextMap,
+            },
+          };
+        }),
 
-        const newOrder: OrderItem = {
-          id: orderId,
-          customer,
-          email,
-          event,
-          tier: `${tier} ${note ? `(${note})` : ''}`,
-          quantity,
-          total: '0đ',
-          paymentMethod: 'Vé mời (COMP)',
-          time: timeStr,
-          status: 'Đã cấp vé',
+      updateSeatStatus: (seats, status) =>
+        set((curr) => {
+          const nextSeats = { ...curr.state.seatStatuses };
+          seats.forEach((s) => {
+            nextSeats[s] = status;
+          });
+          return {
+            state: {
+              ...curr.state,
+              seatStatuses: nextSeats,
+            },
+          };
+        }),
+
+      createEvent: (eventData) => {
+        const newId = `ev-${Date.now()}`;
+        const newEvent: EventItem = {
+          ...eventData,
+          id: newId,
+          status: 'DRAFT',
         };
-
-        set((state) => ({
-          orders: [newOrder, ...state.orders],
+        set((curr) => ({
+          state: {
+            ...curr.state,
+            events: [newEvent, ...curr.state.events],
+          },
         }));
-
-        return newOrder;
+        return newId;
       },
 
-      payouts: initialPayouts,
-      requestPayout: ({
-        amount,
-        bankName,
-        accountNumber,
-        accountHolder,
-        organizer = 'Ánh Trăng Events',
-        eventName = 'Đêm nhạc Mùa Thu (Đợt đối soát 1)',
-      }) => {
-        const nextId = `PO-0${get().payouts.length + 14}`;
-        const grossStr = `${amount.toLocaleString('vi-VN')} VNĐ`;
-        const fee = Math.round(amount * 0.035);
-        const feeStr = `${fee.toLocaleString('vi-VN')} VNĐ (3.5%)`;
-        const net = amount - fee;
-        const netStr = `${net.toLocaleString('vi-VN')} VNĐ`;
-        const now = new Date();
-        const timeStr = `${String(now.getDate()).padStart(2, '0')}/${String(
-          now.getMonth() + 1
-        ).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(
-          2,
-          '0'
-        )}:${String(now.getMinutes()).padStart(2, '0')}`;
+      updateEvent: (eventId, patch) =>
+        set((curr) => ({
+          state: {
+            ...curr.state,
+            events: curr.state.events.map((e) =>
+              e.id === eventId ? { ...e, ...patch } : e,
+            ),
+          },
+        })),
 
-        const newPayout: PayoutItem = {
-          id: nextId,
-          organizer,
-          eventName,
-          grossAmount: grossStr,
-          feeAmount: feeStr,
-          netPayout: netStr,
-          bankInfo: `${accountNumber} · ${bankName} (${accountHolder.toUpperCase()})`,
+      submitEventForReview: (eventId, patch) =>
+        set((curr) => {
+          const ev = curr.state.events.find((e) => e.id === eventId);
+          const evName = patch?.name?.trim() || ev?.name || 'Sự kiện mới';
+          const orgName = ev?.orgName || curr.state.orgOnboarding.orgName || 'Ánh Trăng Events';
+          const venueName = patch?.venueName || ev?.venueName || 'Nhà hát Ánh Trăng';
+          const layoutName = patch?.layoutName || ev?.layoutName || 'Sơ đồ nhà hát v4';
+
+          const queueId = `ae-${eventId}`;
+          const queueItem = {
+            id: queueId,
+            eventName: evName,
+            orgName,
+            venueName,
+            layoutName,
+            status: 'PENDING' as const,
+          };
+
+          const nextEvents = ev
+            ? curr.state.events.map((e) =>
+                e.id === eventId
+                  ? { ...e, ...patch, name: evName, status: 'PENDING' as const, rejectionReason: undefined }
+                  : e,
+              )
+            : [
+                {
+                  id: eventId,
+                  name: evName,
+                  orgName,
+                  venueName,
+                  layoutName,
+                  category: patch?.category || 'Âm nhạc',
+                  poster: patch?.poster || null,
+                  status: 'PENDING' as const,
+                  sessions: patch?.sessions || [],
+                  ticketTiers: patch?.ticketTiers || [],
+                },
+                ...curr.state.events,
+              ];
+
+          const otherQueues = curr.state.adminEventsQueue.filter(
+            (q) => q.id !== queueId && q.eventName !== evName,
+          );
+          const nextQueue = [queueItem, ...otherQueues];
+
+          return {
+            state: {
+              ...curr.state,
+              events: nextEvents,
+              adminEventsQueue: nextQueue,
+              auditLogs: [
+                {
+                  id: `al-${Date.now()}`,
+                  timestamp: new Date().toLocaleString('vi-VN'),
+                  actor: 'owner@tickey.vn',
+                  action: 'Gửi xét duyệt mở bán sự kiện',
+                  target: `${evName} (${orgName})`,
+                },
+                ...curr.state.auditLogs,
+              ],
+            },
+          };
+        }),
+
+      reviewAdminEvent: (eventQueueId, approve, reason) =>
+        set((curr) => {
+          const queueItem = curr.state.adminEventsQueue.find((q) => q.id === eventQueueId);
+          const evName = queueItem?.eventName;
+
+          return {
+            state: {
+              ...curr.state,
+              adminEventsQueue: curr.state.adminEventsQueue.map((q) =>
+                q.id === eventQueueId
+                  ? { ...q, status: approve ? 'APPROVED' : 'REJECTED' }
+                  : q,
+              ),
+              events: curr.state.events.map((e) =>
+                e.name === evName || e.id === eventQueueId.replace('ae-', '')
+                  ? {
+                      ...e,
+                      status: approve ? 'PUBLISHED' : 'REJECTED',
+                      rejectionReason: !approve ? reason : undefined,
+                    }
+                  : e,
+              ),
+              auditLogs: [
+                {
+                  id: `al-${Date.now()}`,
+                  timestamp: new Date().toLocaleString('vi-VN'),
+                  actor: 'admin-events@tickey.vn',
+                  action: approve ? 'Phê duyệt mở bán sự kiện' : 'Từ chối mở bán sự kiện',
+                  target: `${evName || eventQueueId} · ${approve ? 'Đã duyệt' : reason || 'Chưa đạt chuẩn'}`,
+                },
+                ...curr.state.auditLogs,
+              ],
+            },
+          };
+        }),
+
+      requestEventCancellation: (eventId, reason) =>
+        set((curr) => {
+          const ev = curr.state.events.find((e) => e.id === eventId);
+          const evName = ev ? ev.name : 'Đêm nhạc Mùa Thu';
+          const approvalTicketId = `ap-cancel-${Date.now()}`;
+          const approvalCode = `AP-${Math.floor(100 + Math.random() * 900)}`;
+
+          const newApproval = {
+            id: approvalTicketId,
+            code: approvalCode,
+            type: 'Hủy sự kiện & Hoàn hàng loạt',
+            target: `${evName} · ${reason}`,
+            firstAdmin: 'admin-ops@tickey.vn',
+            status: 'PENDING_2ND' as const,
+          };
+
+          return {
+            state: {
+              ...curr.state,
+              events: curr.state.events.map((e) =>
+                e.id === eventId ? { ...e, status: 'CANCEL_REQUESTED', cancellationReason: reason } : e,
+              ),
+              adminApprovals: [newApproval, ...curr.state.adminApprovals],
+              auditLogs: [
+                {
+                  id: `al-${Date.now()}`,
+                  timestamp: new Date().toLocaleString('vi-VN'),
+                  actor: 'owner@tickey.vn',
+                  action: 'Gửi yêu cầu hủy sự kiện (Tạo phiếu duyệt kép)',
+                  target: `${evName} · ${reason}`,
+                },
+                ...curr.state.auditLogs,
+              ],
+            },
+          };
+        }),
+
+      inviteMember: (member) =>
+        set((curr) => ({
+          state: {
+            ...curr.state,
+            members: [
+              {
+                id: `m-${curr.state.members.length + 1}`,
+                name: member.name,
+                email: member.email,
+                role: member.role,
+                scope: member.scope,
+                status: member.status || 'ACTIVE',
+              },
+              ...curr.state.members,
+            ],
+          },
+        })),
+
+      assignStaffShift: (assignment) =>
+        set((curr) => ({
+          state: {
+            ...curr.state,
+            staffAssignments: [
+              {
+                id: `sa-${curr.state.staffAssignments.length + 1}`,
+                ...assignment,
+              },
+              ...curr.state.staffAssignments,
+            ],
+          },
+        })),
+
+      createGate: (data) => {
+        const newId = `g-${Date.now()}`;
+        set((curr) => {
+          const nextIndex = curr.state.gates.length + 1;
+          const code = data.code || `G${nextIndex}`;
+          return {
+            state: {
+              ...curr.state,
+              gates: [
+                ...curr.state.gates,
+                {
+                  id: newId,
+                  code,
+                  name: data.name,
+                  allowedTiers: data.allowedTiers || 'Tất cả hạng vé',
+                  devicesCount: 0,
+                },
+              ],
+            },
+          };
+        });
+        return newId;
+      },
+
+      updateGate: (gateId, patch) =>
+        set((curr) => ({
+          state: {
+            ...curr.state,
+            gates: curr.state.gates.map((g) => (g.id === gateId ? { ...g, ...patch } : g)),
+          },
+        })),
+
+      createDevice: (data) => {
+        const newId = `d-${Date.now()}`;
+        set((curr) => {
+          const nextIndex = curr.state.devices.length + 1;
+          const code = data.code || `DEV-${data.gateCode || 'G1'}-0${nextIndex}`;
+          const nextDevices = [
+            ...curr.state.devices,
+            {
+              id: newId,
+              code,
+              model: data.model,
+              gateCode: data.gateCode,
+              staffName: data.staffName || 'Chưa gán',
+              status: 'ONLINE' as const,
+              appVersion: 'v2.4.0 (Build 88)',
+              ipAddress: `192.168.1.1${nextIndex}`,
+              lastSync: 'Vừa kết nối',
+            },
+          ];
+          const nextGates = curr.state.gates.map((g) =>
+            g.code === data.gateCode ? { ...g, devicesCount: (g.devicesCount || 0) + 1 } : g,
+          );
+          return {
+            state: {
+              ...curr.state,
+              devices: nextDevices,
+              gates: nextGates,
+            },
+          };
+        });
+        return newId;
+      },
+
+      revokeDevice: (deviceId) =>
+        set((curr) => ({
+          state: {
+            ...curr.state,
+            devices: curr.state.devices.map((d) =>
+              d.id === deviceId ? { ...d, status: 'REVOKED' } : d,
+            ),
+          },
+        })),
+
+      reactivateDevice: (deviceId) =>
+        set((curr) => ({
+          state: {
+            ...curr.state,
+            devices: curr.state.devices.map((d) =>
+              d.id === deviceId ? { ...d, status: 'ONLINE', lastSync: 'Vừa kết nối lại' } : d,
+            ),
+          },
+        })),
+
+      issueCompTicket: (data) => {
+        const newId = `COMP-80${Math.floor(10 + Math.random() * 89)}`;
+        set((curr) => ({
+          state: {
+            ...curr.state,
+            compTickets: [
+              {
+                id: `c-${curr.state.compTickets.length + 1}`,
+                code: newId,
+                guestName: data.guestName || data.customer || 'Khách mời VIP',
+                email: data.email,
+                seat: data.seat || 'G04',
+                note: data.note || 'Vé mời BTC',
+              },
+              ...curr.state.compTickets,
+            ],
+          },
+        }));
+        return { id: newId };
+      },
+
+      importCompCsv: () =>
+        set((curr) => ({
+          state: {
+            ...curr.state,
+            compTickets: [
+              {
+                id: `c-${Date.now()}-1`,
+                code: 'COMP-805',
+                guestName: 'Trịnh Gia Huy',
+                email: 'huy.trinh@artist.vn',
+                seat: 'G07',
+                note: 'Nhập từ CSV',
+              },
+              ...curr.state.compTickets,
+            ],
+          },
+        })),
+
+      requestBankChange: (bankName, accountNumber, accountHolder) =>
+        set((curr) => ({
+          state: {
+            ...curr.state,
+            orgBank: {
+              bankName,
+              accountNumber,
+              accountHolder,
+              status: 'PENDING',
+            },
+          },
+        })),
+
+      respondDispute: (disputeId) =>
+        set((curr) => ({
+          state: {
+            ...curr.state,
+            disputes: curr.state.disputes.map((d) =>
+              d.id === disputeId ? { ...d, status: 'RESPONDED' } : d,
+            ),
+          },
+        })),
+
+      reviewOrgRefund: (refundId, approve) =>
+        set((curr) => ({
+          state: {
+            ...curr.state,
+            refunds: curr.state.refunds.map((r) =>
+              r.id === refundId ? { ...r, status: approve ? 'APPROVED' : 'REJECTED' } : r,
+            ),
+          },
+        })),
+
+      reviewAdminKyc: (kycId, status, note) =>
+        set((curr) => {
+          const targetKyc = curr.state.adminKycQueue.find((k) => k.id === kycId);
+          const orgName = targetKyc ? targetKyc.orgName : 'Ánh Trăng Events';
+          const isCurrentOrg = curr.state.orgOnboarding.orgName === orgName;
+
+          const orgExists = curr.state.adminOrgs.some((o) => o.name === orgName);
+          const nextOrgs =
+            status === 'APPROVED'
+              ? orgExists
+                ? curr.state.adminOrgs.map((o) => (o.name === orgName ? { ...o, status: 'ACTIVE' as const } : o))
+                : [
+                    ...curr.state.adminOrgs,
+                    {
+                      id: `org-${Date.now()}`,
+                      name: orgName,
+                      taxCode: targetKyc?.taxCode || '0312345678',
+                      eventsCount: 0,
+                      status: 'ACTIVE' as const,
+                    },
+                  ]
+              : curr.state.adminOrgs;
+
+          return {
+            state: {
+              ...curr.state,
+              adminKycQueue: curr.state.adminKycQueue.map((k) =>
+                k.id === kycId ? { ...k, status } : k,
+              ),
+              adminOrgs: nextOrgs,
+              orgOnboarding: isCurrentOrg
+                ? {
+                    ...curr.state.orgOnboarding,
+                    status,
+                    rejectionReason: status !== 'APPROVED' ? note : undefined,
+                  }
+                : curr.state.orgOnboarding,
+              auditLogs: [
+                {
+                  id: `al-${Date.now()}`,
+                  timestamp: new Date().toLocaleString('vi-VN'),
+                  actor: 'admin-kyc@tickey.vn',
+                  action: `Xét duyệt hồ sơ KYC: ${status}`,
+                  target: `${orgName} · ${note || 'Hợp lệ'}`,
+                },
+                ...curr.state.auditLogs,
+              ],
+            },
+          };
+        }),
+
+      updateAdminOrgStatus: (orgId, status) =>
+        set((curr) => ({
+          state: {
+            ...curr.state,
+            adminOrgs: curr.state.adminOrgs.map((o) =>
+              o.id === orgId ? { ...o, status } : o,
+            ),
+          },
+        })),
+
+      reviewAdminVenue: (venueQueueId, verified) =>
+        set((curr) => {
+          const targetQueue = curr.state.adminVenueQueue.find((vq) => vq.id === venueQueueId);
+          const venueName = targetQueue ? targetQueue.venueName : '';
+
+          return {
+            state: {
+              ...curr.state,
+              adminVenueQueue: curr.state.adminVenueQueue.map((vq) =>
+                vq.id === venueQueueId
+                  ? { ...vq, status: verified ? 'VERIFIED' : 'PENDING' }
+                  : vq,
+              ),
+              venues: curr.state.venues.map((v) =>
+                v.name === venueName || v.id === venueQueueId.replace('vq-', '')
+                  ? { ...v, status: verified ? 'VERIFIED' : 'PENDING' }
+                  : v,
+              ),
+              auditLogs: [
+                {
+                  id: `al-${Date.now()}`,
+                  timestamp: new Date().toLocaleString('vi-VN'),
+                  actor: 'admin-kyc@tickey.vn',
+                  action: verified ? 'Xác minh hợp lệ địa điểm' : 'Yêu cầu kiểm tra lại địa điểm',
+                  target: `${venueName}`,
+                },
+                ...curr.state.auditLogs,
+              ],
+            },
+          };
+        }),
+
+      signDualApproval: (approvalId, approve) =>
+        set((curr) => {
+          const targetApproval = curr.state.adminApprovals.find((ap) => ap.id === approvalId);
+          const target = targetApproval ? targetApproval.target : '';
+          const isCancelEvent = targetApproval?.type.includes('Hủy sự kiện');
+          const isPayout = targetApproval?.type.includes('Giải ngân') || targetApproval?.type.includes('chi trả');
+
+          return {
+            state: {
+              ...curr.state,
+              adminApprovals: curr.state.adminApprovals.map((ap) =>
+                ap.id === approvalId
+                  ? {
+                      ...ap,
+                      secondAdmin: 'admin-finance@tickey.vn',
+                      status: approve ? 'APPROVED_2_OF_2' : 'REJECTED',
+                    }
+                  : ap,
+              ),
+              events: isCancelEvent
+                ? curr.state.events.map((e) =>
+                    target.includes(e.name)
+                      ? { ...e, status: approve ? 'CANCELLED' : 'PUBLISHED' }
+                      : e,
+                  )
+                : curr.state.events,
+              adminPayouts: isPayout
+                ? curr.state.adminPayouts.map((p) =>
+                    target.includes(p.code)
+                      ? { ...p, status: approve ? 'PAID' : 'CANCELLED' }
+                      : p,
+                  )
+                : curr.state.adminPayouts,
+              auditLogs: [
+                {
+                  id: `al-${Date.now()}`,
+                  timestamp: new Date().toLocaleString('vi-VN'),
+                  actor: 'admin-finance@tickey.vn',
+                  action: approve ? 'Ký duyệt lớp 2 (Dual Control Thành công)' : 'Từ chối duyệt lớp 2',
+                  target: `${targetApproval?.code || approvalId} · ${target}`,
+                },
+                ...curr.state.auditLogs,
+              ],
+            },
+          };
+        }),
+
+      resolveAdminDispute: (disputeId) =>
+        set((curr) => ({
+          state: {
+            ...curr.state,
+            disputes: curr.state.disputes.map((d) =>
+              d.id === disputeId ? { ...d, status: 'RESOLVED' } : d,
+            ),
+          },
+        })),
+
+      executeAdminRefundTransfer: (refundId) =>
+        set((curr) => ({
+          state: {
+            ...curr.state,
+            refunds: curr.state.refunds.map((r) =>
+              r.id === refundId ? { ...r, status: 'TRANSFERRED' } : r,
+            ),
+          },
+        })),
+
+      processAdminPayout: (payoutId, status) =>
+        set((curr) => {
+          const target = curr.state.adminPayouts.find((p) => p.id === payoutId);
+          return {
+            state: {
+              ...curr.state,
+              adminPayouts: curr.state.adminPayouts.map((p) =>
+                p.id === payoutId ? { ...p, status } : p,
+              ),
+              payouts: curr.payouts.map((p) =>
+                p.id === payoutId ? { ...p, status: status === 'PAID' ? 'COMPLETED' : p.status } : p,
+              ),
+              auditLogs: [
+                {
+                  id: `al-${Date.now()}`,
+                  timestamp: new Date().toLocaleString('vi-VN'),
+                  actor: 'admin-finance@tickey.vn',
+                  action: status === 'PAID' ? 'Hoàn tất chuyển khoản quyết toán' : 'Hủy lệnh chi trả',
+                  target: `${target?.code || payoutId} · ${target?.amount || ''}`,
+                },
+                ...curr.state.auditLogs,
+              ],
+            },
+          };
+        }),
+
+      approveAdminBank: () =>
+        set((curr) => ({
+          state: {
+            ...curr.state,
+            orgBank: { ...curr.state.orgBank, status: 'VERIFIED' },
+          },
+        })),
+
+      runAdminReconciliationImport: (fileName) =>
+        set((curr) => ({
+          state: {
+            ...curr.state,
+            auditLogs: [
+              {
+                id: `al-${Date.now()}`,
+                timestamp: new Date().toLocaleString('vi-VN'),
+                actor: 'admin-finance@tickey.vn',
+                action: 'Đối chiếu sao kê cổng thanh toán',
+                target: fileName,
+              },
+              ...curr.state.auditLogs,
+            ],
+          },
+        })),
+
+      staffList: [],
+      addStaff: () => {},
+      updateStaff: () => {},
+      gates: [],
+      addDeviceToGate: () => {},
+      orders: [],
+      payouts: [
+        {
+          id: 'po-1',
+          organizer: 'Ánh Trăng Events',
+          eventName: 'Đêm nhạc Mùa Thu',
+          grossAmount: '71.300.000đ',
+          feeAmount: '7.100.000đ',
+          netPayout: '64.200.000đ',
+          bankInfo: 'Vietcombank · CN TP.HCM (0071001234567)',
           status: 'PENDING_FIRST',
-          createdAt: timeStr,
+        },
+      ],
+      requestPayout: (data) => {
+        const newCode = `PO-${Math.floor(8000 + Math.random() * 999)}`;
+        const newId = `po-${Date.now()}`;
+        const newPayoutItem: PayoutItem = {
+          id: newId,
+          organizer: data.organizer || 'Ánh Trăng Events',
+          eventName: data.eventName || 'Đêm nhạc Mùa Thu',
+          grossAmount: `${(data.amount * 1.1).toLocaleString('vi-VN')}đ`,
+          feeAmount: `${(data.amount * 0.1).toLocaleString('vi-VN')}đ`,
+          netPayout: `${data.amount.toLocaleString('vi-VN')}đ`,
+          bankInfo: `${data.bankName} (${data.accountNumber})`,
+          status: 'PENDING_FIRST',
+          createdAt: new Date().toLocaleString('vi-VN'),
         };
 
-        set((state) => ({
-          payouts: [newPayout, ...state.payouts],
+        const adminPayoutItem = {
+          id: newId,
+          code: newCode,
+          orgName: data.organizer || 'Ánh Trăng Events',
+          settlementCode: `STL-2026-${Math.floor(10 + Math.random() * 80)}`,
+          amount: `${data.amount.toLocaleString('vi-VN')}đ`,
+          status: 'PENDING' as const,
+        };
+
+        const newApprovalItem =
+          data.amount >= 50000000
+            ? {
+                id: `ap-po-${Date.now()}`,
+                code: `AP-${Math.floor(100 + Math.random() * 900)}`,
+                type: 'Giải ngân chi trả > 50M',
+                target: `${newCode} · ${data.amount.toLocaleString('vi-VN')}đ`,
+                firstAdmin: 'admin-ops@tickey.vn',
+                status: 'PENDING_2ND' as const,
+              }
+            : null;
+
+        set((curr) => ({
+          payouts: [newPayoutItem, ...curr.payouts],
+          state: {
+            ...curr.state,
+            adminPayouts: [adminPayoutItem, ...curr.state.adminPayouts],
+            adminApprovals: newApprovalItem
+              ? [newApprovalItem, ...curr.state.adminApprovals]
+              : curr.state.adminApprovals,
+            auditLogs: [
+              {
+                id: `al-${Date.now()}`,
+                timestamp: new Date().toLocaleString('vi-VN'),
+                actor: 'owner@tickey.vn',
+                action: 'Gửi yêu cầu quyết toán doanh thu',
+                target: `${newCode} · ${data.amount.toLocaleString('vi-VN')}đ`,
+              },
+              ...curr.state.auditLogs,
+            ],
+          },
         }));
 
-        return newPayout;
+        return { id: newCode };
       },
-      approveFirstPayout: (id) =>
-        set((state) => ({
-          payouts: state.payouts.map((p) =>
-            p.id === id ? { ...p, status: 'PENDING_SECOND' } : p
-          ),
-        })),
-      approveSecondPayout: (id) =>
-        set((state) => ({
-          payouts: state.payouts.map((p) =>
-            p.id === id ? { ...p, status: 'COMPLETED' } : p
-          ),
-        })),
-
-      reports: initialReports,
-      replyReport: (id, replyText, newStatus = 'Đã phản hồi') =>
-        set((state) => {
-          const now = new Date();
-          const timeStr = `${String(now.getDate()).padStart(2, '0')}/${String(
-            now.getMonth() + 1
-          ).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(
-            2,
-            '0'
-          )}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-          return {
-            reports: state.reports.map((r) => {
-              if (r.id !== id) return r;
-              const prevReplies = r.replies || [];
-              return {
-                ...r,
-                status: newStatus,
-                replies: [
-                  ...prevReplies,
-                  {
-                    sender: 'Ban Tổ Chức (Ánh Trăng)',
-                    text: replyText,
-                    time: timeStr,
-                  },
-                ],
-              };
-            }),
-          };
-        }),
-
-      disputes: initialDisputes,
-      resolveDispute: (id, note) =>
-        set((state) => ({
-          disputes: state.disputes.map((d) =>
-            d.id === id
-              ? {
-                  ...d,
-                  status: 'RESOLVED',
-                  resolutionNote: note || 'Đã giải quyết thỏa đáng khiếu nại của khách hàng.',
-                }
-              : d
-          ),
-        })),
-      replyDispute: (id, replyText, newStatus = 'IN_PROGRESS') =>
-        set((state) => {
-          const now = new Date();
-          const timeStr = `${String(now.getDate()).padStart(2, '0')}/${String(
-            now.getMonth() + 1
-          ).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(
-            2,
-            '0'
-          )}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-          return {
-            disputes: state.disputes.map((d) => {
-              if (d.id !== id) return d;
-              const prevReplies = d.replies || [];
-              return {
-                ...d,
-                status: newStatus,
-                replies: [
-                  ...prevReplies,
-                  {
-                    sender: 'Tickey Admin Hỗ trợ',
-                    text: replyText,
-                    time: timeStr,
-                  },
-                ],
-              };
-            }),
-          };
-        }),
+      reports: [],
+      disputes: [],
     }),
     {
-      name: 'tickey-portal-mock-store-v1',
-    }
-  )
+      name: 'tickey-portal-figma-store-v4',
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<MockStoreState> | undefined;
+        const persistedDomain = persisted?.state;
+        return {
+          ...currentState,
+          ...persisted,
+          state: {
+            ...initialFigmaState,
+            ...(persistedDomain || {}),
+            events:
+              persistedDomain?.events && persistedDomain.events.length > 0
+                ? persistedDomain.events
+                : initialFigmaState.events,
+            venues:
+              persistedDomain?.venues && persistedDomain.venues.length > 0
+                ? persistedDomain.venues
+                : initialFigmaState.venues,
+            adminEventsQueue:
+              persistedDomain?.adminEventsQueue && persistedDomain.adminEventsQueue.length > 0
+                ? persistedDomain.adminEventsQueue
+                : initialFigmaState.adminEventsQueue,
+            adminKycQueue:
+              persistedDomain?.adminKycQueue && persistedDomain.adminKycQueue.length > 0
+                ? persistedDomain.adminKycQueue
+                : initialFigmaState.adminKycQueue,
+            adminApprovals:
+              persistedDomain?.adminApprovals && persistedDomain.adminApprovals.length > 0
+                ? persistedDomain.adminApprovals
+                : initialFigmaState.adminApprovals,
+            adminPayouts:
+              persistedDomain?.adminPayouts && persistedDomain.adminPayouts.length > 0
+                ? persistedDomain.adminPayouts
+                : initialFigmaState.adminPayouts,
+          },
+        };
+      },
+    },
+  ),
 );
 
-/**
- * Utility to download CSV with UTF-8 BOM so Excel opens Vietnamese characters cleanly
- */
-export function exportToCsv(filename: string, headers: string[], rows: (string | number)[][]) {
+export function exportToCsv(
+  arg1: string | ReadonlyArray<object>,
+  arg2: string[] | string,
+  arg3?: (string | number)[][],
+) {
+  let filename: string;
+  let headers: string[];
+  let rows: (string | number)[][];
+
+  if (typeof arg1 === 'string' && Array.isArray(arg2)) {
+    filename = arg1;
+    headers = arg2;
+    rows = arg3 ?? [];
+  } else if (Array.isArray(arg1) && typeof arg2 === 'string') {
+    filename = arg2;
+    const first = arg1[0] as Record<string, unknown> | undefined;
+    headers = first ? Object.keys(first) : [];
+    rows = arg1.map((item) => {
+      const rec = item as Record<string, unknown>;
+      return headers.map((k) => String(rec[k] ?? ''));
+    });
+  } else {
+    return;
+  }
   const escapeCell = (val: string | number) => {
     const str = String(val ?? '');
     if (str.includes(',') || str.includes('"') || str.includes('\n')) {

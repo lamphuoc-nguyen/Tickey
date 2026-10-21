@@ -18,9 +18,11 @@ import {
   BarChart3,
   Clock,
   ShieldAlert,
+  FileCheck2,
 } from 'lucide-react';
-import { Link, Outlet, useLocation, useNavigate } from 'react-router';
+import { Link, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { TickeyLogo } from '../common/TickeyLogo';
+import { ToastViewport } from '../common/ToastProvider';
 import { useSession } from '../../lib/use-session';
 import { supabase } from '../../lib/supabase';
 
@@ -28,18 +30,69 @@ interface PortalLayoutProps {
   children?: ReactNode;
 }
 
+const ONBOARDING_STEP_SCREENS = new Set([
+  'o-create',
+  'o-kyc',
+  'o-kyc-pending',
+  'o-kyc-info',
+  'o-org-rejected',
+  'o-songviet-venue',
+]);
+
 export function PortalLayout({ children }: PortalLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { session } = useSession();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState([
+    {
+      id: 'n1',
+      title: 'Yêu cầu hoàn tiền RF-024 (TK-1024)',
+      time: '10 phút trước',
+      path: '/org/reports?screen=o-refunds',
+      unread: true,
+    },
+    {
+      id: 'n2',
+      title: 'Phiếu phê duyệt AP-014 chờ Admin thứ 2',
+      time: '25 phút trước',
+      path: '/admin/approvals?screen=a-approval-review',
+      unread: true,
+    },
+    {
+      id: 'n3',
+      title: 'Hồ sơ KYC Sóng Việt Events mới nộp',
+      time: '1 giờ trước',
+      path: '/admin/kyc?screen=a-kyc-review',
+      unread: false,
+    },
+  ]);
 
   const isAdmin = location.pathname.startsWith('/admin');
+  const currentScreen = searchParams.get('screen') || '';
+  const isOnboardingRoute = location.pathname.startsWith('/org/onboarding');
+  const isOnboardingStepSidebar =
+    isOnboardingRoute && (!currentScreen || ONBOARDING_STEP_SCREENS.has(currentScreen));
+  const isSongViet = currentScreen.startsWith('o-songviet');
 
-  const workspaceTitle = isAdmin ? 'TICKEY ADMIN' : 'Ánh Trăng Events';
-  const roleName = isAdmin ? 'Quản trị nền tảng' : 'Organization · Owner';
+  const workspaceTitle = isAdmin
+    ? 'TICKEY ADMIN'
+    : isSongViet
+      ? 'Sóng Việt Events'
+      : 'Ánh Trăng Events';
+  const roleName = isAdmin
+    ? 'Quản trị nền tảng'
+    : isOnboardingStepSidebar
+      ? 'Đang thiết lập tổ chức'
+      : 'Organization · Owner';
   const topContext = isAdmin ? 'Quản trị nền tảng' : 'Không gian tổ chức';
-  const userInitials = isAdmin ? 'AD' : (session?.user?.email?.slice(0, 2) || 'AT').toUpperCase();
+  const userInitials = isAdmin
+    ? 'AD'
+    : isSongViet
+      ? 'SV'
+      : (session?.user?.email?.slice(0, 2) || 'AT').toUpperCase();
 
   const orgNavItems = [
     { label: 'Tổng quan', path: '/org', icon: LayoutDashboard },
@@ -64,6 +117,13 @@ export function PortalLayout({ children }: PortalLayoutProps) {
   ];
 
   const currentNavItems = isAdmin ? adminNavItems : orgNavItems;
+
+  const activeOnboardingStep =
+    currentScreen === 'o-create' || !currentScreen
+      ? 1
+      : currentScreen === 'o-kyc' || currentScreen === 'o-songviet-venue'
+        ? 2
+        : 3;
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -160,46 +220,119 @@ export function PortalLayout({ children }: PortalLayoutProps) {
             </button>
           </div>
 
-          {/* Navigation Links */}
-          <nav style={{ padding: '0 12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {currentNavItems.map((item) => {
-              const Icon = item.icon;
-              const isActive =
-                item.path === '/org' || item.path === '/admin'
-                  ? location.pathname === item.path
-                  : location.pathname.startsWith(item.path);
+          {/* Navigation Links or 3-Step Onboarding Sidebar */}
+          {!isAdmin && isOnboardingStepSidebar ? (
+            <div style={{ padding: '0 14px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {[
+                  { step: 1, label: '1. Thông tin tổ chức', screen: 'o-create' },
+                  { step: 2, label: '2. Hồ sơ xác minh', screen: 'o-kyc' },
+                  { step: 3, label: '3. Theo dõi xét duyệt', screen: 'o-kyc-pending' },
+                ].map((item) => {
+                  const isActive = activeOnboardingStep === item.step;
+                  return (
+                    <button
+                      key={item.step}
+                      type="button"
+                      onClick={() => navigate(`/org/onboarding?screen=${item.screen}`)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '10px 14px',
+                        borderRadius: 'var(--radius-md)',
+                        fontSize: 13.5,
+                        fontWeight: isActive ? 700 : 500,
+                        border: 'none',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        color: isActive ? 'var(--primary)' : 'var(--text)',
+                        backgroundColor: isActive ? 'var(--primary-tint)' : 'transparent',
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          backgroundColor: isActive ? 'var(--primary)' : 'var(--border)',
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p
+                style={{
+                  fontSize: 11.5,
+                  color: 'var(--muted)',
+                  lineHeight: 1.5,
+                  margin: '16px 8px 0',
+                }}
+              >
+                Chức năng vận hành được mở sau khi hồ sơ được phê duyệt.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate('/org')}
+                style={{
+                  marginTop: 12,
+                  marginLeft: 8,
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: 'var(--primary)',
+                  cursor: 'pointer',
+                }}
+              >
+                ← Quay lại Tổng quan
+              </button>
+            </div>
+          ) : (
+            <nav style={{ padding: '0 12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {currentNavItems.map((item) => {
+                const Icon = item.icon;
+                const isActive =
+                  item.path === '/org' || item.path === '/admin'
+                    ? location.pathname === item.path
+                    : location.pathname.startsWith(item.path);
 
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    padding: '10px 14px',
-                    borderRadius: 'var(--radius-md)',
-                    fontSize: '14px',
-                    fontWeight: isActive ? 600 : 500,
-                    textDecoration: 'none',
-                    color: isActive ? 'var(--primary)' : 'var(--text)',
-                    backgroundColor: isActive ? 'var(--primary-tint)' : 'transparent',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  <Icon size={18} color={isActive ? 'var(--primary)' : 'var(--muted)'} />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '10px 14px',
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: '14px',
+                      fontWeight: isActive ? 600 : 500,
+                      textDecoration: 'none',
+                      color: isActive ? 'var(--primary)' : 'var(--text)',
+                      backgroundColor: isActive ? 'var(--primary-tint)' : 'transparent',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <Icon size={18} color={isActive ? 'var(--primary)' : 'var(--muted)'} />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          )}
         </div>
 
         {/* Bottom Sidebar Action Widget */}
-        <div style={{ padding: '16px' }}>
+        <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {isAdmin ? (
             <button
-              onClick={() => alert('Mở danh sách hồ sơ xác minh địa điểm (a-venue-verifications)')}
+              onClick={() => navigate('/admin/kyc?screen=a-venue-verifications')}
               className="btn btn-outline"
               style={{ width: '100%', fontSize: '13px', padding: '10px' }}
             >
@@ -207,6 +340,7 @@ export function PortalLayout({ children }: PortalLayoutProps) {
             </button>
           ) : (
             <div
+              onClick={() => navigate('/org/reports')}
               style={{
                 backgroundColor: 'var(--navy)',
                 borderRadius: 'var(--radius-lg)',
@@ -215,14 +349,16 @@ export function PortalLayout({ children }: PortalLayoutProps) {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '6px',
+                cursor: 'pointer',
               }}
+              title="Mở Trung tâm hỗ trợ & Khiếu nại"
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <HelpCircle size={18} color="#FFFFFF" />
                 <span style={{ fontSize: '13px', fontWeight: 600 }}>Cần trợ giúp?</span>
               </div>
               <p style={{ margin: 0, fontSize: '11px', color: 'rgba(255, 255, 255, 0.7)' }}>
-                Trung tâm hỗ trợ Tickey
+                Trung tâm hỗ trợ Tickey →
               </p>
             </div>
           )}
@@ -252,33 +388,131 @@ export function PortalLayout({ children }: PortalLayoutProps) {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
             {/* Notification Bell */}
-            <button
-              className="btn-ghost"
-              style={{
-                position: 'relative',
-                padding: '8px',
-                borderRadius: '50%',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              title="Thông báo"
-            >
-              <Bell size={19} color="var(--text)" />
-              <span
-                style={{
-                  position: 'absolute',
-                  top: '6px',
-                  right: '6px',
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--primary)',
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => {
+                  setNotifOpen((v) => !v);
+                  setUserMenuOpen(false);
                 }}
-              />
-            </button>
+                className="btn-ghost"
+                style={{
+                  position: 'relative',
+                  padding: '8px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title="Thông báo"
+              >
+                <Bell size={19} color="var(--text)" />
+                {notifications.some((n) => n.unread) && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: '6px',
+                      right: '6px',
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      backgroundColor: 'var(--primary)',
+                    }}
+                  />
+                )}
+              </button>
+
+              {notifOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '44px',
+                    right: 0,
+                    backgroundColor: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-md)',
+                    boxShadow: 'var(--shadow-md)',
+                    width: '320px',
+                    padding: '10px',
+                    zIndex: 25,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '6px 8px 10px',
+                      borderBottom: '1px solid var(--border)',
+                    }}
+                  >
+                    <strong style={{ fontSize: '13px' }}>Thông báo hệ thống</strong>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })))
+                      }
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--primary)',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Đánh dấu đã đọc
+                    </button>
+                  </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '4px',
+                      marginTop: '6px',
+                    }}
+                  >
+                    {notifications.map((n) => (
+                      <button
+                        key={n.id}
+                        type="button"
+                        onClick={() => {
+                          setNotifications((prev) =>
+                            prev.map((item) =>
+                              item.id === n.id ? { ...item, unread: false } : item,
+                            ),
+                          );
+                          setNotifOpen(false);
+                          navigate(n.path);
+                        }}
+                        style={{
+                          textAlign: 'left',
+                          padding: '10px',
+                          borderRadius: 'var(--radius-sm)',
+                          border: 'none',
+                          backgroundColor: n.unread ? 'var(--primary-tint)' : 'transparent',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: '13px',
+                            fontWeight: n.unread ? 700 : 500,
+                            color: 'var(--text)',
+                          }}
+                        >
+                          {n.title}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>
+                          {n.time}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* User Profile Avatar with dropdown */}
             <div style={{ position: 'relative' }}>
@@ -323,13 +557,15 @@ export function PortalLayout({ children }: PortalLayoutProps) {
                     border: '1px solid var(--border)',
                     borderRadius: 'var(--radius-md)',
                     boxShadow: 'var(--shadow-md)',
-                    width: '210px',
+                    width: '230px',
                     padding: '8px',
                     zIndex: 20,
                   }}
                 >
                   <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: '13px', fontWeight: 600 }}>{session?.user?.email || 'admin-a@dev.local'}</div>
+                    <div style={{ fontSize: '13px', fontWeight: 600 }}>
+                      {session?.user?.email || 'admin-a@dev.local'}
+                    </div>
                     <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{roleName}</div>
                   </div>
 
@@ -356,6 +592,31 @@ export function PortalLayout({ children }: PortalLayoutProps) {
                     <RefreshCw size={14} />
                     <span>{isAdmin ? 'Đổi sang Org Portal' : 'Đổi sang Admin Portal'}</span>
                   </button>
+
+                  {!isAdmin && (
+                    <button
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        navigate('/org/onboarding?screen=o-create');
+                      }}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 12px',
+                        fontSize: '13px',
+                        border: 'none',
+                        background: 'none',
+                        cursor: 'pointer',
+                        borderRadius: 'var(--radius-sm)',
+                        color: 'var(--text)',
+                      }}
+                    >
+                      <FileCheck2 size={14} />
+                      <span>Thiết lập & KYC tổ chức</span>
+                    </button>
+                  )}
 
                   <button
                     onClick={() => {
@@ -406,7 +667,8 @@ export function PortalLayout({ children }: PortalLayoutProps) {
         </header>
 
         {/* Content View */}
-        <main style={{ padding: '36px 40px 60px', flex: 1 }}>{children ?? <Outlet />}</main>
+        <main style={{ padding: '28px 36px 56px', flex: 1 }}>{children ?? <Outlet />}</main>
+        <ToastViewport />
       </div>
     </div>
   );

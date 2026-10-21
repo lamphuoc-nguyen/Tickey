@@ -1,423 +1,392 @@
-import {
-  CheckCircle2,
-  Clock,
-  ShieldCheck,
-  UserCheck,
-} from 'lucide-react';
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
+import { CheckCircle2, Search } from 'lucide-react';
+import { useMockStore } from '../../lib/mock-store';
+import { useToast } from '../../components/common/ToastProvider';
+import { DocumentPreviewModal } from '../../components/common/DocumentPreviewModal';
+import {
+  FigmaPageHeader,
+  FigmaNavyContextBanner,
+  FigmaContextGrid,
+  FigmaDocumentRow,
+  FigmaInfoAlert,
+  type FigmaScreenOption,
+} from '../../components/common/FigmaScreenPrimitives';
 
-interface ApprovalItem {
-  id: string;
-  title: string;
-  category: 'PAYOUT' | 'CANCEL_SHOW' | 'ORG_SUSPEND';
-  amount?: string;
-  firstApprover: string;
-  firstApprovedAt: string;
-  details: string;
-  status: 'PENDING_SECOND' | 'COMPLETED' | 'REJECTED';
-}
+const ADMIN_APPROVAL_SCREENS: FigmaScreenOption[] = [
+  { id: 'a-approvals', label: 'Phiếu phê duyệt kép (Dual Control)' },
+  { id: 'a-approval-review', label: 'Chi tiết phiếu · AP-014 (Chi trả lớn)' },
+  { id: 'a-approval-cancel', label: 'Chi tiết phiếu · AP-015 (Hủy sự kiện)' },
+  { id: 'a-approval-hold', label: 'Chi tiết phiếu · AP-016 (Tạm giữ quỹ)' },
+  { id: 'a-approval-result', label: 'Đã hoàn tất phê duyệt kép' },
+];
 
 export function AdminApprovalsPage() {
-  const [selectedItem, setSelectedItem] = useState<ApprovalItem | null>(null);
-  const [mfaCode, setMfaCode] = useState('');
-  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { state, signDualApproval } = useMockStore();
+  const { showToast } = useToast();
 
-  const [approvals, setApprovals] = useState<ApprovalItem[]>([
-    {
-      id: 'AP-014',
-      title: 'Chi trả doanh thu đợt 1 · Ánh Trăng Events',
-      category: 'PAYOUT',
-      amount: '320.000.000 VNĐ',
-      firstApprover: 'admin-hung@tickey.vn (Quản trị viên 1)',
-      firstApprovedAt: '19/10/2026 10:15',
-      details: 'Chuyển khoản thanh toán đợt 1 sau khi trừ phí nền tảng 3.5%. STK: 0071009876543 (Vietcombank Nam Sài Gòn).',
-      status: 'PENDING_SECOND',
-    },
-    {
-      id: 'AP-024',
-      title: 'Hủy suất diễn Đêm 1 do bão · Sóng Việt Events',
-      category: 'CANCEL_SHOW',
-      firstApprover: 'admin-lan@tickey.vn (Quản trị viên 1)',
-      firstApprovedAt: '19/10/2026 09:40',
-      details: 'Ban tổ chức xin hủy suất diễn ngày 20/10 do bão đổ bộ theo công điện khẩn của UBND TP. Hoàn tiền 100% cho 1,200 người mua vé.',
-      status: 'PENDING_SECOND',
-    },
-  ]);
+  const activeScreen = searchParams.get('screen') || 'a-approvals';
+  const setScreen = (screen: string) => setSearchParams({ screen });
 
-  const handleSecondApproval = (id: string) => {
-    setApprovals((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: 'COMPLETED' } : a))
-    );
-    setSelectedItem(null);
-    setMfaCode('');
-    setActionSuccess(`Phiếu ${id} đã được bạn (người duyệt thứ hai) ký duyệt thành công! Hệ thống bắt đầu xử lý tự động.`);
-    setTimeout(() => setActionSuccess(null), 5000);
-  };
+  const [search, setSearch] = useState('');
+  const [previewDoc, setPreviewDoc] = useState<string | null>(null);
+  const [selectedApprovalId, setSelectedApprovalId] = useState<string>('ap-1');
 
-  const handleReject = (id: string) => {
-    setApprovals((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: 'REJECTED' } : a))
-    );
-    setSelectedItem(null);
-    setMfaCode('');
-    setActionSuccess(`Đã từ chối phiếu ${id}. Yêu cầu được chuyển về trạng thái hủy.`);
-    setTimeout(() => setActionSuccess(null), 5000);
-  };
+  const approvalsList = state?.adminApprovals || [];
+  const selectedApproval =
+    approvalsList.find((a) => a.id === selectedApprovalId) ||
+    approvalsList[0];
+
+  const screenMeta =
+    ADMIN_APPROVAL_SCREENS.find((s) => s.id === activeScreen) || ADMIN_APPROVAL_SCREENS[0];
 
   return (
-    <div style={{ maxWidth: '1240px', margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ marginBottom: '28px' }}>
-        <div
-          style={{
-            fontSize: '12px',
-            fontFamily: 'var(--font-display)',
-            fontWeight: 700,
-            letterSpacing: '0.06em',
-            color: 'var(--muted)',
-            marginBottom: '6px',
-            textTransform: 'uppercase',
-          }}
-        >
-          TICKEY / ADMIN / APPROVALS
-        </div>
-        <h1
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: '28px',
-            fontWeight: 700,
-            color: 'var(--text)',
-            margin: 0,
-          }}
-        >
-          Hàng đợi phê duyệt (Four-Eyes Principle)
-        </h1>
-        <p style={{ margin: '6px 0 0', fontSize: '14px', color: 'var(--muted)' }}>
-          Quy tắc kiểm soát độc lập 2 người duyệt: Các giao dịch chi trả lớn và hủy suất diễn bắt buộc cần 2 Admin phê duyệt để thực thi.
-        </p>
-      </div>
+    <div>
+      <FigmaPageHeader
+        overline="TICKEY / ADMIN"
+        title={screenMeta.label}
+        screens={ADMIN_APPROVAL_SCREENS}
+        activeScreen={activeScreen}
+        onSelectScreen={setScreen}
+      />
 
-      {actionSuccess && (
-        <div
-          style={{
-            padding: '14px 20px',
-            backgroundColor: 'var(--success-bg)',
-            color: 'var(--success)',
-            borderRadius: 'var(--radius-md)',
-            marginBottom: '24px',
-            fontSize: '14px',
-            fontWeight: 500,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}
-        >
-          <CheckCircle2 size={18} />
-          <span>{actionSuccess}</span>
+      {/* 1. a-approvals */}
+      {activeScreen === 'a-approvals' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+            <div style={{ position: 'relative', width: 320 }}>
+              <Search
+                size={15}
+                style={{
+                  position: 'absolute',
+                  left: 12,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'var(--muted)',
+                }}
+              />
+              <input
+                className="form-input"
+                style={{ paddingLeft: 34 }}
+                placeholder="Tìm theo mã phiếu AP-..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => showToast('Đã xuất danh sách phiếu phê duyệt kép.', 'success')}
+            >
+              Xuất CSV
+            </button>
+          </div>
+
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700 }}>
+                Danh sách phiếu phê duyệt 2 lớp (Dual Control)
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                {approvalsList.length} bản ghi
+              </div>
+            </div>
+            <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>MÃ PHIẾU</th>
+                    <th>LOẠI NGHIỆP VỤ</th>
+                    <th>ĐỐI TƯỢNG</th>
+                    <th>ADMIN 1</th>
+                    <th>ADMIN 2</th>
+                    <th>TRẠNG THÁI</th>
+                    <th>THAO TÁC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {approvalsList.map((ap) => (
+                    <tr key={ap.id}>
+                      <td style={{ fontWeight: 700 }}>{ap.code}</td>
+                      <td>{ap.type}</td>
+                      <td>{ap.target}</td>
+                      <td>{ap.firstAdmin}</td>
+                      <td>{ap.secondAdmin || 'Chờ ký'}</td>
+                      <td>
+                        <span
+                          className={`badge ${
+                            ap.status === 'APPROVED_2_OF_2'
+                              ? 'badge-success'
+                              : ap.status === 'REJECTED'
+                                ? 'badge-danger'
+                                : 'badge-warning'
+                          }`}
+                        >
+                          {ap.status === 'APPROVED_2_OF_2'
+                            ? 'Đã duyệt (2/2)'
+                            : ap.status === 'REJECTED'
+                              ? 'Đã từ chối'
+                              : 'Chờ Admin 2 (1/2)'}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedApprovalId(ap.id);
+                            if (ap.type.includes('Hủy sự kiện')) {
+                              setScreen('a-approval-cancel');
+                            } else if (ap.type.includes('Tạm giữ')) {
+                              setScreen('a-approval-hold');
+                            } else {
+                              setScreen('a-approval-review');
+                            }
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--primary)',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Ký duyệt →
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Security Info Card */}
-      <div
-        style={{
-          backgroundColor: 'var(--navy)',
-          borderRadius: 'var(--radius-lg)',
-          padding: '20px 24px',
-          color: '#FFFFFF',
-          marginBottom: '28px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '16px',
-        }}
-      >
-        <ShieldCheck size={32} color="#D9422D" />
+      {/* 2. a-approval-review (Chi trả / Payout) */}
+      {activeScreen === 'a-approval-review' && (
         <div>
-          <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '2px' }}>
-            Cơ chế bảo mật kép (Dual Control / Two-Man Rule)
-          </div>
-          <div style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.75)' }}>
-            Người tạo yêu cầu hoặc người duyệt thứ nhất không thể tự mình thực hiện giao dịch. Bạn đang đăng nhập với tư cách Người duyệt thứ hai (Second Signer).
+          <FigmaNavyContextBanner
+            title={selectedApproval?.type || 'Phê duyệt kép'}
+            subtitle="Hồ sơ đang xem · Đúng tổ chức và phạm vi xử lý"
+            badge={
+              selectedApproval?.status === 'APPROVED_2_OF_2'
+                ? 'Đã duyệt (2/2)'
+                : selectedApproval?.status === 'REJECTED'
+                  ? 'Đã từ chối'
+                  : 'Chờ Admin thứ 2 (1/2)'
+            }
+          />
+          <FigmaContextGrid
+            items={[
+              {
+                label: 'Mã phiếu & Loại nghiệp vụ',
+                value: `${selectedApproval?.code || 'AP-014'} · ${selectedApproval?.type || 'Giải ngân chi trả'}`,
+              },
+              { label: 'Đối tượng & Số tiền', value: selectedApproval?.target || '64.200.000đ' },
+              {
+                label: 'Admin 1 khởi tạo',
+                value: `${selectedApproval?.firstAdmin || 'admin-ops@tickey.vn'} · Đã ký hợp lệ`,
+              },
+              {
+                label: 'Admin 2 phê duyệt',
+                value: selectedApproval?.secondAdmin || 'admin-finance@tickey.vn (Tài khoản hiện tại)',
+              },
+            ]}
+          />
+          <FigmaDocumentRow onView={() => setPreviewDoc('BienBanDoiSoat.pdf')} />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                if (selectedApproval) {
+                  signDualApproval(selectedApproval.id, true);
+                  showToast(
+                    `Đã ký phê duyệt lớp thứ 2 (2/2) cho phiếu ${selectedApproval.code}.`,
+                    'success',
+                  );
+                  setScreen('a-approval-result');
+                }
+              }}
+            >
+              Ký phê duyệt lớp 2 (2/2)
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                if (selectedApproval) {
+                  signDualApproval(selectedApproval.id, false);
+                  showToast(`Đã từ chối phiếu ${selectedApproval.code}.`, 'warning');
+                  setScreen('a-approvals');
+                }
+              }}
+            >
+              Từ chối phiếu
+            </button>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Approvals List */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        {approvals.map((item) => (
-          <div
-            key={item.id}
-            style={{
-              backgroundColor: 'var(--surface)',
-              borderRadius: 'var(--radius-lg)',
-              border: '1px solid var(--border)',
-              padding: '24px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '24px',
-              boxShadow: 'var(--shadow-sm)',
-            }}
-          >
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                <span
-                  style={{
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    color: 'var(--muted)',
-                    fontFamily: 'monospace',
-                  }}
-                >
-                  {item.id}
-                </span>
-                <span
-                  style={{
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    color: item.category === 'PAYOUT' ? 'var(--primary)' : 'var(--warning)',
-                    backgroundColor: item.category === 'PAYOUT' ? 'var(--primary-tint)' : '#FFFBEB',
-                    padding: '2px 8px',
-                    borderRadius: '4px',
-                  }}
-                >
-                  {item.category === 'PAYOUT' ? 'Chi trả doanh thu' : 'Hủy suất diễn'}
-                </span>
-                {item.status === 'PENDING_SECOND' && (
-                  <span className="badge badge-warning">Cần người duyệt thứ hai</span>
-                )}
-                {item.status === 'COMPLETED' && (
-                  <span className="badge badge-success">Đã hoàn tất duyệt 2/2</span>
-                )}
-                {item.status === 'REJECTED' && <span className="badge badge-danger">Đã từ chối</span>}
-              </div>
-
-              <h3
-                style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: '18px',
-                  fontWeight: 700,
-                  margin: '0 0 10px',
-                  color: 'var(--text)',
-                }}
-              >
-                {item.title}
-              </h3>
-
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '20px',
-                  fontSize: '13px',
-                  color: 'var(--muted)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <UserCheck size={15} color="var(--success)" />
-                  <span>
-                    Duyệt 1: <strong>{item.firstApprover}</strong>
-                  </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Clock size={15} color="var(--muted)" />
-                  <span>{item.firstApprovedAt}</span>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {item.amount && (
-                <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text)' }}>
-                  {item.amount}
-                </div>
-              )}
-              {item.status === 'PENDING_SECOND' ? (
-                <button
-                  onClick={() => setSelectedItem(item)}
-                  className="btn btn-primary"
-                  style={{ fontSize: '13px', padding: '10px 20px' }}
-                >
-                  <ShieldCheck size={16} style={{ marginRight: '6px' }} />
-                  Ký duyệt phiếu
-                </button>
-              ) : (
-                <button
-                  onClick={() => setSelectedItem(item)}
-                  className="btn btn-outline"
-                  style={{ fontSize: '13px', padding: '8px 16px' }}
-                >
-                  Xem chi tiết
-                </button>
-              )}
-            </div>
+      {/* 3. a-approval-cancel (Hủy sự kiện) */}
+      {activeScreen === 'a-approval-cancel' && (
+        <div>
+          <FigmaNavyContextBanner
+            title="Hủy sự kiện & Hoàn tiền"
+            subtitle="Hồ sơ đang xem · Đúng tổ chức và phạm vi xử lý"
+            badge={
+              selectedApproval?.status === 'APPROVED_2_OF_2'
+                ? 'Đã duyệt hủy show'
+                : 'Chờ Admin thứ 2 (1/2)'
+            }
+          />
+          <FigmaContextGrid
+            items={[
+              {
+                label: 'Mã phiếu & Nghiệp vụ',
+                value: `${selectedApproval?.code || 'AP-015'} · ${selectedApproval?.type || 'Hủy sự kiện'}`,
+              },
+              {
+                label: 'Sự kiện & Lý do',
+                value: selectedApproval?.target || 'Đêm nhạc Mùa Thu · Sự cố bất khả kháng',
+              },
+              {
+                label: 'Admin 1 đã kiểm tra',
+                value: `${selectedApproval?.firstAdmin || 'admin-ops@tickey.vn'} · Xác nhận hồ sơ hợp lệ`,
+              },
+              { label: 'Tác động hệ thống', value: 'Hủy vé & kích hoạt quy trình hoàn tiền tự động' },
+            ]}
+          />
+          <FigmaInfoAlert tone="warning">
+            Thao tác hủy sự kiện và hoàn tiền hàng loạt không thể hoàn tác sau khi Admin thứ 2 xác nhận.
+          </FigmaInfoAlert>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                if (selectedApproval) {
+                  signDualApproval(selectedApproval.id, true);
+                  showToast(`Đã phê duyệt hủy sự kiện ${selectedApproval.code} (2/2).`, 'success');
+                  setScreen('a-approval-result');
+                }
+              }}
+            >
+              Ký duyệt hủy & hoàn tiền (2/2)
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setScreen('a-approvals')}
+            >
+              Quay lại
+            </button>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
 
-      {/* Second Approval Modal (a-approval-review) */}
-      {selectedItem && (
+      {/* 4. a-approval-hold (AP-016) */}
+      {activeScreen === 'a-approval-hold' && (
+        <div>
+          <FigmaNavyContextBanner
+            title="Sóng Việt Events"
+            subtitle="Hồ sơ đang xem · Đúng tổ chức và phạm vi xử lý"
+            badge="Chờ Admin thứ 2 (1/2)"
+          />
+          <FigmaContextGrid
+            items={[
+              { label: 'Mã phiếu & Nghiệp vụ', value: 'AP-016 · Tạm giữ quỹ đối soát (Reserve Hold)' },
+              { label: 'Tổ chức & Lý do', value: 'Sóng Việt Events · Tỷ lệ khiếu nại vượt ngưỡng 3%' },
+              { label: 'Admin 1 đề xuất', value: 'admin-risk@tickey.vn' },
+              { label: 'Thời hạn tạm giữ', value: '14 ngày làm việc để đối chiếu ngân hàng' },
+            ]}
+          />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                signDualApproval('ap-3', true);
+                showToast('Đã xác nhận tạm giữ quỹ rủi ro AP-016 (2/2).', 'success');
+                setScreen('a-approval-result');
+              }}
+            >
+              Xác nhận tạm giữ quỹ (2/2)
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setScreen('a-approvals')}
+            >
+              Quay lại
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 5. a-approval-result */}
+      {activeScreen === 'a-approval-result' && (
         <div
+          className="card"
           style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(23, 42, 53, 0.6)',
+            padding: '54px 32px',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-            padding: '24px',
+            textAlign: 'center',
           }}
         >
           <div
             style={{
-              backgroundColor: 'var(--surface)',
-              borderRadius: 'var(--radius-lg)',
-              width: '100%',
-              maxWidth: '640px',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              boxShadow: 'var(--shadow-lg)',
-              padding: '32px',
+              width: 48,
+              height: 48,
+              borderRadius: 14,
+              background: '#EAF7F0',
+              color: '#18794E',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
             }}
           >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '20px',
-                borderBottom: '1px solid var(--border)',
-                paddingBottom: '16px',
-              }}
-            >
-              <div>
-                <span style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                  PHÊ DUYỆT CẤP 2 · {selectedItem.id}
-                </span>
-                <h2
-                  style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: '20px',
-                    fontWeight: 700,
-                    margin: '4px 0 0',
-                    color: 'var(--text)',
-                  }}
-                >
-                  {selectedItem.title}
-                </h2>
-              </div>
-              <button
-                onClick={() => setSelectedItem(null)}
-                className="btn-ghost"
-                style={{ fontSize: '18px', border: 'none', background: 'none', cursor: 'pointer' }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
-              <div style={{ backgroundColor: 'var(--bg)', padding: '16px', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>
-                  Thông tin người duyệt thứ nhất
-                </div>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>
-                  {selectedItem.firstApprover}
-                </div>
-                <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>
-                  Thời gian ký duyệt: {selectedItem.firstApprovedAt}
-                </div>
-              </div>
-
-              <div style={{ backgroundColor: 'var(--bg)', padding: '16px', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>Chi tiết lệnh</div>
-                <p style={{ margin: 0, fontSize: '14px', color: 'var(--text)', lineHeight: 1.5 }}>
-                  {selectedItem.details}
-                </p>
-                {selectedItem.amount && (
-                  <div style={{ marginTop: '12px', fontSize: '16px', fontWeight: 700, color: 'var(--primary)' }}>
-                    Số tiền thực chi: {selectedItem.amount}
-                  </div>
-                )}
-              </div>
-
-              {selectedItem.status === 'PENDING_SECOND' && (
-                <div
-                  style={{
-                    border: '1px solid var(--border)',
-                    padding: '16px',
-                    borderRadius: 'var(--radius-md)',
-                    backgroundColor: '#FFFDF9',
-                  }}
-                >
-                  <label
-                    style={{
-                      display: 'block',
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      color: 'var(--text)',
-                      marginBottom: '8px',
-                    }}
-                  >
-                    Mã xác thực TOTP/2FA của Quản trị viên
-                  </label>
-                  <div style={{ display: 'flex', gap: '12px' }}>
-                    <input
-                      type="text"
-                      placeholder="Nhập mã 6 chữ số (VD: 849201)"
-                      value={mfaCode}
-                      onChange={(e) => setMfaCode(e.target.value)}
-                      style={{
-                        padding: '10px 14px',
-                        border: '1px solid var(--border)',
-                        borderRadius: 'var(--radius-md)',
-                        fontSize: '14px',
-                        letterSpacing: '2px',
-                        fontWeight: 600,
-                        flex: 1,
-                      }}
-                    />
-                  </div>
-                  <span style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '6px', display: 'block' }}>
-                    (Trong môi trường thử nghiệm, bạn có thể bấm Duyệt ngay không bắt buộc TOTP)
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Actions */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px' }}>
-              {selectedItem.status === 'PENDING_SECOND' ? (
-                <>
-                  <button
-                    onClick={() => handleReject(selectedItem.id)}
-                    className="btn btn-outline"
-                    style={{ color: 'var(--danger)', borderColor: 'var(--danger)', fontSize: '13px' }}
-                  >
-                    Từ chối phiếu
-                  </button>
-                  <button
-                    onClick={() => handleSecondApproval(selectedItem.id)}
-                    className="btn btn-primary"
-                    style={{ fontSize: '13px', padding: '10px 24px' }}
-                  >
-                    Ký duyệt hoàn tất (2/2)
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={() => setSelectedItem(null)}
-                  className="btn btn-outline"
-                  style={{ fontSize: '13px' }}
-                >
-                  Đóng
-                </button>
-              )}
-            </div>
+            <CheckCircle2 size={24} />
           </div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, marginBottom: 6 }}>
+            Đã hoàn tất phê duyệt kép (2/2 Admin)
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 480, marginBottom: 14 }}>
+            Chữ ký số của 2 quản trị viên độc lập đã được ghi nhận vào sổ cái Audit Log và kích hoạt lệnh thực thi.
+          </div>
+          <span className="badge badge-success" style={{ marginBottom: 18 }}>
+            Dual Control Executed · 2/2
+          </span>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setScreen('a-approvals')}
+          >
+            Danh sách phiếu phê duyệt
+          </button>
         </div>
+      )}
+
+      {previewDoc && (
+        <DocumentPreviewModal
+          isOpen={true}
+          onClose={() => setPreviewDoc(null)}
+          title={previewDoc}
+          organization="Ánh Trăng Events"
+          status="Hồ sơ phê duyệt kép"
+        />
       )}
     </div>
   );

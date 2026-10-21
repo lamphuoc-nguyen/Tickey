@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router';
 export function AdminHomePage() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
   const stats = [
     {
@@ -83,7 +84,8 @@ export function AdminHomePage() {
     const matchesSearch =
       t.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.detail.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
+    const matchesStatus = statusFilter === 'ALL' || t.status === statusFilter;
+    return matchesSearch && matchesStatus;
   });
 
   return (
@@ -469,13 +471,15 @@ export function AdminHomePage() {
               />
             </div>
 
-            <button
-              onClick={() => alert('Bộ lọc trạng thái: Tất cả trạng thái đang được hiển thị')}
-              className="btn btn-outline"
-              style={{ fontSize: '13px', padding: '7px 14px' }}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              style={{ width: '190px', fontSize: '13px', padding: '7px 14px' }}
             >
-              Tất cả trạng thái
-            </button>
+              <option value="ALL">Tất cả trạng thái</option>
+              <option value="Chờ review">Chờ review</option>
+              <option value="Cần phiếu thứ hai">Cần phiếu thứ hai</option>
+            </select>
           </div>
 
           {/* Table */}
