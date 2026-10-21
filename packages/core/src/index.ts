@@ -14,3 +14,4 @@ export * from './models/database-mapper';
 export * from './repositories/customer-repository';
 export * from './models/staff';
 export * from './repositories/staff-repository';
+export * from './repositories/media-repository';

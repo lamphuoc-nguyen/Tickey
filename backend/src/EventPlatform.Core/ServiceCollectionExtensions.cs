@@ -1,4 +1,5 @@
 using EventPlatform.Core.Payments;
+using EventPlatform.Core.Media;
 using EventPlatform.Core.Supabase;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +21,18 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient<SupabaseRestClient>();
         services.AddHttpClient<SupabaseAuthClient>();
         services.AddHttpClient<SupabaseStorageClient>();
+        services.AddOptions<MediaStorageOptions>()
+            .Bind(config.GetSection(MediaStorageOptions.Section))
+            .Validate(o => o.IsValid, "MediaStorage:ImageProvider must be Supabase or Cloudinary")
+            .ValidateOnStart();
+        services.AddOptions<CloudinaryOptions>()
+            .Bind(config.GetSection(CloudinaryOptions.Section))
+            .Validate(o => !string.Equals(config["MediaStorage:ImageProvider"], "Cloudinary", StringComparison.OrdinalIgnoreCase)
+                || o.IsValid, "Cloudinary requires CloudName, ApiKey, ApiSecret and a valid PublicIdPrefix (API user-secrets)")
+            .ValidateOnStart();
+        services.AddSingleton(TimeProvider.System);
+        services.AddTransient<MediaAuthorization>();
+        services.AddHttpClient<CloudinaryImageClient>(client => client.Timeout = TimeSpan.FromSeconds(60));
         services.AddSingleton<IPaymentGateway, UnconfiguredPaymentGateway>();
         return services;
     }

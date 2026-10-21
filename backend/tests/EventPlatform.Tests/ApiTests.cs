@@ -11,6 +11,8 @@ public class ApiTests(ApiTests.Factory factory) : IClassFixture<ApiTests.Factory
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting("MediaStorage:ImageProvider", "Supabase");
             builder.UseSetting("Supabase:Url", "http://db.test");
             builder.UseSetting("Supabase:AnonKey", "a.b.c");
             builder.UseSetting("Supabase:ServiceRoleKey", "s.r.k");

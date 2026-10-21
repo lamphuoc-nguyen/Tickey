@@ -1,0 +1,33 @@
+{
+  "formatVersion": 1,
+  "projectRef": "ddourrslmudoqevqlvpv",
+  "generatedWith": "built-in image_gen",
+  "generatedAt": "2026-10-21",
+  "notice": "Original AI-generated promotional illustrations requested by the project operator; not evidence, venue maps, identities or runtime mock data.",
+  "assets": [
+    {
+      "eventKey": "dem-nhac",
+      "file": "dem-nhac-thanh-pho.png",
+      "sha256": "87097d43094ad4daa38197fdc6c4606dd732c4d623ffdbee01c16d333ca77709",
+      "prompt": "Use case: ads-marketing. Asset type: wide 16:9 event cover for Tickey mobile catalog. Create a polished original editorial illustration for the Vietnamese music event 'Đêm nhạc Thành phố lên đèn'. Scene: a small modern open-air stage at blue hour, Vietnamese city skyline lighting up, expressive amber spotlights, an acoustic guitar and microphone in the foreground, softly abstract audience silhouettes. Cinematic indigo and warm amber palette, elegant tactile grain, strong central composition readable at a small mobile thumbnail, generous crop-safe margins. Illustration, not documentary photography of an actual event. No lettering, no logos, no watermarks, no invented artist likeness, dates or sponsors. Landscape aspect ratio 16:9."
+    },
+    {
+      "eventKey": "kich-noi",
+      "file": "chuyen-tau-cuoi-ngay.png",
+      "sha256": "b45d62891d207413178d6fd7f4b67cf9df397a8c6915c05bb267feb3405b282b",
+      "prompt": "Use case: ads-marketing. Asset type: 16:9 landscape event cover for Tickey mobile catalog. Original cinematic theatrical key art for Vietnamese stage drama 'Chuyến tàu cuối ngày': an intimate theatre stage evocative of an old railway platform at dusk, a single wooden bench with a small vintage suitcase, a stationary train carriage suggested in soft silhouette behind translucent scenery, two anonymous human silhouettes separated by warm light and deep teal shadow. Rich rust-red velvet theatre curtains at the edges, amber practical lamps, tactile painterly detail, restrained emotional composition. Readable at small mobile card size; keep principal objects central with crop-safe edges. This is conceptual theatre illustration, not an actual venue photograph or directional map. No text, letters, numbers, logos, famous faces, dates, sponsors or watermarks."
+    },
+    {
+      "eventKey": "hoi-thao",
+      "file": "ngay-hoi-cong-nghe.png",
+      "sha256": "69fbbb747b722fd328aabe7b44b19d8e62da3206799799fcd4613f7194939d68",
+      "prompt": "Use case: ads-marketing. Asset type: 16:9 landscape cover for Tickey mobile event catalog. Original high-end editorial illustration for a Vietnamese community technology festival: bright contemporary creative hall, diverse anonymous young Vietnamese adults collaborating around a compact robotics project and laptops, subtle luminous cyan circuit-like graphics on a large abstract display, warm wooden communal tables and green plants. Friendly inclusive hands-on learning atmosphere, sophisticated teal, sky blue and soft orange palette, crisp shapes with fine grain and realistic depth. Central crop-safe composition readable at thumbnail size. Conceptual illustration, not evidence of an actual event or venue. No text, numbers, logos, watermarks, named products or sponsors."
+    },
+    {
+      "eventKey": "the-thao",
+      "file": "ngay-hoi-van-dong.png",
+      "sha256": "21e28f1c76a1c01d8af6554a43eb2ad9e00e2d113bf9235993acbaa0d9b1d92b",
+      "prompt": "Use case: ads-marketing. Asset type: 16:9 landscape cover for Tickey mobile event catalog. Original polished editorial illustration for a Vietnamese weekend community movement festival: anonymous adult participants in colorful athletic clothing jogging together across a sunlit green park, subtle hoops and stretching group in background, leafy trees, upbeat late-afternoon light, a sense of relaxed inclusive recreational activity. Fresh emerald, coral and golden yellow accents, expressive depth and tactile grain, clean central composition that reads at small phone thumbnail sizes and survives center cropping. Concept art rather than documentary photography of a real event. No text, numbers, badges, sponsor logos, watermarks or recognizable athlete likenesses."
+    }
+  ]
+}
