@@ -1,5 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/api';
+import type { DisputeCase } from '../../org/data/report-data';
+
+export type { DisputeCase };
 
 // Admin (nền tảng) đọc qua /api/admin/* (RLS giới hạn cho platform member) và ghi qua các RPC
 // có kiểm tra vai trò nền tảng + TOTP. Không có orgId: phạm vi do RLS + vai trò quyết định.
@@ -91,6 +94,26 @@ export interface AuditLog {
   createdAt: string;
 }
 
+export interface SupportMessage {
+  id: string;
+  authorId: string;
+  authorSide: 'CUSTOMER' | 'SUPPORT';
+  body: string;
+  createdAt: string;
+}
+
+export interface SupportRequest {
+  id: string;
+  bookingId: string | null;
+  orgId: string | null;
+  category: string;
+  subject: string;
+  status: 'OPEN' | 'IN_PROGRESS' | 'WAITING_CUSTOMER' | 'RESOLVED' | 'CLOSED';
+  createdAt: string;
+  updatedAt: string;
+  messages: SupportMessage[];
+}
+
 /** Trạng thái hồ sơ KYC (dùng chung với kyc_submissions.status). */
 export const ADMIN_KYC_STATUS: Record<string, { label: string; badge: string }> = {
   SUBMITTED: { label: 'Chờ duyệt', badge: 'badge-warning' },
@@ -149,6 +172,25 @@ export const AUDIT_SCOPE: Record<string, { label: string; badge: string }> = {
   STAFF: { label: 'Nhân sự', badge: 'badge-info' },
   ADMIN: { label: 'Admin nền tảng', badge: 'badge-warning' },
   SYSTEM: { label: 'Hệ thống', badge: 'badge-info' },
+};
+
+/** Trạng thái phiếu hỗ trợ (support_requests.status). */
+export const SUPPORT_STATUS: Record<string, { label: string; badge: string }> = {
+  OPEN: { label: 'Mới', badge: 'badge-warning' },
+  IN_PROGRESS: { label: 'Đang xử lý', badge: 'badge-info' },
+  WAITING_CUSTOMER: { label: 'Chờ khách phản hồi', badge: 'badge-warning' },
+  RESOLVED: { label: 'Đã xử lý', badge: 'badge-success' },
+  CLOSED: { label: 'Đã đóng', badge: 'badge-info' },
+};
+
+/** Chủ đề phiếu hỗ trợ (support_requests.category). */
+export const SUPPORT_CATEGORY: Record<string, string> = {
+  PAYMENT: 'Thanh toán',
+  TICKET: 'Vé',
+  REFUND: 'Hoàn tiền',
+  ACCOUNT: 'Tài khoản',
+  APP_BUG: 'Lỗi ứng dụng',
+  OTHER: 'Khác',
 };
 
 /** Hồ sơ KYC của các tổ chức. Mặc định trả về tất cả trạng thái. */
@@ -271,5 +313,82 @@ export function useAuditLogs(filters: { orgId?: string; action?: string; targetT
       if (filters.targetId) search.set('targetId', filters.targetId);
       return api.get<AuditLog[]>(`/api/admin/audit-logs?${search.toString()}`);
     },
+  });
+}
+
+// Tranh chấp (dispute_cases) dưới góc nhìn Admin: RLS cho DISPUTE_ADMIN thấy toàn bộ case nên chỉ
+// đọc qua /api/disputes (không truyền orgId). Việc phán quyết là RPC resolve_dispute_case
+// (DISPUTE_ADMIN + TOTP) và trả về số yêu cầu hoàn tiền đã tạo.
+
+/** Hàng đợi tranh chấp toàn nền tảng, lọc theo trạng thái. */
+export function useAdminDisputes(status?: string) {
+  return useQuery({
+    queryKey: ['admin', 'disputes', status ?? null],
+    queryFn: () => {
+      const search = new URLSearchParams({ limit: '100', offset: '0' });
+      if (status) search.set('status', status);
+      return api.get<DisputeCase[]>(`/api/disputes?${search.toString()}`);
+    },
+  });
+}
+
+/** Chi tiết một tranh chấp: hội thoại giải trình và các phản ánh gốc. */
+export function useAdminDispute(id: string | null) {
+  return useQuery({
+    queryKey: ['admin', 'dispute', id],
+    queryFn: () => api.get<DisputeCase>(`/api/disputes/${id}`),
+    enabled: !!id,
+  });
+}
+
+/** Phán quyết tranh chấp (resolve_dispute_case). Cần DISPUTE_ADMIN + TOTP. */
+export function useResolveDispute() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      resolution,
+      refundPercentBp,
+      scope,
+      note,
+    }: {
+      id: string;
+      resolution: 'FULL_REFUND' | 'PARTIAL_REFUND' | 'NO_ACTION';
+      refundPercentBp?: number | null;
+      scope?: 'REPORTERS' | 'ALL_TICKETS';
+      note?: string | null;
+    }) =>
+      api.post<{ refunds_created: number }>(`/api/admin/disputes/${id}/resolve`, {
+        resolution,
+        refundPercentBp: refundPercentBp ?? null,
+        scope: scope ?? 'REPORTERS',
+        note: note ?? null,
+      }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['admin', 'disputes'] });
+      client.invalidateQueries({ queryKey: ['admin', 'dispute'] });
+    },
+  });
+}
+
+// Phiếu hỗ trợ (support_requests): RLS cho vai trò nền tảng SUPPORT thấy toàn bộ, người dùng thấy
+// phiếu của mình. Admin trả lời qua add_support_message (author_side = SUPPORT) — hệ thống tự
+// chuyển trạng thái sang WAITING_CUSTOMER và gán assigned_to.
+
+/** Hàng đợi phiếu hỗ trợ (kèm hội thoại). */
+export function useAdminSupportRequests() {
+  return useQuery({
+    queryKey: ['admin', 'support-requests'],
+    queryFn: () => api.get<SupportRequest[]>('/api/support-requests?limit=100&offset=0'),
+  });
+}
+
+/** Gửi phản hồi hỗ trợ (add_support_message). Cần vai trò nền tảng SUPPORT. */
+export function useReplySupportRequest() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: string }) =>
+      api.post<{ id: string }>(`/api/support-requests/${id}/messages`, { body }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['admin', 'support-requests'] }),
   });
 }

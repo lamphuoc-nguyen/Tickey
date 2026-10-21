@@ -694,6 +694,42 @@ public class ApiEndpointTests
     }
 
     [Fact]
+    public async Task Support_requests_embed_the_messages_and_need_a_jwt()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+
+        var res = await client.GetAsync("/api/support-requests?limit=100&offset=0", Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal("/rest/v1/support_requests", request.RequestUri!.AbsolutePath);
+        var query = Uri.UnescapeDataString(request.RequestUri.Query);
+        Assert.Contains("messages:support_messages(", query);
+        Assert.Contains("order=created_at.desc", query);
+        Assert.Equal(UserJwt, request.Headers.Authorization!.Parameter);
+    }
+
+    [Fact]
+    public async Task Replying_to_a_support_request_posts_a_support_message()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "\"44444444-4444-4444-4444-444444444444\""),
+            UserJwt);
+        var id = Guid.NewGuid();
+
+        var res = await client.PostAsJsonAsync($"/api/support-requests/{id}/messages",
+            new { body = "Da lam moi chung chi dong bo thiet bi." }, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal("/rest/v1/rpc/add_support_message", request.RequestUri!.AbsolutePath);
+        using var sent = JsonDocument.Parse(Assert.Single(handler.Calls).Body);
+        var root = sent.RootElement;
+        Assert.Equal(id, root.GetProperty("p_request_id").GetGuid());
+        Assert.Equal("Da lam moi chung chi dong bo thiet bi.", root.GetProperty("p_body").GetString());
+        Assert.Equal(UserJwt, request.Headers.Authorization!.Parameter);
+    }
+
+    [Fact]
     public async Task Org_orders_are_filtered_to_the_tenant_and_forward_the_jwt()
     {
         var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
@@ -949,6 +985,46 @@ public class ApiEndpointTests
         Assert.Contains($"id=eq.{id}", query);
         Assert.Contains("messages:dispute_messages(", query);
         Assert.Contains("reports(", query);
+    }
+
+    [Fact]
+    public async Task Admin_resolves_a_dispute_case_with_the_resolution_payload()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, """{"refunds_created":2}"""), UserJwt);
+        var id = Guid.NewGuid();
+
+        var res = await client.PostAsJsonAsync($"/api/admin/disputes/{id}/resolve",
+            new { resolution = "partial_refund", refundPercentBp = 5000, scope = "ALL_TICKETS", note = "Hoàn 50% toàn suất" },
+            Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        Assert.Equal(2, (await res.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("refunds_created").GetInt32());
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal("/rest/v1/rpc/resolve_dispute_case", request.RequestUri!.AbsolutePath);
+        using var sent = JsonDocument.Parse(Assert.Single(handler.Calls).Body);
+        var root = sent.RootElement;
+        Assert.Equal(id, root.GetProperty("p_case_id").GetGuid());
+        Assert.Equal("partial_refund", root.GetProperty("p_resolution").GetString());
+        Assert.Equal(5000, root.GetProperty("p_refund_percent_bp").GetInt32());
+        Assert.Equal("ALL_TICKETS", root.GetProperty("p_scope").GetString());
+        Assert.Equal("Hoàn 50% toàn suất", root.GetProperty("p_note").GetString());
+        Assert.Equal(UserJwt, request.Headers.Authorization!.Parameter);
+    }
+
+    [Fact]
+    public async Task Admin_resolve_dispute_defaults_the_scope_to_reporters()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, """{"refunds_created":0}"""), UserJwt);
+        var id = Guid.NewGuid();
+
+        await client.PostAsJsonAsync($"/api/admin/disputes/{id}/resolve",
+            new { resolution = "NO_ACTION", refundPercentBp = (int?)null, scope = (string?)null, note = (string?)null }, Ct);
+
+        using var sent = JsonDocument.Parse(Assert.Single(handler.Calls).Body);
+        var root = sent.RootElement;
+        Assert.Equal("REPORTERS", root.GetProperty("p_scope").GetString());
+        Assert.Equal(JsonValueKind.Null, root.GetProperty("p_refund_percent_bp").ValueKind);
+        Assert.Equal(JsonValueKind.Null, root.GetProperty("p_note").ValueKind);
     }
 
     [Fact]
