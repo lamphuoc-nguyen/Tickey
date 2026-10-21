@@ -11,6 +11,7 @@ How the business rules in `Mo_ta_du_an_va_huong_dan.docx` (MT) are checked: what
 | AC-03 / AC-04 late IPN: seat still free → same seat, seat sold → 100% refund (§26) | `02_core_flows.test.sql` |
 | AC-05 `PAYMENT_PENDING` never expires on its own (§6) | `02_core_flows.test.sql` |
 | AC-15 tenant isolation: Org A reads/writes nothing of Org B (§26) | `02_core_flows.test.sql`; live check below |
+| AC-15 the refusal is recorded as a security event (§26) | `ApiEndpointTests.Forbidden_is_logged_as_a_security_event` (API logs `SECURITY.FORBIDDEN user=… METHOD /path` on every 403 `FORBIDDEN` / `DEVICE_REVOKED`; on Render it is in the service logs) |
 | Price and booking owner come from the server; client price / `user_id` ignored (§7.1) | `03_business_rules.test.sql`, `ApiEndpointTests.Create_booking_never_forwards_a_client_price_or_user_id` |
 | IPN with the wrong amount: rejected, booking flagged, no tickets (§5) | `03_business_rules.test.sql` |
 | Ticket issuing is idempotent (§7.1) | `03_business_rules.test.sql` |
@@ -33,7 +34,7 @@ npx supabase db start && npx supabase test db       # pgTAP, needs Docker
 bash supabase/scripts/concurrency_ac01.sh           # AC-01 with 50 real connections (local DB only)
 ```
 
-**Not covered by an assertion:** the "record a security event" half of AC-15. `assert_org_role` only writes `SECURITY.FORBIDDEN` to the Postgres log (`raise log`), so it can be seen in Supabase logs but not tested in SQL.
+The database also writes `SECURITY.FORBIDDEN` to the Postgres log (`raise log` in `assert_org_role`); it cannot insert a row because the refused transaction rolls back. Reads that RLS hides return empty results rather than an error, so they are not security events.
 
 ## Manual script: Staff APK
 
@@ -80,7 +81,7 @@ The `staff-demo` APK (`EXPO_PUBLIC_STAFF_DEMO=true`) skips the Staff guard and s
 | --- | --- |
 | pgTAP (`01`, `02`, `03`) | 79/79 pass |
 | AC-01 with 50 real connections | 1 success, 49 `SEAT_CONFLICT`, `locked = 1`: pass |
-| .NET API (xUnit) | 84/84 pass |
+| .NET API (xUnit) | 85/85 pass |
 | Mobile (Vitest) | 76/76 pass |
 | Core (Vitest) | 65/65 pass |
 | Lint, typecheck | pass after the `ui.secure` fix in this branch (failing on `main` since #14) |

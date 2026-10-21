@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace EventPlatform.Tests;
 
@@ -23,11 +24,13 @@ public class ApiEndpointTests
         $"e30.{Base64Url.Encode(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(claims)))}.sig";
 
     private static (HttpClient Client, FakeHttpHandler Handler) Create(
-        Func<HttpRequestMessage, string, (HttpStatusCode, string)> respond, string? jwt = null)
+        Func<HttpRequestMessage, string, (HttpStatusCode, string)> respond, string? jwt = null,
+        ILoggerProvider? logs = null)
     {
         var handler = new FakeHttpHandler(respond);
         var factory = new WebApplicationFactory<IApiMarker>().WithWebHostBuilder(builder =>
         {
+            if (logs is not null) builder.ConfigureLogging(logging => logging.AddProvider(logs));
             builder.UseSetting("Supabase:Url", "http://db.test");
             builder.UseSetting("Supabase:AnonKey", "sb_publishable_test");
             builder.UseSetting("Supabase:ServiceRoleKey", "sb_secret_test");
@@ -243,6 +246,23 @@ public class ApiEndpointTests
         var res = await client.GetAsync($"/api/sessions/{Guid.NewGuid()}/manifest?deviceId={Guid.NewGuid()}", Ct);
 
         Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+    }
+
+    // AC-15: a refused cross-tenant call is recorded as a security event with the caller and the path.
+    [Fact]
+    public async Task Forbidden_is_logged_as_a_security_event()
+    {
+        var logs = new CapturingLoggerProvider();
+        var (client, _) = Create((_, _) => (HttpStatusCode.BadRequest, """{"code":"P0001","message":"FORBIDDEN"}"""),
+            UserJwt, logs);
+        var venueId = Guid.NewGuid();
+
+        var res = await client.PutAsJsonAsync($"/api/venues/{venueId}", new { name = "hack" }, Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+        var entry = Assert.Single(logs.Entries, e => e.Category == "Security");
+        Assert.Equal(LogLevel.Warning, entry.Level);
+        Assert.Equal($"SECURITY.FORBIDDEN user={UserId} PUT /api/venues/{venueId}", entry.Message);
     }
 
     // Staff permission is decided by check_in under the caller's JWT, never by the service key (MT §23).
