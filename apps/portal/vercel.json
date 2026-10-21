@@ -1,8 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
-  "installCommand": "cd ../.. && npm i -g --allow-scripts=pnpm pnpm@12.9.1 && pnpm install --frozen-lockfile --filter @event/portal...",
-  "buildCommand": "pnpm build",
+  "installCommand": "cd ../.. && npm i -g --allow-scripts=pnpm pnpm@12.9.1 && \"$(npm prefix -g)/bin/pnpm\" install --frozen-lockfile --filter @event/portal...",
+  "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }
