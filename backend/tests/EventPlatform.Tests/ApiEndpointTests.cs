@@ -419,6 +419,23 @@ public class ApiEndpointTests
     }
 
     [Fact]
+    public async Task Create_gate_takes_the_venue_from_the_route()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "\"6f1d0c3a-0000-4000-8000-000000000001\""), UserJwt);
+        var venueId = Guid.NewGuid();
+
+        var res = await client.PostAsJsonAsync($"/api/venues/{venueId}/gates", new { code = "g1", name = "Cổng chính" }, Ct);
+
+        Assert.Equal(HttpStatusCode.Created, res.StatusCode);
+        var call = Assert.Single(handler.Calls);
+        Assert.EndsWith("/rest/v1/rpc/save_gate", call.Request.RequestUri!.AbsolutePath);
+        using var sent = JsonDocument.Parse(call.Body);
+        var p = sent.RootElement.GetProperty("p");
+        Assert.Equal(venueId, p.GetProperty("venue_id").GetGuid());
+        Assert.Equal("g1", p.GetProperty("code").GetString());
+    }
+
+    [Fact]
     public async Task Gate_zones_config_is_snake_case()
     {
         var (client, handler) = Create((_, _) => (HttpStatusCode.NoContent, ""), UserJwt);

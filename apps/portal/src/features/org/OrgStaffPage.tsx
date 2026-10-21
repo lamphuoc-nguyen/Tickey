@@ -251,7 +251,7 @@ export function OrgStaffPage() {
               <div style={{ fontSize: 12, color: 'var(--muted)' }}>{shownMembers.length} bản ghi</div>
             </div>
             <QueryNotice
-              loading={members.isPending}
+              loading={members.isLoading}
               error={members.error}
               empty={members.isSuccess && !shownMembers.length}
               emptyText="Chưa có thành viên phù hợp."
@@ -443,7 +443,7 @@ export function OrgStaffPage() {
               <div style={{ fontSize: 12, color: 'var(--muted)' }}>{shownAssignments.length} bản ghi</div>
             </div>
             <QueryNotice
-              loading={events.isPending || assignments.isPending}
+              loading={events.isLoading || assignments.isPending}
               error={events.error ?? assignments.error}
               empty={!assignments.isPending && !shownAssignments.length}
               emptyText="Chưa có phân công nào."
@@ -506,7 +506,7 @@ export function OrgStaffPage() {
               Thông tin chi tiết · Phân công cổng
             </div>
             <QueryNotice
-              loading={members.isPending || events.isPending}
+              loading={members.isLoading || events.isLoading}
               error={members.error ?? events.error}
               empty={members.isSuccess && events.isSuccess && (!staffMembers.length || !openSessions.length)}
               emptyText={
@@ -621,7 +621,14 @@ export function OrgStaffPage() {
                     {Object.entries(PERMISSION_LABELS).map(([permission, label]) => (
                       <label
                         key={permission}
-                        style={{ display: 'flex', gap: 6, fontSize: 13, cursor: 'pointer' }}
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 6,
+                          fontSize: 13,
+                          cursor: 'pointer',
+                        }}
                       >
                         <input
                           type="checkbox"

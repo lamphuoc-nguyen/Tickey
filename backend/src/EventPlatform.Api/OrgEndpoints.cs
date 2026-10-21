@@ -119,7 +119,7 @@ public static class OrgEndpoints
         api.MapGet("/organizations/{orgId:guid}/events", async (Guid orgId, string? status, int? limit, int? offset,
             HttpContext http, SupabaseRestClient db, CancellationToken ct) =>
             Results.Ok(await db.SelectAsync("events", Query(
-                Select("*, sessions(id, title, starts_at, ends_at, doors_open_at, status, sales_paused, venue:venues(id, name, timezone))"),
+                Select("*, sessions(id, title, starts_at, ends_at, doors_open_at, status, sales_paused, layout_version_id, venue:venues(id, name, timezone))"),
                 Eq("tenant_id", orgId), Status(status), "order=created_at.desc", Page(limit, offset)), http.Jwt(), ct)));
 
         api.MapGet("/organizations/{orgId:guid}/devices", async (Guid orgId, string? status, HttpContext http,
@@ -158,6 +158,18 @@ public static class OrgEndpoints
             CancellationToken ct) => Save(rpc, "save_venue", null, SnakeKeys(body, id), http, ct));
 
         // Returns { layout_id, layout_version_id } with an empty DRAFT version.
+        // Body: { code, name }. Gate codes are unique per Venue (upper-cased).
+        api.MapPost("/venues/{id:guid}/gates", (Guid id, JsonElement body, HttpContext http, SupabaseRpcClient rpc,
+            CancellationToken ct) =>
+        {
+            var p = SnakeKeys(body);
+            p["venue_id"] = id.ToString("D");
+            return Save(rpc, "save_gate", "/api/gates", p, http, ct);
+        });
+        // Body: { code?, name?, status? } — status ARCHIVED takes the gate out of use.
+        api.MapPut("/gates/{id:guid}", (Guid id, JsonElement body, HttpContext http, SupabaseRpcClient rpc,
+            CancellationToken ct) => Save(rpc, "save_gate", null, SnakeKeys(body, id), http, ct));
+
         api.MapPost("/venues/{id:guid}/layouts", async (Guid id, CreateLayoutRequest body, HttpContext http,
             SupabaseRpcClient rpc, CancellationToken ct) =>
             Results.Ok(await rpc.CallAsUserAsync<JsonElement>("create_layout",
@@ -165,7 +177,9 @@ public static class OrgEndpoints
 
         api.MapGet("/layout-versions/{id:guid}", async (Guid id, HttpContext http, SupabaseRestClient db,
             CancellationToken ct) =>
-            Single(await db.SelectAsync("layout_versions", Query(Select("*"), Eq("id", id)), http.Jwt(), ct)));
+            Single(await db.SelectAsync("layout_versions", Query(
+                Select("*, zones!zones_layout_version_id_fkey(id, code, name, kind, capacity, color, sort_order)"),
+                Eq("id", id)), http.Jwt(), ct)));
 
         // DRAFT only (INVALID_STATE otherwise); a published layout is edited through a new version.
         api.MapPut("/layout-versions/{id:guid}/draft", async (Guid id, SaveLayoutDraftRequest body, HttpContext http,

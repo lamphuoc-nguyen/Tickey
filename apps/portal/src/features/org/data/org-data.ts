@@ -28,7 +28,37 @@ export interface OrgSession {
   doorsOpenAt: string;
   status: string;
   salesPaused: boolean;
+  layoutVersionId: string;
   venue: Venue | null;
+}
+
+export interface Zone {
+  id: string;
+  code: string;
+  name: string;
+  kind: 'SEATED' | 'STANDING';
+  capacity: number;
+  sortOrder: number;
+}
+
+export interface GateZone {
+  sessionId: string;
+  gateId: string;
+  zoneId: string;
+}
+
+export interface GateDevice {
+  id: string;
+  deviceFingerprint: string;
+  name: string;
+  platform: 'ANDROID' | 'IOS';
+  registeredBy: string;
+  status: 'ACTIVE' | 'REVOKED';
+  revokeReason: string | null;
+  revokedAt: string | null;
+  lastSeenAt: string | null;
+  lastSyncAt: string | null;
+  createdAt: string;
 }
 
 export interface OrgEvent {
@@ -117,7 +147,7 @@ export function useStaffAssignments(sessionIds: string[]) {
   });
   return {
     data: results.flatMap((result) => result.data ?? []),
-    isPending: results.some((result) => result.isPending),
+    isPending: results.some((result) => result.isLoading),
     error: results.find((result) => result.error)?.error ?? null,
     refetch: () => Promise.all(results.map((result) => result.refetch())),
   };
@@ -159,5 +189,86 @@ export function useRevokeAssignment() {
       api.delete(`/api/staff-assignments/${assignment.id}`),
     onSuccess: (_, { sessionId }) =>
       client.invalidateQueries({ queryKey: ['session', sessionId, 'staff-assignments'] }),
+  });
+}
+
+export function useOrgVenues(orgId: string | null) {
+  return useQuery({
+    queryKey: ['org', orgId, 'venues'],
+    queryFn: () => api.get<Venue[]>(`/api/organizations/${orgId}/venues`),
+    enabled: !!orgId,
+  });
+}
+
+export function useSaveGate() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      venueId,
+      ...body
+    }: {
+      id?: string;
+      venueId: string;
+      code?: string;
+      name?: string;
+      status?: string;
+    }) =>
+      id
+        ? api.put<{ id: string }>(`/api/gates/${id}`, body)
+        : api.post<{ id: string }>(`/api/venues/${venueId}/gates`, body),
+    onSuccess: (_, { venueId }) => client.invalidateQueries({ queryKey: ['venue', venueId, 'gates'] }),
+  });
+}
+
+export function useLayoutZones(layoutVersionId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['layout-version', layoutVersionId, 'zones'],
+    queryFn: async () =>
+      (await api.get<{ zones: Zone[] }>(`/api/layout-versions/${layoutVersionId}`)).zones.sort(
+        (a, b) => a.sortOrder - b.sortOrder,
+      ),
+    enabled: !!layoutVersionId,
+  });
+}
+
+export function useGateZones(sessionId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['session', sessionId, 'gate-zones'],
+    queryFn: () => api.get<GateZone[]>(`/api/sessions/${sessionId}/gate-zones`),
+    enabled: !!sessionId,
+  });
+}
+
+/** Replaces the whole gate → zones mapping of a Session (set_session_gate_zones). */
+export function useSetGateZones() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      sessionId,
+      config,
+    }: {
+      sessionId: string;
+      config: { gateId: string; zoneIds: string[] }[];
+    }) => api.put(`/api/sessions/${sessionId}/gate-zones`, { config }),
+    onSuccess: (_, { sessionId }) =>
+      client.invalidateQueries({ queryKey: ['session', sessionId, 'gate-zones'] }),
+  });
+}
+
+export function useDevices(orgId: string | null) {
+  return useQuery({
+    queryKey: ['org', orgId, 'devices'],
+    queryFn: () => api.get<GateDevice[]>(`/api/organizations/${orgId}/devices`),
+    enabled: !!orgId,
+  });
+}
+
+export function useRevokeDevice(orgId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      api.post(`/api/devices/${id}/revoke`, { reason }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['org', orgId, 'devices'] }),
   });
 }
