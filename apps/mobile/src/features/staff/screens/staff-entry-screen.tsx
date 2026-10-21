@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, RefreshControl, View } from 'react-native';
-import { Button, Copy, ErrorNotice, Heading, Notice, QueryState, Screen, c, fonts, ui } from '@/components/ui';
+import { Button, Copy, ErrorNotice, Heading, Notice, QueryState, Screen, c, ui } from '@/components/ui';
 import { useAuth } from '../../auth/hooks/auth-context';
 import { useAuthActions } from '../../auth/hooks/use-auth-actions';
 import { useStaffShifts } from '../hooks/use-staff-shifts';
@@ -60,7 +60,7 @@ function StaffLanding() {
             >
               Mở {sessionName(selected)}
             </Button>
-            <Copy style={{ textAlign: 'center', fontFamily: fonts.medium, fontSize: 10, color: c.muted, lineHeight: 15 }}>
+            <Copy style={ui.secure}>
               {selected.session?.venue?.name ?? organization?.orgName ?? 'Tổ chức'} · {gateName(selected)}
             </Copy>
           </>
