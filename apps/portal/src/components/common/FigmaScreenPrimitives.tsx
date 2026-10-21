@@ -18,8 +18,7 @@ export function FigmaPageHeader({
   screens,
   activeScreen,
   onSelectScreen,
-  workflowSteps: _workflowSteps,
-  hideDefaultStepBar: _hideDefaultStepBar = false,
+  
 }: {
   overline?: string;
   title: string;

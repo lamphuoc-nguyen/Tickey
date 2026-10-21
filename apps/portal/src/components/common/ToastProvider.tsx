@@ -9,6 +9,7 @@ interface ToastEventDetail {
 
 const TOAST_EVENT = 'tickey-portal-toast';
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useToast() {
   const showToast = (message: string, tone: ToastTone = 'info') => {
     if (typeof window !== 'undefined') {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Check, CheckCircle2, Plus, RotateCcw, Search, Trash2 } from 'lucide-react';
-import { useMockStore } from '../../lib/mock-store';
+import { useMockStore, type EventItem } from '../../lib/mock-store';
 import { useToast } from '../../components/common/ToastProvider';
 import { DocumentPreviewModal } from '../../components/common/DocumentPreviewModal';
 import {
@@ -92,12 +92,12 @@ function parseSaleWindow(str: string) {
 
   const matches = [...str.matchAll(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}:\d{2})/g)];
   if (matches.length >= 2) {
-    const [_, d1, m1, y1, t1] = matches[0];
+    const [, d1, m1, y1, t1] = matches[0];
     start = `${y1}-${m1.padStart(2, '0')}-${d1.padStart(2, '0')}T${t1}`;
-    const [__, d2, m2, y2, t2] = matches[1];
+    const [, d2, m2, y2, t2] = matches[1];
     end = `${y2}-${m2.padStart(2, '0')}-${d2.padStart(2, '0')}T${t2}`;
   } else if (matches.length === 1) {
-    const [_, d1, m1, y1, t1] = matches[0];
+    const [, d1, m1, y1, t1] = matches[0];
     start = `${y1}-${m1.padStart(2, '0')}-${d1.padStart(2, '0')}T${t1}`;
   } else {
     const isoMatches = [...str.matchAll(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})/g)];
@@ -229,7 +229,7 @@ export function OrgEventsPage() {
     syncCurrentEvent({
       sessions: [
         {
-          id: `sess-${Date.now()}`,
+          id: (currentEvent?.sessions?.[0]?.id || "sess-1"),
           name: sessName,
           time: formatted,
           saleWindow: sessSaleWindow,
@@ -247,7 +247,7 @@ export function OrgEventsPage() {
     syncCurrentEvent({
       sessions: [
         {
-          id: `sess-${Date.now()}`,
+          id: (currentEvent?.sessions?.[0]?.id || "sess-1"),
           name: sessName,
           time: formatted,
           saleWindow: sessSaleWindow,
@@ -265,7 +265,7 @@ export function OrgEventsPage() {
     syncCurrentEvent({
       sessions: [
         {
-          id: `sess-${Date.now()}`,
+          id: (currentEvent?.sessions?.[0]?.id || "sess-1"),
           name: sessName,
           time: formatted,
           saleWindow: sessSaleWindow,
@@ -283,7 +283,7 @@ export function OrgEventsPage() {
     syncCurrentEvent({
       sessions: [
         {
-          id: `sess-${Date.now()}`,
+          id: (currentEvent?.sessions?.[0]?.id || "sess-1"),
           name: sessName,
           time: sessTime,
           saleWindow: formatted,
@@ -301,7 +301,7 @@ export function OrgEventsPage() {
     syncCurrentEvent({
       sessions: [
         {
-          id: `sess-${Date.now()}`,
+          id: (currentEvent?.sessions?.[0]?.id || "sess-1"),
           name: sessName,
           time: sessTime,
           saleWindow: formatted,
@@ -339,7 +339,7 @@ export function OrgEventsPage() {
     syncCurrentEvent({
       sessions: [
         {
-          id: `sess-${Date.now()}`,
+          id: (currentEvent?.sessions?.[0]?.id || "sess-1"),
           name: sessName,
           time: formatted,
           saleWindow: sessSaleWindow,
@@ -385,7 +385,7 @@ export function OrgEventsPage() {
     syncCurrentEvent({
       sessions: [
         {
-          id: `sess-${Date.now()}`,
+          id: (currentEvent?.sessions?.[0]?.id || "sess-1"),
           name: sessName,
           time: sessTime,
           saleWindow: formatted,
@@ -413,7 +413,7 @@ export function OrgEventsPage() {
     syncCurrentEvent({
       sessions: [
         {
-          id: `sess-${Date.now()}`,
+          id: (currentEvent?.sessions?.[0]?.id || "sess-1"),
           name: sessName,
           time: sessTime,
           saleWindow: sessSaleWindow,
@@ -456,7 +456,7 @@ export function OrgEventsPage() {
     return vName.includes(cName) || cName.includes(vName);
   });
 
-  const syncCurrentEvent = (patch: Partial<any>) => {
+  const syncCurrentEvent = (patch: Partial<EventItem>) => {
     if (!selectedEventId) return;
     updateEvent(selectedEventId, patch);
   };
@@ -483,7 +483,7 @@ export function OrgEventsPage() {
       status: 'DRAFT',
       sessions: [
         {
-          id: `sess-${Date.now()}`,
+          id: (currentEvent?.sessions?.[0]?.id || "sess-1"),
           name: 'Suất 1 · Khai mạc',
           time: '',
           saleWindow: '',
@@ -560,6 +560,7 @@ export function OrgEventsPage() {
     const eventId = searchParams.get('eventId');
 
     if (createNew === 'true' && !eventId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       startCreateNewEvent(venueParam || undefined, layoutParam || undefined);
     } else if (eventId && eventId !== selectedEventId) {
       setSelectedEventId(eventId);
@@ -595,6 +596,7 @@ export function OrgEventsPage() {
         }
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, state?.events]);
 
   const handleSaveDraft = () => {
@@ -611,7 +613,7 @@ export function OrgEventsPage() {
         poster: evPoster,
         sessions: [
           {
-            id: `sess-${Date.now()}`,
+            id: (currentEvent?.sessions?.[0]?.id || "sess-1"),
             name: sessName || 'Suất 1 · Khai mạc',
             time: sessTime || 'Chưa định ngày',
             saleWindow: sessSaleWindow || '',
@@ -1317,7 +1319,7 @@ export function OrgEventsPage() {
                     syncCurrentEvent({
                       sessions: [
                         {
-                          id: `sess-${Date.now()}`,
+                          id: (currentEvent?.sessions?.[0]?.id || "sess-1"),
                           name: e.target.value,
                           time: sessTime,
                           saleWindow: sessSaleWindow,
@@ -1555,7 +1557,7 @@ export function OrgEventsPage() {
                     syncCurrentEvent({
                       sessions: [
                         {
-                          id: `sess-${Date.now()}`,
+                          id: (currentEvent?.sessions?.[0]?.id || "sess-1"),
                           name: sessName,
                           time: sessTime,
                           saleWindow: sessSaleWindow,
@@ -3069,7 +3071,7 @@ export function OrgEventsPage() {
                   status: 'DRAFT',
                   sessions: [
                     {
-                      id: `sess-${Date.now()}`,
+                      id: (currentEvent?.sessions?.[0]?.id || "sess-1"),
                       name: sessName || 'Suất 1 · Khai mạc',
                       time: sessTime || '28/11/2026 · 20:00 – 23:00',
                       saleWindow: sessSaleWindow || '01/11/2026 09:00 → 28/11/2026 19:30',
@@ -3095,7 +3097,7 @@ export function OrgEventsPage() {
                   poster: evPoster,
                   sessions: [
                     {
-                      id: `sess-${Date.now()}`,
+                      id: (currentEvent?.sessions?.[0]?.id || "sess-1"),
                       name: sessName || 'Suất 1 · Khai mạc',
                       time: sessTime || '28/11/2026 · 20:00 – 23:00',
                       saleWindow: sessSaleWindow || '01/11/2026 09:00 → 28/11/2026 19:30',
