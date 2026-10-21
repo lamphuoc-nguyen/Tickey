@@ -176,6 +176,23 @@ public class ApiEndpointTests
     }
 
     [Fact]
+    public async Task Staff_assignments_skip_inactive_and_ended_shifts()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+        var before = DateTimeOffset.UtcNow;
+
+        var res = await client.GetAsync("/api/me/staff-assignments", Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var url = Uri.UnescapeDataString(Assert.Single(handler.Calls).Request.RequestUri!.Query);
+        Assert.Contains($"user_id=eq.{UserId}", url);
+        Assert.Contains("status=eq.ACTIVE", url);
+        var validUntil = url.Split('&').Single(p => p.StartsWith("valid_until=gt.", StringComparison.Ordinal));
+        Assert.InRange(DateTimeOffset.Parse(validUntil["valid_until=gt.".Length..], System.Globalization.CultureInfo.InvariantCulture),
+            before, DateTimeOffset.UtcNow);
+    }
+
+    [Fact]
     public async Task Update_me_patches_only_the_given_columns()
     {
         var (client, handler) = Create((_, _) => (HttpStatusCode.OK, $$"""[{"id":"{{UserId}}"}]"""), UserJwt);

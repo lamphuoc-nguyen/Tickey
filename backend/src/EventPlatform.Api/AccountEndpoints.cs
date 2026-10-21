@@ -78,6 +78,8 @@ public static class AccountEndpoints
                     """),
                 Eq("user_id", http.UserId()),
                 "status=eq.ACTIVE",
+                // Ended shifts would only be dropped client-side; skip them so the payload stays small.
+                $"valid_until=gt.{Escape(DateTimeOffset.UtcNow.ToString("O"))}",
                 "order=valid_from"), http.Jwt(), ct)));
     }
 

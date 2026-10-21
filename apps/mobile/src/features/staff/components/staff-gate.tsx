@@ -4,12 +4,11 @@ import { Button, Copy, Heading, QueryState, Screen } from '@/components/ui';
 import { useMobileAccess } from '@/features/auth/hooks/use-mobile-access';
 import WorkspaceScreen from '@/features/auth/screens/workspace-screen';
 import { staffAccess } from '../staff-access';
+import { staffDemo } from '../staff-demo';
 
 export function StaffGate({ children }: PropsWithChildren) {
   const { auth, actions, access: mobile } = useMobileAccess();
   const next = usePathname();
-  // Local-only visual preview. It is opt-in and never enabled by production env files.
-  const demoStaff = process.env.EXPO_PUBLIC_STAFF_DEMO === 'true';
   const access = staffAccess({
     session: auth.session,
     authLoading: auth.loading,
@@ -18,7 +17,7 @@ export function StaffGate({ children }: PropsWithChildren) {
     membershipError: actions.workspaces.error,
     workspaces: actions.workspaces.data,
   });
-  if (demoStaff) return children;
+  if (staffDemo) return children;
   if (mobile === 'customer') return <Redirect href="/" />;
   if (access === 'allowed') return children;
   if (access === 'select-workspace') return <WorkspaceScreen staffOnly returnPath={next} />;

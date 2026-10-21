@@ -7,6 +7,7 @@ import { Button, Copy, ErrorNotice, Heading, Notice, QueryState, Screen, c, ui }
 import { useAuth } from '../../auth/hooks/auth-context';
 import { useAuthActions } from '../../auth/hooks/use-auth-actions';
 import { useStaffShifts } from '../hooks/use-staff-shifts';
+import { staffDemo } from '../staff-demo';
 import StaffHomeScreen from './staff-home-screen';
 
 const staffRoleNames: Record<string, string> = {
@@ -162,5 +163,5 @@ function StaffLanding() {
 
 export default function StaffEntryScreen() {
   // The local-only visual preview (see StaffGate) shows the demo dashboard instead of live shifts.
-  return process.env.EXPO_PUBLIC_STAFF_DEMO === 'true' ? <StaffHomeScreen /> : <StaffLanding />;
+  return staffDemo ? <StaffHomeScreen /> : <StaffLanding />;
 }
