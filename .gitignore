@@ -48,3 +48,6 @@ supabase/.temp/
 .idea/
 .DS_Store
 Thumbs.db
+
+# corepack cache (pnpm binaries downloaded locally)
+.corepack/
