@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace EventPlatform.Tests;
 
@@ -23,11 +24,13 @@ public class ApiEndpointTests
         $"e30.{Base64Url.Encode(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(claims)))}.sig";
 
     private static (HttpClient Client, FakeHttpHandler Handler) Create(
-        Func<HttpRequestMessage, string, (HttpStatusCode, string)> respond, string? jwt = null)
+        Func<HttpRequestMessage, string, (HttpStatusCode, string)> respond, string? jwt = null,
+        ILoggerProvider? logs = null)
     {
         var handler = new FakeHttpHandler(respond);
         var factory = new WebApplicationFactory<IApiMarker>().WithWebHostBuilder(builder =>
         {
+            if (logs is not null) builder.ConfigureLogging(logging => logging.AddProvider(logs));
             builder.UseSetting("Supabase:Url", "http://db.test");
             builder.UseSetting("Supabase:AnonKey", "sb_publishable_test");
             builder.UseSetting("Supabase:ServiceRoleKey", "sb_secret_test");
@@ -243,6 +246,83 @@ public class ApiEndpointTests
         var res = await client.GetAsync($"/api/sessions/{Guid.NewGuid()}/manifest?deviceId={Guid.NewGuid()}", Ct);
 
         Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+    }
+
+    // AC-15: a refused cross-tenant call is recorded as a security event with the caller and the path.
+    [Fact]
+    public async Task Forbidden_is_logged_as_a_security_event()
+    {
+        var logs = new CapturingLoggerProvider();
+        var (client, _) = Create((_, _) => (HttpStatusCode.BadRequest, """{"code":"P0001","message":"FORBIDDEN"}"""),
+            UserJwt, logs);
+        var venueId = Guid.NewGuid();
+
+        var res = await client.PutAsJsonAsync($"/api/venues/{venueId}", new { name = "hack" }, Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+        var entry = Assert.Single(logs.Entries, e => e.Category == "Security");
+        Assert.Equal(LogLevel.Warning, entry.Level);
+        Assert.Equal($"SECURITY.FORBIDDEN user={UserId} PUT /api/venues/{venueId}", entry.Message);
+    }
+
+    // Staff permission is decided by check_in under the caller's JWT, never by the service key (MT §23).
+    [Fact]
+    public async Task Online_check_in_runs_as_the_staff_user_and_forbidden_is_403()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.BadRequest, """{"code":"P0001","message":"FORBIDDEN"}"""), UserJwt);
+
+        var res = await client.PostAsJsonAsync("/api/check-in", new
+        {
+            ticketId = Guid.NewGuid(), sessionId = Guid.NewGuid(), gateId = Guid.NewGuid(), deviceId = Guid.NewGuid(),
+            clientScanId = "scan-1", staffId = Guid.NewGuid(),
+        }, Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+        var call = Assert.Single(handler.Calls);
+        Assert.EndsWith("/rest/v1/rpc/check_in", call.Request.RequestUri!.AbsolutePath);
+        Assert.Equal(UserJwt, call.Request.Headers.Authorization!.Parameter);
+        Assert.Equal("sb_publishable_test", Assert.Single(call.Request.Headers.GetValues("apikey")));
+        using var sent = JsonDocument.Parse(call.Body);
+        Assert.Equal("scan-1", sent.RootElement.GetProperty("p_client_scan_id").GetString());
+        Assert.False(sent.RootElement.TryGetProperty("p_staff_id", out _));
+    }
+
+    // Price and owner come from the server (MT §7.1): extra client fields never reach create_booking.
+    [Fact]
+    public async Task Create_booking_never_forwards_a_client_price_or_user_id()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, """{"id":"b1","status":"PENDING"}"""), UserJwt);
+
+        await client.PostAsJsonAsync("/api/bookings", new
+        {
+            sessionId = Guid.NewGuid(),
+            idempotencyKey = "key-12345678",
+            userId = Guid.NewGuid(),
+            totalAmount = 1,
+            items = new[] { new { ticketTypeId = Guid.NewGuid(), seatId = Guid.NewGuid(), price = 1, unitPrice = 1 } },
+        }, Ct);
+
+        using var sent = JsonDocument.Parse(Assert.Single(handler.Calls).Body);
+        var args = sent.RootElement;
+        Assert.Equal(["p_session_id", "p_items", "p_idempotency_key", "p_options"],
+            args.EnumerateObject().Select(p => p.Name));
+        Assert.Equal(["ticket_type_id", "seat_id", "zone_id", "quantity"],
+            args.GetProperty("p_items")[0].EnumerateObject().Select(p => p.Name));
+        Assert.DoesNotContain("user_id", args.GetProperty("p_options").GetRawText());
+    }
+
+    [Fact]
+    public async Task Staff_assignments_are_the_callers_active_ones()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+
+        await client.GetAsync("/api/me/staff-assignments", Ct);
+
+        var call = Assert.Single(handler.Calls);
+        var url = Uri.UnescapeDataString(call.Request.RequestUri!.Query);
+        Assert.Contains($"user_id=eq.{UserId}", url);
+        Assert.Contains("status=eq.ACTIVE", url);
+        Assert.Equal(UserJwt, call.Request.Headers.Authorization!.Parameter);
     }
 
     [Fact]
