@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { View } from 'react-native';
 import { bankInputSchema } from '@event/core';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ActionFooter, Copy, ErrorNotice, Heading, Notice, QueryState, Screen, ui } from '@/components/ui';
 import { TextAction } from '@/components/customer-controls';
 import { OtpInput } from '@/components/otp-input';
+import { isCompleteOtp } from '@/components/otp-input-state';
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import { useAuth } from '@/features/auth/hooks/auth-context';
 import { useAuthActions } from '@/features/auth/hooks/use-auth-actions';
@@ -33,8 +35,8 @@ function Content() {
     bankInputSchema.safeParse(bank.draft).success;
   async function submit() {
     if (!allowed || busy || !auth.session) return;
-    if (!verified && !/^\d{6,10}$/.test(otp.trim())) {
-      setError('Nhập mã xác thực gửi đến email.');
+    if (!verified && !isCompleteOtp(otp)) {
+      setError('Nhập đủ mã xác thực 8 số trong email.');
       return;
     }
     setError('');
@@ -72,6 +74,12 @@ function Content() {
     >
       <Heading>Xác thực OTP</Heading>
       <QueryState loading={refund.isPending} error={refund.error} retry={() => void refund.refetch()} />
+      <View style={{ gap: 4 }}>
+        <Copy style={ui.label}>Email xác minh</Copy>
+        <Copy selectable style={ui.semibold}>
+          {auth.session?.email ?? 'Chưa xác định được email.'}
+        </Copy>
+      </View>
       <OtpInput
         label="Mã xác thực"
         value={otp}

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { TextInput, View } from 'react-native';
 import { Copy, c, fonts, ui } from './ui';
-import { backspaceOtp, editOtp, MAX_OTP_LENGTH, otpCellCount } from './otp-input-state';
+import { backspaceOtp, editOtp, OTP_LENGTH } from './otp-input-state';
 
 export function OtpInput({
   label,
@@ -19,25 +19,20 @@ export function OtpInput({
   const inputs = useRef<(TextInput | null)[]>([]);
   const [focused, setFocused] = useState<number | null>(null);
   const [width, setWidth] = useState(280);
-  const [expandedLength, setExpandedLength] = useState(() => otpCellCount(value));
-  // Keep the last cell mounted when deleting from an eight/ten-digit code.
-  const count = Math.max(expandedLength, otpCellCount(value));
-  const columns = count > 6 ? Math.ceil(count / 2) : count;
-  const cellWidth = Math.max(1, Math.min(48, (width - (columns - 1) * 8) / columns));
-  const apply = (next: { value: string; focus: number }, replace = false) => {
+  const count = OTP_LENGTH;
+  const columns = count;
+  const cellGap = 6;
+  const cellWidth = Math.max(1, Math.min(48, (width - (columns - 1) * cellGap) / columns));
+  const apply = (next: { value: string; focus: number }) => {
     if (!editable) return;
-    setExpandedLength((previous) =>
-      replace ? otpCellCount(next.value) : Math.max(previous, otpCellCount(next.value)),
-    );
     onChangeText(next.value);
-    // Pasting a longer code can mount additional cells before focus moves.
     requestAnimationFrame(() => inputs.current[next.focus]?.focus());
   };
   return (
     <View style={{ gap: 8 }} onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
       <Copy style={ui.label}>{label}</Copy>
       {Array.from({ length: Math.ceil(count / columns) }, (_, row) => (
-        <View key={row} style={{ flexDirection: 'row', gap: 8 }}>
+        <View key={row} style={{ flexDirection: 'row', justifyContent: 'center', gap: cellGap }}>
           {Array.from({ length: Math.min(columns, count - row * columns) }, (_, column) => {
             const index = row * columns + column;
             return (
@@ -57,13 +52,12 @@ export function OtpInput({
                 autoComplete={index === 0 ? 'one-time-code' : 'off'}
                 autoCorrect={false}
                 autoCapitalize="none"
-                maxLength={MAX_OTP_LENGTH}
+                // Allow separators in pasted codes; editOtp keeps only eight digits.
+                maxLength={OTP_LENGTH * 2}
                 selectTextOnFocus
                 onFocus={() => setFocused(index)}
                 onBlur={() => setFocused((current) => (current === index ? null : current))}
-                onChangeText={(text) =>
-                  apply(editOtp(value, index, text), text.replace(/\D/g, '').length >= 6)
-                }
+                onChangeText={(text) => apply(editOtp(value, index, text))}
                 onKeyPress={(event) => {
                   if (event.nativeEvent.key === 'Backspace' && !value[index]?.trim())
                     apply(backspaceOtp(value, index));

@@ -21,6 +21,7 @@ import { useAuthActions } from '../hooks/use-auth-actions';
 import { useAuth } from '../hooks/auth-context';
 import { useFormDraft } from '@/features/forms/use-form-draft';
 import { validateAuthForm, type AuthMode } from '@/features/forms/auth-validation';
+import { verificationTargetEmail } from '../verification-target';
 
 export function AuthScreen({ mode }: { mode: AuthMode }) {
   const params = useLocalSearchParams<{ email?: string; next?: string }>();
@@ -28,19 +29,22 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
   const auth = useAuth();
   const isRecovery = mode === 'verify-recovery';
   const isVerification = mode === 'verify' || isRecovery;
+  const targetEmail = verificationTargetEmail(params.email);
+  const missingEmail = isVerification && !targetEmail;
   const canReset = !!auth.session?.passwordRecovery;
   const resend = isRecovery ? actions.forgot : actions.resendSignup;
   const { draft, update, clear } = useFormDraft(
-    isVerification ? `auth:${mode}:${params.email ?? ''}` : `auth:${mode}`,
+    isVerification ? `auth:${mode}:${targetEmail}` : `auth:${mode}`,
     {
-      email: params.email ?? '',
+      email: targetEmail,
       password: '',
       confirm: '',
       name: '',
       token: '',
     },
   );
-  const { email, password, confirm, name, token } = draft;
+  const { password, confirm, name, token } = draft;
+  const email = isVerification ? targetEmail : draft.email;
   const setEmail = (email: string) => update({ email });
   const setPassword = (password: string) => update({ password });
   const setConfirm = (confirm: string) => update({ confirm });
@@ -68,8 +72,8 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
   const continueToAccount = () =>
     router.replace({ pathname: '/workspaces', params: { next: params.next ?? '/' } });
   async function submit() {
-    if (current.isPending || (isVerification && resend.isPending)) return;
-    const errors = validateAuthForm(mode, draft);
+    if (missingEmail || current.isPending || (isVerification && resend.isPending)) return;
+    const errors = validateAuthForm(mode, { ...draft, email });
     setErrors(errors);
     if (Object.keys(errors).length) return;
     setLocalError('');
@@ -83,7 +87,11 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
         const hasSession = await actions.register.mutateAsync({ email, password, name });
         clear();
         if (hasSession) continueToAccount();
-        else router.replace({ pathname: '/auth/verify', params: { email, next: params.next ?? '/' } });
+        else
+          router.replace({
+            pathname: '/auth/verify',
+            params: { email: email.trim(), next: params.next ?? '/' },
+          });
       }
       if (mode === 'forgot') {
         await actions.forgot.mutateAsync(email);
@@ -123,11 +131,13 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
     <Screen
       footer={
         <ActionFooter
-          disabled={(mode === 'reset' && !canReset) || (isVerification && resend.isPending)}
+          disabled={missingEmail || (mode === 'reset' && !canReset) || (isVerification && resend.isPending)}
           disabledReason={
-            isVerification
-              ? 'Đang yêu cầu email mới. Vui lòng chờ rồi nhập mã mới nhất.'
-              : 'Xác thực mã khôi phục trong email trước khi đặt mật khẩu mới.'
+            missingEmail
+              ? 'Quay lại bước trước để chọn email cần xác minh.'
+              : isVerification
+                ? 'Đang yêu cầu email mới. Vui lòng chờ rồi nhập mã mới nhất.'
+                : 'Xác thực mã khôi phục trong email trước khi đặt mật khẩu mới.'
           }
           busy={current.isPending}
           onPress={() => void submit()}
@@ -190,7 +200,7 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
           </View>
           <View style={{ flex: 1, gap: 4 }}>
             <Heading>{title}</Heading>
-            <Copy style={ui.muted}>Nhập mã từ email mới nhất.</Copy>
+            <Copy style={ui.muted}>Nhập mã 8 số trong email mới nhất.</Copy>
           </View>
         </View>
       ) : (
@@ -207,18 +217,31 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
           autoComplete="name"
         />
       )}
-      {mode !== 'reset' && (
-        <Field
-          label="Email"
-          value={email}
-          error={errors.email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          textContentType="emailAddress"
-          autoComplete="email"
-        />
+      {isVerification ? (
+        missingEmail ? (
+          <Notice warning>Chưa có email cần xác minh. Vui lòng quay lại bước trước.</Notice>
+        ) : (
+          <View style={{ gap: 4 }}>
+            <Copy style={ui.label}>Email xác minh</Copy>
+            <Copy selectable style={ui.semibold}>
+              {email}
+            </Copy>
+          </View>
+        )
+      ) : (
+        mode !== 'reset' && (
+          <Field
+            label="Email"
+            value={email}
+            error={errors.email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="emailAddress"
+            autoComplete="email"
+          />
+        )
       )}
       {(mode === 'login' || mode === 'register' || (mode === 'reset' && canReset)) && (
         <Field
@@ -260,15 +283,19 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
             value={token}
             error={errors.token}
             onChangeText={setToken}
-            editable={!current.isPending && !resend.isPending}
+            editable={!missingEmail && !current.isPending && !resend.isPending}
           />
           <TextAction
             busy={resend.isPending}
-            disabled={current.isPending}
-            disabledReason="Đang xác nhận mã. Vui lòng chờ kết quả."
+            disabled={missingEmail || current.isPending}
+            disabledReason={
+              missingEmail
+                ? 'Quay lại bước trước để chọn email cần xác minh.'
+                : 'Đang xác nhận mã. Vui lòng chờ kết quả.'
+            }
             onPress={() => {
-              if (resend.isPending || current.isPending) return;
-              const emailError = validateAuthForm('verify', draft).email;
+              if (missingEmail || resend.isPending || current.isPending) return;
+              const emailError = validateAuthForm('verify', { ...draft, email }).email;
               if (emailError) {
                 setErrors({ email: emailError });
                 return;
@@ -345,8 +372,16 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
         current.error.details.reason === 'EMAIL_NOT_CONFIRMED' && (
           <Button
             secondary
+            disabled={!verificationTargetEmail(actions.login.variables?.email)}
+            disabledReason="Vui lòng đăng nhập lại để xác định email cần xác minh."
             onPress={() =>
-              router.push({ pathname: '/auth/verify', params: { email, next: params.next ?? '/' } })
+              router.push({
+                pathname: '/auth/verify',
+                params: {
+                  email: verificationTargetEmail(actions.login.variables?.email),
+                  next: params.next ?? '/',
+                },
+              })
             }
           >
             Xác nhận email · Gửi lại email
