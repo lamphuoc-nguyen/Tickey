@@ -10,11 +10,11 @@ import {
   ErrorNotice,
   Field,
   Heading,
-  Notice,
   QueryState,
   Screen,
   Select,
 } from '@/components/ui';
+import { MenuGroup, MenuRow, TextAction } from '@/components/customer-controls';
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import { useTickets } from '@/features/customer/account/hooks/use-customer-data';
 import { useTicket } from '@/features/customer/tickets/hooks/use-ticket';
@@ -108,7 +108,6 @@ function Content() {
           </>
         )}
       </Card>
-      <Notice>Gửi trong thời hạn phản ánh. Quyền sở hữu vé và thời hạn được kiểm tra khi gửi.</Notice>
       <Select
         label="Loại vấn đề"
         value={draft.category}
@@ -129,47 +128,48 @@ function Content() {
         error={checked && draft.description.trim().length < 10 ? 'Mô tả cần ít nhất 10 ký tự.' : undefined}
       />
       <Heading small>Bằng chứng</Heading>
-      <Button
-        secondary
-        disabled={actions.report.isPending}
-        disabledReason="Đang gửi phản ánh."
-        busy={actions.pickEvidence.isPending}
-        onPress={() =>
-          void actions.pickEvidence
-            .mutateAsync()
-            .then((picked) =>
-              update({
-                assets: [
-                  ...draft.assets,
-                  ...picked.filter((a) => !draft.assets.some((p) => p.uri === a.uri)),
-                ],
-              }),
-            )
-            .catch(() => {})
-        }
-      >
-        Chọn ảnh hoặc PDF · Tối đa 10 MB/tệp
-      </Button>
+      <MenuGroup>
+        <MenuRow
+          icon="upload"
+          navigation={false}
+          label="Thêm ảnh hoặc PDF"
+          description="Tối đa 10 MB/tệp"
+          disabled={actions.report.isPending}
+          disabledReason="Đang gửi phản ánh."
+          busy={actions.pickEvidence.isPending}
+          onPress={() =>
+            void actions.pickEvidence
+              .mutateAsync()
+              .then((picked) =>
+                update({
+                  assets: [
+                    ...draft.assets,
+                    ...picked.filter((a) => !draft.assets.some((p) => p.uri === a.uri)),
+                  ],
+                }),
+              )
+              .catch(() => {})
+          }
+        />
+      </MenuGroup>
       {draft.assets.map((asset) => (
         <Card key={asset.uri}>
           <Copy>{asset.name}</Copy>
-          <Button
-            secondary
+          <TextAction
+            accessibilityLabel={`Bỏ bằng chứng ${asset.name}`}
             disabled={actions.report.isPending}
             disabledReason="Đang gửi phản ánh."
             onPress={() => update({ assets: draft.assets.filter((a) => a.uri !== asset.uri) })}
           >
             Bỏ bằng chứng
-          </Button>
+          </TextAction>
         </Card>
       ))}
       {!!actions.pickEvidence.error && <ErrorNotice error={actions.pickEvidence.error} />}{' '}
       {!!actions.report.error && (
         <>
           <ErrorNotice error={actions.report.error} />
-          <Button secondary onPress={() => router.push('/reports')}>
-            Kiểm tra phản ánh của tôi trước khi gửi lại
-          </Button>
+          <TextAction onPress={() => router.push('/reports')}>Kiểm tra phản ánh đã gửi</TextAction>
         </>
       )}
     </Screen>

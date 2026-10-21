@@ -56,10 +56,7 @@ function Content() {
     >
       <Heading>Người tham dự</Heading>
       <QueryState loading={query.isPending} error={query.error} retry={() => void query.refetch()} />
-      <Notice>
-        Tên chỉ được gán lần đầu sau khi vé đã phát hành. Thay đổi người giữ vé cần chức năng chuyển nhượng
-        chưa hỗ trợ.
-      </Notice>
+      <Notice>Tên người tham dự chỉ được ghi một lần. Hãy kiểm tra trước khi lưu.</Notice>
       <Field
         label="Họ tên người tham dự"
         value={draft.name}

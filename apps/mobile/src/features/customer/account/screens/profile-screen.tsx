@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import { useAuthActions } from '@/features/auth/hooks/use-auth-actions';
-import { Button, Card, Copy, ErrorNotice, Heading, QueryState, Screen, ui } from '@/components/ui';
+import { ErrorNotice, Heading, QueryState, Screen } from '@/components/ui';
+import { MenuGroup, MenuRow, TextAction } from '@/components/customer-controls';
 import { TabBar } from '@/components/tab-bar';
 import { useProfile } from '../hooks/use-customer-data';
 import { ProfileIdentity } from '../components/profile-identity';
@@ -13,26 +14,20 @@ function Content() {
       <Heading>Tài khoản</Heading>
       <QueryState loading={profile.isPending} error={profile.error} retry={() => void profile.refetch()} />
       <ProfileIdentity profile={profile.data} />
-      <Card>
-        <Copy style={ui.semibold}>Thông tin cá nhân</Copy>
-        <Copy style={ui.muted}>Cập nhật tên và số điện thoại</Copy>
-        <Button secondary onPress={() => router.push('/profile/edit')}>
-          Chỉnh sửa hồ sơ
-        </Button>
-      </Card>
-      <Card>
-        <Copy style={ui.semibold}>Nhắc lịch & thông báo</Copy>
-        <Copy style={ui.muted}>Quản lý tùy chọn</Copy>
-      </Card>
-      <Card>
-        <Copy>Vai trò đang sử dụng</Copy>
-        <Copy>Khách hàng</Copy>
-      </Card>
-      <Button secondary onPress={() => router.push('/profile/preferences')}>
-        Tùy chọn thông báo
-      </Button>
-      <Button
-        secondary
+      <MenuGroup title="Cá nhân">
+        <MenuRow icon="account" label="Chỉnh sửa hồ sơ" onPress={() => router.push('/profile/edit')} />
+        <MenuRow
+          icon="notifications"
+          label="Nhắc lịch & thông báo"
+          onPress={() => router.push('/profile/preferences')}
+        />
+      </MenuGroup>
+      <MenuGroup title="Hỗ trợ">
+        <MenuRow label="Liên hệ hỗ trợ" onPress={() => router.push('/support')} />
+        <MenuRow label="Phản ánh của tôi" onPress={() => router.push('/reports')} />
+        <MenuRow label="Theo dõi hoàn tiền" onPress={() => router.push('/refunds')} />
+      </MenuGroup>
+      <TextAction
         busy={actions.logout.isPending}
         onPress={() =>
           void actions.logout
@@ -42,17 +37,8 @@ function Content() {
         }
       >
         Đăng xuất
-      </Button>
+      </TextAction>
       {!!actions.logout.error && <ErrorNotice error={actions.logout.error} />}
-      <Button secondary onPress={() => router.push('/support')}>
-        Liên hệ hỗ trợ
-      </Button>
-      <Button secondary onPress={() => router.push('/reports')}>
-        Phản ánh của tôi
-      </Button>
-      <Button secondary onPress={() => router.push('/refunds')}>
-        Theo dõi hoàn tiền
-      </Button>
     </Screen>
   );
 }

@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import { View } from 'react-native';
-import { Button, Copy, Heading, Icon, Notice, c, ui } from './ui';
+import { Button, Copy, Heading, Icon, c, ui } from './ui';
 
 export function DetailRow({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -11,11 +11,7 @@ export function DetailRow({ label, value }: { label: string; value?: string | nu
   );
 }
 export function Unavailable({ children }: PropsWithChildren) {
-  return (
-    <Notice warning>
-      {children ?? 'Chức năng này chưa được hỗ trợ. Bạn vẫn có thể tiếp tục sử dụng các chức năng khác.'}
-    </Notice>
-  );
+  return <Copy style={ui.muted}>{children ?? 'Chức năng chưa khả dụng.'}</Copy>;
 }
 export function ResultPanel({
   title,

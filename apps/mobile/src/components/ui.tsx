@@ -307,12 +307,7 @@ export function Screen({
   );
 }
 export function ActionFooter(props: React.ComponentProps<typeof Button>) {
-  return (
-    <>
-      <Button {...props} />
-      <Copy style={ui.secure}>Kết nối an toàn</Copy>
-    </>
-  );
+  return <Button {...props} />;
 }
 export function ErrorNotice({ error }: { error: unknown }) {
   return <Notice warning>{errorMessage(error)}</Notice>;
@@ -518,7 +513,6 @@ export const ui = StyleSheet.create({
     paddingTop: 14,
     gap: 10,
   },
-  secure: { textAlign: 'center', fontFamily: fonts.medium, fontSize: 10, color: c.muted, lineHeight: 15 },
   state: { paddingVertical: 40, gap: 16 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   muted: { color: c.muted },

@@ -67,9 +67,6 @@ export function TicketPresentation({
         <DetailRow label="Cổng vào" />
         <DetailRow label="Nhóm giá" />
       </Card>
-      <Notice>
-        Chưa có thông tin cổng và nhóm giá. Vui lòng xem hướng dẫn tại địa điểm hoặc liên hệ hỗ trợ.
-      </Notice>
       <ServerTicketQr encodedCredential={null} />
       {ticket?.credential && !credentialMatchesTicket(ticket) && (
         <Notice warning>Thông tin mã vào cổng chưa hợp lệ. Vui lòng liên hệ hỗ trợ.</Notice>
@@ -79,13 +76,13 @@ export function TicketPresentation({
         {ticket ? ticketStatusLabels[ticket.status] : 'Chưa kiểm tra được trạng thái vé'}
       </Copy>
       <Copy style={ui.muted}>Mã vé: {ticket?.id ?? 'Chưa tải được'}</Copy>
-      {stale && (
+      {stale && online && (
         <Notice warning>Đang hiển thị thông tin từ lần tải trước. Chưa kiểm tra được trạng thái mới.</Notice>
       )}
       {!online && (
         <Notice warning>
-          Đang xem vé đã tải lúc {downloadedAt ? formatSessionTime(downloadedAt) : 'chưa xác định'}. Trạng
-          thái lưu không chứng minh vé còn hiệu lực. Hãy cập nhật khi có mạng.
+          Bản lưu: {downloadedAt ? formatSessionTime(downloadedAt) : 'chưa rõ thời điểm'}. Kết nối mạng để
+          kiểm tra hiệu lực vé.
         </Notice>
       )}
     </>

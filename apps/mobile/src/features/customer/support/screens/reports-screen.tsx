@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
-import { Button, Card, Copy, Heading, QueryState, Screen } from '@/components/ui';
+import { Button, Heading, QueryState, Screen } from '@/components/ui';
+import { MenuGroup, MenuRow } from '@/components/customer-controls';
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import { useReports } from '@/features/customer/account/hooks/use-customer-data';
 import { reportCategoryLabels, visibleStatus } from '../presentation';
@@ -16,19 +17,17 @@ function Content() {
         empty={!query.isPending && !query.error && !reports.length}
         emptyText="Chưa có phản ánh."
       />
-      {reports.map((report) => (
-        <Card key={report.id}>
-          <Copy>{reportCategoryLabels[report.category] ?? 'Phản ánh'}</Copy>
-          <Copy>{report.description}</Copy>
-          <Copy>Trạng thái: {visibleStatus(report.status)}</Copy>
-          <Button
-            secondary
+      <MenuGroup>
+        {reports.map((report) => (
+          <MenuRow
+            key={report.id}
+            label={reportCategoryLabels[report.category] ?? 'Phản ánh'}
+            description={report.description}
+            status={visibleStatus(report.status)}
             onPress={() => router.push({ pathname: '/reports/[reportId]', params: { reportId: report.id } })}
-          >
-            Xem phản ánh
-          </Button>
-        </Card>
-      ))}
+          />
+        ))}
+      </MenuGroup>
       {query.hasNextPage && (
         <Button busy={query.isFetchingNextPage} onPress={() => void query.fetchNextPage()}>
           Xem thêm phản ánh

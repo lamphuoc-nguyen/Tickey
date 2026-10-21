@@ -4,8 +4,6 @@ import { supportInputSchema } from '@event/core';
 import {
   ActionFooter,
   Button,
-  Card,
-  Copy,
   ErrorNotice,
   Field,
   Heading,
@@ -13,6 +11,7 @@ import {
   Screen,
   Select,
 } from '@/components/ui';
+import { MenuGroup, MenuRow } from '@/components/customer-controls';
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import { useOrders, useSupport } from '@/features/customer/account/hooks/use-customer-data';
 import { useFormDraft } from '@/features/forms/use-form-draft';
@@ -108,21 +107,18 @@ function Content() {
         empty={!query.isPending && !query.error && !rows.length}
         emptyText="Bạn chưa có yêu cầu hỗ trợ."
       />
-      {rows.map((request) => (
-        <Card key={request.id}>
-          <Copy>
-            {request.subject} · {visibleStatus(request.status)}
-          </Copy>
-          <Button
-            secondary
+      <MenuGroup>
+        {rows.map((request) => (
+          <MenuRow
+            key={request.id}
+            label={request.subject}
+            status={visibleStatus(request.status)}
             onPress={() =>
               router.push({ pathname: '/support/[requestId]', params: { requestId: request.id } })
             }
-          >
-            Xem trao đổi
-          </Button>
-        </Card>
-      ))}
+          />
+        ))}
+      </MenuGroup>
       {query.hasNextPage && (
         <Button busy={query.isFetchingNextPage} onPress={() => void query.fetchNextPage()}>
           Xem thêm yêu cầu
