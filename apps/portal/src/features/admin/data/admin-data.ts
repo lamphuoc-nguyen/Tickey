@@ -58,7 +58,7 @@ export interface AdminEvent {
 
 export interface ApprovalVote {
   voterId: string;
-  decision: string;
+  decision: 'APPROVE' | 'REJECT';
   note: string | null;
   createdAt: string;
 }
@@ -67,11 +67,11 @@ export interface Approval {
   id: string;
   subjectType: string;
   subjectId: string;
-  action: string;
-  status: string;
+  orgId: string | null;
+  requiredVotes: number;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
   requestedBy: string;
-  summary: Record<string, unknown> | null;
-  expiresAt: string | null;
+  payload: Record<string, unknown>;
   createdAt: string;
   decidedAt: string | null;
   votes: ApprovalVote[];
@@ -129,6 +129,16 @@ export const APPROVAL_STATUS: Record<string, { label: string; badge: string }> =
 };
 
 export const APPROVAL_VOTE: Record<string, string> = { APPROVE: 'Đồng ý', REJECT: 'Bác bỏ' };
+
+/** Loại nghiệp vụ của phiếu phê duyệt (approvals.subject_type). */
+export const APPROVAL_SUBJECT: Record<string, string> = {
+  SESSION_CANCELLATION: 'Hủy suất diễn & hoàn tiền',
+  PAYOUT: 'Chi trả (Payout)',
+  REFUND_MANUAL: 'Hoàn tiền thủ công',
+  MANUAL_TRANSFER: 'Chuyển khoản thủ công',
+  HOLD_RELEASE: 'Giải phóng quỹ tạm giữ',
+  ORG_SUSPENSION: 'Đổi trạng thái tổ chức',
+};
 
 /** Hồ sơ KYC của các tổ chức. Mặc định trả về tất cả trạng thái. */
 export function useAdminKyc(status?: string) {
@@ -213,16 +223,28 @@ export function useApprovals(status?: string, subjectType?: string) {
   });
 }
 
+/** Một phiếu phê duyệt kèm các phiếu bầu. */
+export function useApproval(id: string | null) {
+  return useQuery({
+    queryKey: ['admin', 'approval', id],
+    queryFn: () => api.get<Approval>(`/api/admin/approvals/${id}`),
+    enabled: !!id,
+  });
+}
+
 /** Biểu quyết một approval (vote_approval). Trả về tiến độ { status, approve_votes, required }. */
 export function useVoteApproval() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, decision, note }: { id: string; decision: string; note?: string | null }) =>
+    mutationFn: ({ id, decision, note }: { id: string; decision: 'APPROVE' | 'REJECT'; note?: string | null }) =>
       api.post<{ status: string; approve_votes: number; required: number }>(
         `/api/admin/approvals/${id}/votes`,
         { decision, note: note ?? null },
       ),
-    onSuccess: () => client.invalidateQueries({ queryKey: ['admin', 'approvals'] }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['admin', 'approvals'] });
+      client.invalidateQueries({ queryKey: ['admin', 'approval'] });
+    },
   });
 }
 

@@ -530,6 +530,38 @@ public class ApiEndpointTests
     }
 
     [Fact]
+    public async Task Admin_approvals_default_to_pending_and_embed_the_votes()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+
+        await client.GetAsync("/api/admin/approvals", Ct);
+
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal("/rest/v1/approvals", request.RequestUri!.AbsolutePath);
+        var query = Uri.UnescapeDataString(request.RequestUri.Query);
+        Assert.Contains("status=eq.PENDING", query);
+        Assert.Contains("votes:approval_votes(voter_id,decision,note,created_at)", query);
+        Assert.Contains("order=created_at.desc", query);
+    }
+
+    [Fact]
+    public async Task Admin_approval_detail_fetches_one_by_id_with_the_votes()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK,
+            """[{"id":"55555555-5555-5555-5555-555555555555","votes":[]}]"""), UserJwt);
+        var approvalId = Guid.NewGuid();
+
+        var res = await client.GetAsync($"/api/admin/approvals/{approvalId}", Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal("/rest/v1/approvals", request.RequestUri!.AbsolutePath);
+        var query = Uri.UnescapeDataString(request.RequestUri.Query);
+        Assert.Contains($"id=eq.{approvalId}", query);
+        Assert.Contains("votes:approval_votes(", query);
+    }
+
+    [Fact]
     public async Task Vote_approval_upper_cases_the_decision()
     {
         var (client, handler) = Create((_, _) => (HttpStatusCode.OK, """{"status":"APPROVED"}"""), UserJwt);
