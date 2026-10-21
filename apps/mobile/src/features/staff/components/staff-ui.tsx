@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { PropsWithChildren } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -72,7 +72,7 @@ export function StaffFrame({
 }
 
 export function StaffTabBar({ active, bottomInset }: { active: StaffTab; bottomInset: number }) {
-  const tabs: { id: StaffTab; label: string; icon: keyof typeof icons; path: string }[] = [
+  const tabs: { id: StaffTab; label: string; icon: keyof typeof icons; path: Href }[] = [
     { id: 'home', label: 'Ca làm', icon: 'home', path: '/staff' },
     { id: 'check-in', label: 'Soát vé', icon: 'ticket', path: '/staff/check-in' },
     { id: 'pos', label: 'Bán vé', icon: 'calendar', path: '/staff/pos' },
