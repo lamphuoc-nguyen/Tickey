@@ -225,7 +225,6 @@ public static class AdminEndpoints
                 Select("*, org:organizations(id, name, slug)"),
                 Eq("status", string.IsNullOrWhiteSpace(status) ? "PENDING" : status.Trim().ToUpperInvariant()),
                 "order=created_at", Page(limit, offset)), http.Jwt(), ct)));
-
         admin.MapPost("/bank-accounts/{id:guid}/review", async (Guid id, ReviewRequest body, HttpContext http,
             SupabaseRpcClient rpc, CancellationToken ct) =>
         {
@@ -240,6 +239,23 @@ public static class AdminEndpoints
             CancellationToken ct) =>
             Results.Ok(await rpc.CallAsUserAsync<JsonElement>("recompute_settlement", new { p_session_id = id },
                 http.Jwt(), ct)));
+
+        // Platform-wide reconciliation periods (FINANCE_ADMIN / DISPUTE_ADMIN see all via RLS).
+        admin.MapGet("/settlements", async (Guid? orgId, string? status, int? limit, int? offset, HttpContext http,
+            SupabaseRestClient db, CancellationToken ct) =>
+            Results.Ok(await db.SelectAsync("settlements", Query(
+                Select("*, session:sessions(id, title, starts_at, event:events(id, title))"),
+                orgId is { } o ? Eq("tenant_id", o) : null, Status(status),
+                "order=created_at.desc", Page(limit, offset)), http.Jwt(), ct)));
+
+        // Imported gateway statement lines with their match status (FINANCE_ADMIN only).
+        admin.MapGet("/gateway-statements", async (string? gateway, DateOnly? date, int? limit, int? offset,
+            HttpContext http, SupabaseRestClient db, CancellationToken ct) =>
+            Results.Ok(await db.SelectAsync("gateway_statement_lines", Query(
+                Select("*"),
+                string.IsNullOrWhiteSpace(gateway) ? null : Eq("gateway", gateway.Trim()),
+                date is { } d ? Eq("statement_date", d.ToString("yyyy-MM-dd")) : null,
+                "order=statement_date.desc,gateway.asc,gateway_txn_id.asc", Page(limit, offset)), http.Jwt(), ct)));
 
         admin.MapGet("/payouts", async (Guid? orgId, string? status, int? limit, int? offset, HttpContext http,
             SupabaseRestClient db, CancellationToken ct) =>

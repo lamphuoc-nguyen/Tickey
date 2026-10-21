@@ -1,3 +1,4 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import {
   Calendar,
@@ -23,11 +24,21 @@ import {
 import { Link, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { TickeyLogo } from '../common/TickeyLogo';
 import { ToastViewport } from '../common/ToastProvider';
+import { api, formatDateTime } from '../../lib/api';
+import { repositories } from '../../lib/repositories';
 import { useSession } from '../../lib/use-session';
 import { supabase } from '../../lib/supabase';
 
 interface PortalLayoutProps {
   children?: ReactNode;
+}
+
+interface PortalNotification {
+  id: string;
+  title: string;
+  createdAt: string;
+  readAt: string | null;
+  data: Record<string, unknown> | null;
 }
 
 const ONBOARDING_STEP_SCREENS = new Set([
@@ -36,63 +47,58 @@ const ONBOARDING_STEP_SCREENS = new Set([
   'o-kyc-pending',
   'o-kyc-info',
   'o-org-rejected',
-  'o-songviet-venue',
 ]);
 
 export function PortalLayout({ children }: PortalLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { session } = useSession();
+  const { session, workspace } = useSession();
+  const queryClient = useQueryClient();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [notifications, setNotifications] = useState([
-    {
-      id: 'n1',
-      title: 'Yêu cầu hoàn tiền RF-024 (TK-1024)',
-      time: '10 phút trước',
-      path: '/org/reports?screen=o-refunds',
-      unread: true,
-    },
-    {
-      id: 'n2',
-      title: 'Phiếu phê duyệt AP-014 chờ Admin thứ 2',
-      time: '25 phút trước',
-      path: '/admin/approvals?screen=a-approval-review',
-      unread: true,
-    },
-    {
-      id: 'n3',
-      title: 'Hồ sơ KYC Sóng Việt Events mới nộp',
-      time: '1 giờ trước',
-      path: '/admin/kyc?screen=a-kyc-review',
-      unread: false,
-    },
-  ]);
+
+  // Name / roles of the active workspace (the JWT carries only kind + org id).
+  const workspaces = useQuery({
+    queryKey: ['workspaces'],
+    queryFn: () => repositories.workspace.listMyWorkspaces(),
+    enabled: !!session,
+  });
+  const activeWorkspace = workspaces.data?.find(
+    (w) => w.kind === workspace.kind && (w.orgId ?? null) === (workspace.orgId ?? null),
+  );
+
+  const notificationsQuery = useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => api.get<PortalNotification[]>('/api/notifications?limit=10'),
+    enabled: !!session,
+  });
+  const markRead = useMutation({
+    mutationFn: (ids: string[]) => api.put('/api/notifications/read', { ids }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+  const notifications = (notificationsQuery.data ?? []).map((n) => ({
+    id: n.id,
+    title: n.title,
+    time: formatDateTime(n.createdAt),
+    path: typeof n.data?.path === 'string' ? n.data.path : null,
+    unread: !n.readAt,
+  }));
 
   const isAdmin = location.pathname.startsWith('/admin');
   const currentScreen = searchParams.get('screen') || '';
   const isOnboardingRoute = location.pathname.startsWith('/org/onboarding');
   const isOnboardingStepSidebar =
     isOnboardingRoute && (!currentScreen || ONBOARDING_STEP_SCREENS.has(currentScreen));
-  const isSongViet = currentScreen.startsWith('o-songviet');
 
-  const workspaceTitle = isAdmin
-    ? 'TICKEY ADMIN'
-    : isSongViet
-      ? 'Sóng Việt Events'
-      : 'Ánh Trăng Events';
+  const workspaceTitle = isAdmin ? 'TICKEY ADMIN' : (activeWorkspace?.orgName ?? 'Tổ chức');
   const roleName = isAdmin
     ? 'Quản trị nền tảng'
     : isOnboardingStepSidebar
       ? 'Đang thiết lập tổ chức'
-      : 'Organization · Owner';
+      : (activeWorkspace?.roles.join(', ') ?? 'Thành viên tổ chức');
   const topContext = isAdmin ? 'Quản trị nền tảng' : 'Không gian tổ chức';
-  const userInitials = isAdmin
-    ? 'AD'
-    : isSongViet
-      ? 'SV'
-      : (session?.user?.email?.slice(0, 2) || 'AT').toUpperCase();
+  const userInitials = (session?.user?.email?.slice(0, 2) || 'TK').toUpperCase();
 
   const orgNavItems = [
     { label: 'Tổng quan', path: '/org', icon: LayoutDashboard },
@@ -121,12 +127,13 @@ export function PortalLayout({ children }: PortalLayoutProps) {
   const activeOnboardingStep =
     currentScreen === 'o-create' || !currentScreen
       ? 1
-      : currentScreen === 'o-kyc' || currentScreen === 'o-songviet-venue'
+      : currentScreen === 'o-kyc'
         ? 2
         : 3;
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    queryClient.clear(); // the next user must not see this account's cached org data
     navigate('/login');
   };
 
@@ -382,9 +389,7 @@ export function PortalLayout({ children }: PortalLayoutProps) {
             zIndex: 9,
           }}
         >
-          <div style={{ fontSize: '14px', color: 'var(--muted)', fontWeight: 500 }}>
-            {topContext}
-          </div>
+          <div style={{ fontSize: '14px', color: 'var(--muted)', fontWeight: 500 }}>{topContext}</div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
             {/* Notification Bell */}
@@ -450,9 +455,10 @@ export function PortalLayout({ children }: PortalLayoutProps) {
                     <strong style={{ fontSize: '13px' }}>Thông báo hệ thống</strong>
                     <button
                       type="button"
-                      onClick={() =>
-                        setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })))
-                      }
+                      onClick={() => {
+                        const unread = notifications.filter((n) => n.unread).map((n) => n.id);
+                        if (unread.length) markRead.mutate(unread);
+                      }}
                       style={{
                         background: 'none',
                         border: 'none',
@@ -473,18 +479,19 @@ export function PortalLayout({ children }: PortalLayoutProps) {
                       marginTop: '6px',
                     }}
                   >
+                    {!notifications.length && (
+                      <div style={{ padding: '10px', fontSize: '13px', color: 'var(--muted)' }}>
+                        Chưa có thông báo.
+                      </div>
+                    )}
                     {notifications.map((n) => (
                       <button
                         key={n.id}
                         type="button"
                         onClick={() => {
-                          setNotifications((prev) =>
-                            prev.map((item) =>
-                              item.id === n.id ? { ...item, unread: false } : item,
-                            ),
-                          );
+                          if (n.unread) markRead.mutate([n.id]);
                           setNotifOpen(false);
-                          navigate(n.path);
+                          if (n.path) navigate(n.path);
                         }}
                         style={{
                           textAlign: 'left',

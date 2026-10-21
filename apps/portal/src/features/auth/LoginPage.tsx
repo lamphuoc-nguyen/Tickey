@@ -5,8 +5,9 @@ import { supabase } from '../../lib/supabase';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('owner-a@dev.local');
-  const [password, setPassword] = useState('Dev@123456');
+  // Seed account (supabase/seed.sql) prefilled for local development only.
+  const [email, setEmail] = useState(import.meta.env.DEV ? 'owner-a@dev.local' : '');
+  const [password, setPassword] = useState(import.meta.env.DEV ? 'Dev@123456' : '');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -17,24 +18,23 @@ export function LoginPage() {
     try {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) {
-        // In development / demo testing mode, if remote Supabase seed accounts aren't configured yet,
-        // navigate directly to workspaces instead of blocking the user
-        if (
-          email.includes('@dev.local') ||
-          signInError.message.toLowerCase().includes('fetch') ||
-          signInError.message.toLowerCase().includes('network') ||
-          signInError.message.toLowerCase().includes('failed') ||
-          signInError.message.toLowerCase().includes('invalid')
-        ) {
-          navigate('/workspaces');
-          return;
-        }
-        setError(signInError.message);
-      } else {
-        navigate('/workspaces');
+        const message = signInError.message.toLowerCase();
+        setError(
+          message.includes('invalid')
+            ? 'Email hoặc mật khẩu chưa đúng.'
+            : message.includes('not confirmed')
+              ? 'Email chưa được xác minh. Nhập mã đã gửi tới email để kích hoạt.'
+              : message.includes('fetch') || message.includes('network')
+                ? 'Không thể kết nối máy chủ. Kiểm tra mạng và thử lại.'
+                : 'Không thể đăng nhập lúc này. Vui lòng thử lại.',
+        );
+        return;
       }
+      // A user with 2FA must enter the TOTP code before any Owner / Finance / Admin workspace.
+      const { data: level } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      navigate(level?.nextLevel === 'aal2' && level.currentLevel !== 'aal2' ? '/mfa' : '/workspaces');
     } catch {
-      navigate('/workspaces');
+      setError('Không thể kết nối máy chủ. Kiểm tra mạng và thử lại.');
     } finally {
       setBusy(false);
     }

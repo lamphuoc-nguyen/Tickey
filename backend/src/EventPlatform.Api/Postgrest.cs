@@ -25,6 +25,23 @@ public static class Postgrest
     public static string? Status(string? status) =>
         string.IsNullOrWhiteSpace(status) ? null : Eq("status", status.Trim().ToUpperInvariant());
 
+    /// <summary>column=eq.X (upper-cased), or nothing when the value is empty.</summary>
+    public static string? EqUpper(string column, string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : Eq(column, value.Trim().ToUpperInvariant());
+
+    /// <summary>
+    /// or=(col.ilike.*term*,...) for a free-text search, or nothing when the term is empty. The term keeps only
+    /// letters, digits and spaces, so a search can never break the filter syntax.
+    /// </summary>
+    public static string? Search(string? term, params string[] columns)
+    {
+        if (string.IsNullOrWhiteSpace(term) || columns.Length == 0) return null;
+        var clean = new string(term.Trim().Where(c => char.IsLetterOrDigit(c) || c == ' ').ToArray());
+        if (clean.Length == 0) return null;
+        var pattern = Escape($"*{clean}*");
+        return $"or=({string.Join(',', columns.Select(c => $"{c}.ilike.{pattern}"))})";
+    }
+
     /// <summary>
     /// The `p jsonb` argument of the save_* RPCs: the camelCase request body with its top-level keys in snake_case
     /// (tenantId → tenant_id). Nested values (zone ids, terms) pass through unchanged. Missing / null keys keep the

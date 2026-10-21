@@ -1,56 +1,90 @@
-import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
-import { CheckCircle2, Search } from 'lucide-react';
-import { useMockStore } from '../../lib/mock-store';
+import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router';
+import { Calendar, Search } from 'lucide-react';
+import { errorMessage, formatDateTime } from '../../lib/api';
 import { useToast } from '../../components/common/ToastProvider';
-import { DocumentPreviewModal } from '../../components/common/DocumentPreviewModal';
+import { QueryNotice } from '../../components/common/QueryNotice';
 import {
   FigmaPageHeader,
   FigmaNavyContextBanner,
   FigmaContextGrid,
-  FigmaDocumentRow,
   FigmaEventPreviewCard,
+  FigmaInfoAlert,
+  FigmaRecordInfoCard,
   type FigmaScreenOption,
 } from '../../components/common/FigmaScreenPrimitives';
+import {
+  ADMIN_EVENT_STATUS,
+  useAdminEvents,
+  useReviewEvent,
+  type AdminEvent,
+} from './data/admin-data';
 
 const ADMIN_EVENT_SCREENS: FigmaScreenOption[] = [
   { id: 'a-events', label: 'Kiểm duyệt sự kiện' },
-  { id: 'a-event-review', label: 'Chi tiết duyệt · Đêm nhạc Mùa Thu' },
-  { id: 'a-event-reject', label: 'Từ chối mở bán sự kiện' },
-  { id: 'a-event-result', label: 'Đã phê duyệt mở bán sự kiện' },
-  { id: 'a-cancellations', label: 'Yêu cầu hủy sự kiện' },
-  { id: 'a-cancel-review', label: 'Xem xét hủy sự kiện · Đêm nhạc Mùa Thu' },
+  { id: 'a-event-review', label: 'Chi tiết & duyệt sự kiện' },
+  { id: 'a-event-note', label: 'Từ chối / yêu cầu chỉnh sửa' },
 ];
 
+/** Statuses an Admin can filter the event queue by. */
+const EVENT_FILTERS = [
+  { value: 'PENDING_REVIEW', label: 'Chờ duyệt' },
+  { value: 'CHANGES_REQUESTED', label: 'Đã yêu cầu chỉnh sửa' },
+  { value: 'APPROVED', label: 'Đã duyệt' },
+  { value: 'PUBLISHED', label: 'Đã phát hành' },
+  { value: 'REJECTED', label: 'Bị từ chối' },
+];
+
+function StatusBadge({ status }: { status: string }) {
+  const meta = ADMIN_EVENT_STATUS[status] ?? { label: status, badge: 'badge-info' };
+  return <span className={`badge ${meta.badge}`}>{meta.label}</span>;
+}
+
 export function AdminEventsPage() {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { state, reviewAdminEvent } = useMockStore();
   const { showToast } = useToast();
 
   const activeScreen = searchParams.get('screen') || 'a-events';
   const setScreen = (screen: string) => setSearchParams({ screen });
 
   const [search, setSearch] = useState('');
-  const [previewDoc, setPreviewDoc] = useState<string | null>(null);
-  const queueIdParam = searchParams.get('queueId');
-  const eventsQueue = state?.adminEventsQueue || [];
-  const firstPending = eventsQueue.find((e) => e.status === 'PENDING') || eventsQueue[0];
-  const [selectedEventQueueId, setSelectedEventQueueId] = useState<string>(
-    queueIdParam || firstPending?.id || 'ae-1',
-  );
+  const [statusFilter, setStatusFilter] = useState('PENDING_REVIEW');
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [note, setNote] = useState('');
+  const [noteDecision, setNoteDecision] = useState<'CHANGES_REQUESTED' | 'REJECTED'>('CHANGES_REQUESTED');
 
-  const selectedEvent =
-    eventsQueue.find((e) => e.id === (queueIdParam || selectedEventQueueId)) ||
-    firstPending ||
-    eventsQueue[0];
+  const events = useAdminEvents(statusFilter);
+  const reviewEvent = useReviewEvent();
 
-  const [rejectReason, setRejectReason] = useState(
-    'Giấy phép biểu diễn của Sở Văn hóa chưa có trang phụ lục danh sách bài hát.',
-  );
+  const filtered = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    const all = events.data ?? [];
+    if (!needle) return all;
+    return all.filter((e) =>
+      `${e.org?.name ?? ''} ${e.title}`.toLowerCase().includes(needle),
+    );
+  }, [events.data, search]);
 
-  const screenMeta =
-    ADMIN_EVENT_SCREENS.find((s) => s.id === activeScreen) || ADMIN_EVENT_SCREENS[0];
+  const selectedEvent: AdminEvent | undefined =
+    (events.data ?? []).find((e) => e.id === selectedEventId) ?? undefined;
+
+  const screenMeta = ADMIN_EVENT_SCREENS.find((s) => s.id === activeScreen) || ADMIN_EVENT_SCREENS[0];
+
+  const runReview = (decision: string, noteText?: string) => {
+    if (!selectedEvent) return;
+    reviewEvent.mutate(
+      { id: selectedEvent.id, decision, note: noteText },
+      {
+        onSuccess: () => {
+          const label = ADMIN_EVENT_STATUS[decision]?.label ?? decision;
+          showToast(`Đã cập nhật sự kiện "${selectedEvent.title}": ${label}.`, 'success');
+          setNote('');
+          setScreen('a-events');
+        },
+        onError: (error) => showToast(errorMessage(error), 'danger'),
+      },
+    );
+  };
 
   return (
     <div>
@@ -62,7 +96,7 @@ export function AdminEventsPage() {
         onSelectScreen={setScreen}
       />
 
-      {/* 1. a-events */}
+      {/* 1. a-events — the review queue */}
       {activeScreen === 'a-events' && (
         <div>
           <div
@@ -95,21 +129,19 @@ export function AdminEventsPage() {
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setScreen('a-cancellations')}
+              <select
+                className="form-input"
+                style={{ width: 210 }}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
               >
-                Yêu cầu hủy sự kiện
-              </button>
+                {EVENT_FILTERS.map((f) => (
+                  <option key={f.value} value={f.value}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
             </div>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => showToast('Đã xuất danh sách kiểm duyệt sự kiện.', 'success')}
-            >
-              Xuất CSV
-            </button>
           </div>
 
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -123,347 +155,253 @@ export function AdminEventsPage() {
               }}
             >
               <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700 }}>
-                Tất cả danh sách sự kiện chờ kiểm duyệt
+                Danh sách sự kiện cần kiểm duyệt
               </div>
-              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                {eventsQueue.length} bản ghi
-              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>{filtered.length} bản ghi</div>
             </div>
-            <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>SỰ KIỆN</th>
-                    <th>TỔ CHỨC</th>
-                    <th>ĐỊA ĐIỂM</th>
-                    <th>SƠ ĐỒ GHẾ</th>
-                    <th>TRẠNG THÁI</th>
-                    <th>THAO TÁC</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {eventsQueue.map((e) => (
-                    <tr key={e.id}>
-                      <td style={{ fontWeight: 700 }}>{e.eventName}</td>
-                      <td>{e.orgName}</td>
-                      <td>{e.venueName}</td>
-                      <td>{e.layoutName}</td>
-                      <td>
-                        <span
-                          className={`badge ${
-                            e.status === 'APPROVED'
-                              ? 'badge-success'
-                              : e.status === 'REJECTED'
-                                ? 'badge-danger'
-                                : 'badge-warning'
-                          }`}
-                        >
-                          {e.status === 'PENDING'
-                            ? 'Chờ duyệt'
-                            : e.status === 'APPROVED'
-                              ? 'Đã duyệt'
-                              : 'Từ chối'}
-                        </span>
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedEventQueueId(e.id);
-                            setScreen('a-event-review');
-                          }}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--primary)',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Kiểm duyệt →
-                        </button>
-                      </td>
+            <QueryNotice
+              loading={events.isPending}
+              error={events.error}
+              onRetry={() => events.refetch()}
+              empty={events.isSuccess && !(events.data ?? []).length}
+              emptyText="Không có sự kiện nào ở trạng thái này."
+            />
+            {!!filtered.length && (
+              <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>SỰ KIỆN</th>
+                      <th>TỔ CHỨC</th>
+                      <th>SUẤT DIỄN</th>
+                      <th>CẬP NHẬT</th>
+                      <th>TRẠNG THÁI</th>
+                      <th>THAO TÁC</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {filtered.map((e) => (
+                      <tr key={e.id}>
+                        <td style={{ fontWeight: 700 }}>{e.title}</td>
+                        <td>{e.org?.name ?? '—'}</td>
+                        <td>{e.sessions.length}</td>
+                        <td>{formatDateTime(e.updatedAt)}</td>
+                        <td>
+                          <StatusBadge status={e.status} />
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedEventId(e.id);
+                              setScreen('a-event-review');
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--primary)',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Kiểm duyệt →
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
+
+          <FigmaInfoAlert tone="info">
+            Việc hủy sự kiện và hoàn tiền hàng loạt đi theo Phiếu phê duyệt hai người ở mục “Phiếu phê duyệt”.
+          </FigmaInfoAlert>
         </div>
       )}
 
-      {/* 2. a-event-review */}
+      {/* 2. a-event-review — detail + decisions */}
       {activeScreen === 'a-event-review' && (
         <div>
-          <FigmaNavyContextBanner
-            title={selectedEvent?.orgName || 'Tổ chức'}
-            subtitle="Hồ sơ đang xem · Đúng tổ chức và phạm vi xử lý"
-            badge={
-              selectedEvent?.status === 'APPROVED'
-                ? 'Đã duyệt mở bán'
-                : selectedEvent?.status === 'REJECTED'
-                  ? 'Đã từ chối'
-                  : 'Đang kiểm duyệt'
-            }
+          <QueryNotice
+            loading={events.isPending}
+            error={events.error}
+            onRetry={() => events.refetch()}
+            empty={!selectedEvent}
+            emptyText="Chọn một sự kiện từ danh sách để kiểm duyệt."
           />
-          <FigmaContextGrid
-            items={[
-              {
-                label: 'Sự kiện & Tổ chức',
-                value: `${selectedEvent?.eventName || 'Sự kiện'} · ${selectedEvent?.orgName || 'Ánh Trăng Events'}`,
-              },
-              {
-                label: 'Địa điểm & Pháp lý',
-                value: `${selectedEvent?.venueName || 'Địa điểm'} · Đã kiểm tra địa điểm`,
-              },
-              {
-                label: 'Sơ đồ & Định giá ghế',
-                value: `${selectedEvent?.layoutName || 'Sơ đồ'} · Quota & Suất diễn hợp lệ`,
-              },
-              { label: 'Giấy phép biểu diễn', value: 'GPBD_SoVanHoa_2026.pdf · Hợp lệ' },
-            ]}
-          />
-          <FigmaDocumentRow onView={() => setPreviewDoc('GPBD_SoVanHoa_2026.pdf')} />
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => {
-                if (selectedEvent) {
-                  reviewAdminEvent(selectedEvent.id, true);
-                  showToast(`Đã phê duyệt mở bán sự kiện "${selectedEvent.eventName}".`, 'success');
-                  setScreen('a-event-result');
-                }
-              }}
-            >
-              Phê duyệt mở bán
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => setScreen('a-event-reject')}
-            >
-              Từ chối hồ sơ
-            </button>
-          </div>
+          {selectedEvent && (
+            <>
+              <FigmaNavyContextBanner
+                title={selectedEvent.org?.name ?? 'Tổ chức'}
+                subtitle="Hồ sơ đang xem · Đúng tổ chức và phạm vi xử lý"
+                badge={ADMIN_EVENT_STATUS[selectedEvent.status]?.label ?? selectedEvent.status}
+                image={selectedEvent.coverImageUrl}
+              />
+              <FigmaContextGrid
+                items={[
+                  { label: 'Sự kiện & Tổ chức', value: `${selectedEvent.title} · ${selectedEvent.org?.name ?? '—'}` },
+                  { label: 'Tóm tắt', value: selectedEvent.summary || '—' },
+                  { label: 'Số suất diễn', value: `${selectedEvent.sessions.length} suất` },
+                  { label: 'Trạng thái', value: ADMIN_EVENT_STATUS[selectedEvent.status]?.label ?? selectedEvent.status },
+                ]}
+              />
+
+              <div className="card" style={{ padding: 22, marginBottom: 14 }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, marginBottom: 12 }}>
+                  Suất diễn
+                </div>
+                {selectedEvent.sessions.length === 0 && (
+                  <div style={{ fontSize: 13, color: 'var(--muted)' }}>Sự kiện chưa có suất diễn nào.</div>
+                )}
+                {selectedEvent.sessions.map((s) => (
+                  <div
+                    key={s.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      padding: '10px 14px',
+                      border: '1px solid var(--border)',
+                      borderRadius: 10,
+                      marginBottom: 8,
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700 }}>{s.title || selectedEvent.title}</div>
+                      <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                        {formatDateTime(s.startsAt)} — {formatDateTime(s.endsAt)}
+                      </div>
+                    </div>
+                    <span className="badge badge-info" style={{ alignSelf: 'center' }}>
+                      {s.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {selectedEvent.status === 'PENDING_REVIEW' ? (
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={reviewEvent.isPending}
+                    onClick={() => runReview('APPROVED')}
+                  >
+                    Phê duyệt mở bán
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setNoteDecision('CHANGES_REQUESTED');
+                      setNote('');
+                      setScreen('a-event-note');
+                    }}
+                  >
+                    Yêu cầu chỉnh sửa
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setNoteDecision('REJECTED');
+                      setNote('');
+                      setScreen('a-event-note');
+                    }}
+                  >
+                    Từ chối hồ sơ
+                  </button>
+                </div>
+              ) : (
+                <FigmaInfoAlert tone="info">
+                  Sự kiện đang ở trạng thái{' '}
+                  {ADMIN_EVENT_STATUS[selectedEvent.status]?.label ?? selectedEvent.status}. Chỉ sự kiện Chờ duyệt mới
+                  có thể ra quyết định.
+                </FigmaInfoAlert>
+              )}
+            </>
+          )}
         </div>
       )}
 
-      {/* 3. a-event-reject */}
-      {activeScreen === 'a-event-reject' && (
+      {/* 3. a-event-note — required note for CHANGES_REQUESTED / REJECTED */}
+      {activeScreen === 'a-event-note' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 18, alignItems: 'start' }}>
           <div className="card" style={{ padding: 22 }}>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}>
-              Thông tin chi tiết · Từ chối mở bán sự kiện
+              {noteDecision === 'REJECTED' ? 'Từ chối mở bán sự kiện' : 'Yêu cầu chỉnh sửa hồ sơ'}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div>
-                <label className="form-label">Sự kiện</label>
-                <input
-                  className="form-input"
-                  readOnly
-                  value={`${selectedEvent?.eventName || 'Sự kiện'} · ${selectedEvent?.orgName || 'Tổ chức'}`}
-                />
-              </div>
-              <div>
-                <label className="form-label">Lý do từ chối / Yêu cầu chỉnh sửa</label>
-                <input
-                  className="form-input"
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => {
-                    if (selectedEvent) {
-                      reviewAdminEvent(selectedEvent.id, false, rejectReason);
-                      showToast(
-                        `Đã từ chối mở bán sự kiện "${selectedEvent.eventName}" và thông báo cho Tổ chức.`,
-                        'warning',
-                      );
-                      setScreen('a-events');
+            <QueryNotice loading={!selectedEvent} onRetry={() => setScreen('a-events')} />
+            {selectedEvent && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <label className="form-label">Sự kiện</label>
+                  <input
+                    className="form-input"
+                    readOnly
+                    value={`${selectedEvent.title} · ${selectedEvent.org?.name ?? '—'}`}
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Lý do / nội dung cần chỉnh sửa (bắt buộc)</label>
+                  <textarea
+                    className="form-input"
+                    rows={4}
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder={
+                      noteDecision === 'REJECTED'
+                        ? 'Nội dung sự kiện vi phạm chính sách nền tảng.'
+                        : 'Bổ sung giấy phép biểu diễn và mô tả điều khoản hoàn vé.'
                     }
-                  }}
-                >
-                  Xác nhận từ chối
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setScreen('a-event-review')}
-                >
-                  Quay lại
-                </button>
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={reviewEvent.isPending || !note.trim()}
+                    onClick={() => runReview(noteDecision, note.trim())}
+                  >
+                    {noteDecision === 'REJECTED' ? 'Xác nhận từ chối' : 'Gửi yêu cầu chỉnh sửa'}
+                  </button>
+                  <button type="button" className="btn btn-secondary" onClick={() => setScreen('a-event-review')}>
+                    Quay lại
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
-          <FigmaEventPreviewCard />
+          {selectedEvent ? (
+            <FigmaEventPreviewCard
+              title={selectedEvent.title}
+              subtitle={selectedEvent.org?.name ?? 'Tổ chức'}
+              badge={ADMIN_EVENT_STATUS[selectedEvent.status]?.label ?? selectedEvent.status}
+              image={selectedEvent.coverImageUrl}
+            />
+          ) : (
+            <FigmaRecordInfoCard icon="shield" />
+          )}
         </div>
       )}
 
-      {/* 4. a-event-result */}
-      {activeScreen === 'a-event-result' && (
-        <div
-          className="card"
-          style={{
-            padding: '54px 32px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-          }}
-        >
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 14,
-              background: '#EAF7F0',
-              color: '#18794E',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 16,
-            }}
+      {/* Fallback for a stale screen id */}
+      {!ADMIN_EVENT_SCREENS.some((s) => s.id === activeScreen) && (
+        <div className="card" style={{ padding: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--muted)' }}>
+            <Calendar size={18} /> Màn hình không tồn tại.
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ marginTop: 14 }}
+            onClick={() => setScreen('a-events')}
           >
-            <CheckCircle2 size={24} />
-          </div>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, marginBottom: 6 }}>
-            Đã phê duyệt mở bán sự kiện
-          </div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 480, marginBottom: 14 }}>
-            Sự kiện Đêm nhạc Mùa Thu đã chuyển sang trạng thái Đang mở bán (On Sale) theo lịch cấu hình của các suất diễn.
-          </div>
-          <span className="badge badge-success" style={{ marginBottom: 18 }}>
-            Approved · On Sale
-          </span>
-          <button type="button" className="btn btn-primary" onClick={() => setScreen('a-events')}>
-            Danh sách sự kiện
+            Về danh sách kiểm duyệt
           </button>
         </div>
-      )}
-
-      {/* 5. a-cancellations */}
-      {activeScreen === 'a-cancellations' && (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => setScreen('a-events')}
-            >
-              ← Kiểm duyệt sự kiện
-            </button>
-          </div>
-
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <div
-              style={{
-                padding: '16px 20px',
-                borderBottom: '1px solid var(--border)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700 }}>
-                Yêu cầu hủy sự kiện & hoàn tiền hàng loạt
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--muted)' }}>1 bản ghi</div>
-            </div>
-            <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>MÃ YÊU CẦU</th>
-                    <th>SỰ KIỆN</th>
-                    <th>TỔ CHỨC</th>
-                    <th>VÉ BỊ ẢNH HƯỞNG</th>
-                    <th>GIÁ TRỊ HOÀN</th>
-                    <th>TRẠNG THÁI</th>
-                    <th>THAO TÁC</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td style={{ fontWeight: 700 }}>CAN-04</td>
-                    <td>Đêm nhạc Mùa Thu</td>
-                    <td>Ánh Trăng Events</td>
-                    <td>214 vé</td>
-                    <td>128.400.000đ</td>
-                    <td>
-                      <span className="badge badge-warning">Cần phê duyệt kép</span>
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        onClick={() => setScreen('a-cancel-review')}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: 'var(--primary)',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Xem xét →
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 6. a-cancel-review */}
-      {activeScreen === 'a-cancel-review' && (
-        <div>
-          <FigmaNavyContextBanner
-            title="Ánh Trăng Events"
-            subtitle="Hồ sơ đang xem · Đúng tổ chức và phạm vi xử lý"
-            badge="Yêu cầu hủy sự kiện"
-          />
-          <FigmaContextGrid
-            items={[
-              { label: 'Sự kiện & Tổ chức', value: 'Đêm nhạc Mùa Thu · Ánh Trăng Events' },
-              { label: 'Quy mô hoàn tiền', value: '214 vé đã bán · Tổng hoàn 128.400.000đ' },
-              { label: 'Lý do từ Tổ chức', value: 'Nghệ sĩ chính gặp sự cố sức khỏe đột xuất' },
-              { label: 'Quy tắc phê duyệt', value: 'Dual Control · Cần 2 Admin xác nhận (Phiếu AP-015)' },
-            ]}
-          />
-          <FigmaDocumentRow onView={() => setPreviewDoc('ThongBaoHuyShow_BienBan_2026.pdf')} />
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => navigate('/admin/approvals?screen=a-approval-cancel')}
-            >
-              Chuyển sang Phiếu phê duyệt kép (AP-015)
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => setScreen('a-cancellations')}
-            >
-              Quay lại
-            </button>
-          </div>
-        </div>
-      )}
-
-      {previewDoc && (
-        <DocumentPreviewModal
-          isOpen={true}
-          onClose={() => setPreviewDoc(null)}
-          title={previewDoc}
-          organization="Ánh Trăng Events"
-          status="Hồ sơ kiểm duyệt sự kiện"
-        />
       )}
     </div>
   );

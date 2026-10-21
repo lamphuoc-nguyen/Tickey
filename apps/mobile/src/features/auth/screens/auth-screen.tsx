@@ -165,8 +165,8 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
         <Image
           source={
             mode !== 'register'
-              ? require('../../../../assets/figma/1-532-imgPhotographyCrowd.png')
-              : require('../../../../assets/figma/1-573-imgPhotographyOutdoor.png')
+              ? require('../../../../assets/figma/1-532-imgPhotographyCrowd.jpg')
+              : require('../../../../assets/figma/1-573-imgPhotographyOutdoor.jpg')
           }
           style={{ width: '100%', height: 130, borderRadius: 10, marginTop: 8, marginBottom: 4 }}
           contentFit="cover"

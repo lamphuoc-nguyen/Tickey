@@ -25,6 +25,11 @@ export function RequireWorkspace({ kind, children }: { kind: WorkspaceKind; chil
     );
   }
 
+  // Every page reads and writes through the API with the user's JWT, so there is nothing to show signed out.
+  if (!session) {
+    return <Navigate to="/login" replace />;
+  }
+
   // If there's a session and user has a different workspace kind, guide to /workspaces
   // In dev mode, allow switching between /org and /admin for inspection
   if (session && workspace.kind !== kind && workspace.kind !== 'CUSTOMER' && !import.meta.env.DEV) {

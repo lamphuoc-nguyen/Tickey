@@ -19,7 +19,9 @@ export function useSession(): SessionState {
 
   useEffect(() => {
     let mounted = true;
+    let resolved = false;
     const apply = (session: Session | null) => {
+      resolved = true;
       if (mounted) {
         setState({
           loading: false,
@@ -35,8 +37,10 @@ export function useSession(): SessionState {
       .then(({ data }) => apply(data?.session ?? null))
       .catch(() => apply(null));
 
-    // Fallback timer: ensure loading never hangs if local Supabase docker is offline
-    const timer = setTimeout(() => apply(null), 500);
+    // Fallback timer: loading never hangs if Supabase is unreachable, but a slow token refresh is not a sign-out
+    const timer = setTimeout(() => {
+      if (!resolved) apply(null);
+    }, 5000);
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => apply(session));
     return () => {
