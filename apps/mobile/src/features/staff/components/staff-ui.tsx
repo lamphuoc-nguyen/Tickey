@@ -176,7 +176,7 @@ export function StaffAction({
 export function EventImage({ height = 132 }: { height?: number }) {
   return (
     <Image
-      source={require('../../../../assets/figma/1-2125-imgPhotographyTheater.png')}
+      source={require('../../../../assets/figma/1-2125-imgPhotographyTheater.jpg')}
       style={{ width: '100%', height, borderRadius: 12 }}
       contentFit="cover"
     />

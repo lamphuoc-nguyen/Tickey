@@ -26,7 +26,7 @@ export function VenueDetails({
       ) : (
         <>
           <Image
-            source={require('../../../../../assets/figma/1-2125-imgPhotographyTheater.png')}
+            source={require('../../../../../assets/figma/1-2125-imgPhotographyTheater.jpg')}
             style={{ height: 148, width: '100%', borderRadius: 12 }}
             contentFit="cover"
           />
