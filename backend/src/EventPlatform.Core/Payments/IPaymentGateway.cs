@@ -39,3 +39,24 @@ public sealed class UnconfiguredPaymentGateway : IPaymentGateway
     private static NotSupportedException NotChosen() =>
         new("No payment gateway configured yet (OQ-02). Implement IPaymentGateway for the chosen partner.");
 }
+
+/// <summary>
+/// Test mode (Payments:Gateway = TEST): no money moves. The payment URL is the API's own checkout page
+/// (/payments/test/{orderRef}), where the tester chooses success or failure. Never enable it with real customers.
+/// </summary>
+public sealed class TestPaymentGateway : IPaymentGateway
+{
+    public const string Code = "TEST";
+
+    public string Name => Code;
+
+    public Uri BuildPaymentUrl(PaymentOrder order, Uri returnUrl) =>
+        new(returnUrl, $"/payments/test/{Uri.EscapeDataString(order.OrderRef)}?amount={order.Amount}"
+                       + $"&return={Uri.EscapeDataString(returnUrl.ToString())}");
+
+    // The checkout page records the result itself; nothing arrives from outside.
+    public Task<GatewayResult?> VerifyIpnAsync(IReadOnlyDictionary<string, string> fields, CancellationToken ct) =>
+        Task.FromResult<GatewayResult?>(null);
+
+    public Task<GatewayResult?> QueryAsync(string orderRef, CancellationToken ct) => Task.FromResult<GatewayResult?>(null);
+}

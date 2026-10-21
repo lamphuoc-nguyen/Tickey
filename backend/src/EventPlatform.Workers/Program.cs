@@ -1,6 +1,6 @@
 using EventPlatform.Core;
+using EventPlatform.Core.Outbox;
 using EventPlatform.Core.Qr;
-using EventPlatform.Workers;
 
 var builder = Host.CreateApplicationBuilder(args);
 

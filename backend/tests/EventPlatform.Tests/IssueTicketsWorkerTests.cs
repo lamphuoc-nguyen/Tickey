@@ -1,8 +1,8 @@
 using System.Net;
 using System.Text.Json;
+using EventPlatform.Core.Outbox;
 using EventPlatform.Core.Qr;
 using EventPlatform.Core.Supabase;
-using EventPlatform.Workers;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 

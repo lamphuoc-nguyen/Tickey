@@ -33,7 +33,18 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(TimeProvider.System);
         services.AddTransient<MediaAuthorization>();
         services.AddHttpClient<CloudinaryImageClient>(client => client.Timeout = TimeSpan.FromSeconds(60));
-        services.AddSingleton<IPaymentGateway, UnconfiguredPaymentGateway>();
+        if (IsTestPayments(config))
+        {
+            services.AddSingleton<IPaymentGateway, TestPaymentGateway>();
+        }
+        else
+        {
+            services.AddSingleton<IPaymentGateway, UnconfiguredPaymentGateway>();
+        }
         return services;
     }
+
+    /// <summary>Payments:Gateway = TEST turns on the fake checkout (TestPaymentGateway).</summary>
+    public static bool IsTestPayments(IConfiguration config) =>
+        string.Equals(config["Payments:Gateway"], TestPaymentGateway.Code, StringComparison.OrdinalIgnoreCase);
 }

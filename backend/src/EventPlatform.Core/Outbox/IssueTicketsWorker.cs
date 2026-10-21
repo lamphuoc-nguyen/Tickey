@@ -1,8 +1,9 @@
-using EventPlatform.Core.Outbox;
 using EventPlatform.Core.Qr;
 using EventPlatform.Core.Supabase;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
-namespace EventPlatform.Workers;
+namespace EventPlatform.Core.Outbox;
 
 /// <summary>Ticket to sign, as returned by issue_tickets: the payload holds ids only, no personal data.</summary>
 public sealed record TicketToSign(Guid TicketId, string Payload);
