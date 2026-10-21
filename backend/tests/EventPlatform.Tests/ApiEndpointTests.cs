@@ -744,4 +744,72 @@ public class ApiEndpointTests
         Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
         Assert.Equal("FORBIDDEN", (await res.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("message").GetString());
     }
+
+    [Fact]
+    public async Task Org_disputes_embed_the_session_and_filter_by_status()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+
+        var res = await client.GetAsync("/api/disputes?status=awaiting_org&limit=50&offset=0", Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal("/rest/v1/dispute_cases", request.RequestUri!.AbsolutePath);
+        var query = Uri.UnescapeDataString(request.RequestUri.Query);
+        Assert.Contains("status=eq.AWAITING_ORG", query);
+        Assert.Contains("session:sessions(", query);
+        Assert.Equal(UserJwt, request.Headers.Authorization!.Parameter);
+    }
+
+    [Fact]
+    public async Task Dispute_detail_loads_messages_and_reports()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+        var id = Guid.NewGuid();
+
+        var res = await client.GetAsync($"/api/disputes/{id}", Ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal("/rest/v1/dispute_cases", request.RequestUri!.AbsolutePath);
+        var query = Uri.UnescapeDataString(request.RequestUri.Query);
+        Assert.Contains($"id=eq.{id}", query);
+        Assert.Contains("messages:dispute_messages(", query);
+        Assert.Contains("reports(", query);
+    }
+
+    [Fact]
+    public async Task Responding_to_a_dispute_posts_an_org_side_message()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "\"33333333-3333-3333-3333-333333333333\""),
+            UserJwt);
+        var id = Guid.NewGuid();
+
+        var res = await client.PostAsJsonAsync($"/api/disputes/{id}/messages",
+            new { body = "Da kiem tra log soat ve cong G1.", attachments = (object?)null }, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal("/rest/v1/rpc/add_dispute_message", request.RequestUri!.AbsolutePath);
+        using var sent = JsonDocument.Parse(Assert.Single(handler.Calls).Body);
+        var root = sent.RootElement;
+        Assert.Equal(id, root.GetProperty("p_case_id").GetGuid());
+        Assert.Equal("Da kiem tra log soat ve cong G1.", root.GetProperty("p_body").GetString());
+        Assert.Equal(UserJwt, request.Headers.Authorization!.Parameter);
+    }
+
+    [Fact]
+    public async Task Org_refunds_filter_by_status_and_forward_the_jwt()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+
+        await client.GetAsync("/api/refunds?status=requested&limit=50&offset=0", Ct);
+
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal("/rest/v1/refunds", request.RequestUri!.AbsolutePath);
+        var query = Uri.UnescapeDataString(request.RequestUri.Query);
+        Assert.Contains("status=eq.REQUESTED", query);
+        Assert.Contains("booking_id", query);
+        Assert.Equal(UserJwt, request.Headers.Authorization!.Parameter);
+    }
 }
