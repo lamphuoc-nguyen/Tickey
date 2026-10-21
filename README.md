@@ -104,14 +104,40 @@ CI (`.github/workflows/ci.yml`) runs the same checks plus `supabase test db`.
 ## Hosted Supabase project
 
 The shared hosted project is **`ddourrslmudoqevqlvpv`** ("Event Ticket Booking"). The Dashboard labels its `main`
-branch **PRODUCTION**: do not run `seed.sql`, `supabase test db`, `smoke_e2e.sql` or `concurrency_ac01.sh` against
-it. Use the local stack (`supabase start`) for that.
+branch **PRODUCTION**: do not run `supabase db reset`, `supabase test db`, `smoke_e2e.sql` or `concurrency_ac01.sh`
+against it. Use the local stack (`supabase start`) for that. The `seed.sql` test accounts were added once on
+2026-10-22 (see "Test accounts" below); do not run it again.
 
 | Item                                   | Value                                                       |
 | -------------------------------------- | ----------------------------------------------------------- |
 | API URL                                | `https://ddourrslmudoqevqlvpv.supabase.co`                  |
 | Publishable key (public, safe in apps) | `sb_publishable_qkth_w6D3OU7rXmQ_lSTZA_q7uKKM-F`            |
 | Dashboard                              | https://supabase.com/dashboard/project/ddourrslmudoqevqlvpv |
+
+### Test accounts
+
+The same accounts exist on the local stack (`supabase db reset`) and on the hosted project. Every account uses the
+password **`Dev@123456`**.
+
+| Email                  | Password     | Role                                                       | Use it for                                        |
+| ---------------------- | ------------ | ---------------------------------------------------------- | ------------------------------------------------- |
+| `admin@dev.local`      | `Dev@123456` | Admin: KYC_REVIEWER, FINANCE_ADMIN, DISPUTE_ADMIN, SUPPORT | Admin portal: KYC, event review, refunds, payouts |
+| `admin-2@dev.local`    | `Dev@123456` | Admin: FINANCE_ADMIN, DISPUTE_ADMIN                        | Second vote on two-person approvals               |
+| `owner-a@dev.local`    | `Dev@123456` | OWNER of Org A "Nhà hát Ánh Trăng" (APPROVED)              | Org portal: venue, layout, events, gates, staff   |
+| `owner-b@dev.local`    | `Dev@123456` | OWNER of Org B "Sân khấu Bình Minh" (draft data only)      | Tenant isolation: must not see Org A data         |
+| `staff-a@dev.local`    | `Dev@123456` | Org A SCANNER + POS, assigned to "Đêm 1", gate G1          | Staff app: scan, manual check-in, POS             |
+| `multi@dev.local`      | `Dev@123456` | Customer + Org A SCANNER                                   | Workspace picker                                  |
+| `customer-1@dev.local` | `Dev@123456` | Customer                                                   | Buying tickets                                    |
+| `customer-2@dev.local` | `Dev@123456` | Customer                                                   | Buying tickets, racing customer-1 for one seat    |
+
+- Admin and Owner accounts must enrol TOTP (2FA) on their first portal login, or sensitive actions return
+  `MFA_REQUIRED`.
+- Org A's event "Đêm nhạc Mùa Thu" has two sessions on sale (Đêm 1, Đêm 2) with VIP, Thường, Vé đứng, a free student
+  ticket and comp tickets.
+- Where to log in: portal https://tickey-portal.vercel.app (Admin/Owner), mobile app (Customer/Staff). The API is
+  https://tickey-api.onrender.com (free plan: the first request after idling takes up to a minute).
+- Payment is in **test mode** (`Payments__Gateway=TEST` on Render): checkout opens a test page with
+  "Thanh toán thành công" / "Thanh toán thất bại". No money moves; a successful test payment issues signed tickets.
 
 ### What is already set up (2026-10-07)
 
@@ -191,7 +217,7 @@ remove them: `dotnet user-secrets --project <project> remove "Supabase:Url"` (an
 - **"Forbidden use of secret API key in browser" (401):** Supabase rejects secret keys sent with a browser-like
   `User-Agent`, and that includes PowerShell's `Invoke-WebRequest`. Test with `curl.exe` instead. The .NET
   `HttpClient` sends no browser User-Agent, so the backend is not affected. The key itself has not leaked.
-- **Platform admins:** none exist yet. After they sign up:
+- **Platform admins:** only the test admins above exist. For a real admin, after they sign up:
   `insert into public.memberships (user_id, scope, roles) values ('<auth user id>', 'PLATFORM', array['KYC_REVIEWER', ...]);`
   Keep at least two `FINANCE_ADMIN` accounts, because payouts need two different approvers.
 - **Phones** cannot reach `localhost`/`10.0.2.2`. Preview and production builds need a public HTTPS URL for the
@@ -202,7 +228,8 @@ remove them: `dotnet user-secrets --project <project> remove "Supabase:Url"` (an
 - Install the .NET 10 SDK (10.0.100, see `global.json`) and the Supabase CLI, then do the `migration repair` above.
 - Create the platform admin accounts and memberships.
 - Payment gateway secrets (`Gateway:*`) once OQ-02 is decided.
-- Host the .NET API + Workers with a public HTTPS URL.
+- The API runs on Render (https://tickey-api.onrender.com) and issues tickets itself; the other Workers jobs
+  (refunds, payouts, reconciliation, notifications) have no host yet.
 
 ## Cloudinary image storage
 
