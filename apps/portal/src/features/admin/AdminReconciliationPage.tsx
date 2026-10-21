@@ -164,7 +164,6 @@ export function AdminReconciliationPage() {
     (orgs.data ?? []).forEach((org) => map.set(org.id, org.name));
     return map;
   }, [orgs.data]);
-  const orgName = (tenantId: string) => orgNames.get(tenantId) ?? tenantId.slice(0, 8);
 
   const filteredSettlements = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -313,7 +312,7 @@ export function AdminReconciliationPage() {
                     {filteredSettlements.map((s) => (
                       <tr key={s.id}>
                         <td style={{ fontWeight: 700 }}>{s.id.slice(0, 8)}</td>
-                        <td>{orgName(s.tenantId)}</td>
+                        <td>{orgNames.get(s.tenantId) ?? s.tenantId.slice(0, 8)}</td>
                         <td>
                           {s.session?.event?.title
                             ? `${s.session.event.title}${s.session.title ? ` · ${s.session.title}` : ''}`
@@ -363,7 +362,7 @@ export function AdminReconciliationPage() {
           {selectedSettlement && (
             <>
               <FigmaNavyContextBanner
-                title={orgName(selectedSettlement.tenantId)}
+                title={orgNames.get(selectedSettlement.tenantId) ?? 'Tổ chức'}
                 subtitle="Hồ sơ đang xem · Đúng tổ chức và phạm vi xử lý"
                 badge={`Kỳ ${selectedSettlement.id.slice(0, 8)}`}
               />
@@ -371,7 +370,7 @@ export function AdminReconciliationPage() {
                 items={[
                   {
                     label: 'Kỳ đối soát & Tổ chức',
-                    value: `${selectedSettlement.id.slice(0, 8)} · ${orgName(selectedSettlement.tenantId)}`,
+                    value: `${selectedSettlement.id.slice(0, 8)} · ${orgNames.get(selectedSettlement.tenantId) ?? selectedSettlement.tenantId}`,
                   },
                   {
                     label: 'Suất diễn',
