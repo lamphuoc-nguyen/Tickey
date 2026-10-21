@@ -73,7 +73,8 @@ public static class AccountEndpoints
                 Select("""
                     id, tenant_id, session_id, gate_id, permissions, valid_from, valid_until, status,
                     gate:gates(id, code, name),
-                    session:sessions(id, title, starts_at, ends_at, doors_open_at, status, event:events(id, title, cover_image_url))
+                    session:sessions(id, title, starts_at, ends_at, doors_open_at, status, event:events(id, title, cover_image_url),
+                        venue:venues(id, name, timezone))
                     """),
                 Eq("user_id", http.UserId()),
                 "status=eq.ACTIVE",

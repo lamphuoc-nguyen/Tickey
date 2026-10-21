@@ -13,7 +13,7 @@ apps/mobile/                         @event/mobile, một Expo entry/config/EAS 
   src/app/(staff)/                   layout Staff có guard; /staff, /staff/workspaces
   src/features/auth/                 session, login/signup/recovery/callback, workspace
   src/features/customer/             toàn bộ feature Customer đã triển khai
-  src/features/staff/                home scaffold, entry, guard, adapter shared, chọn tổ chức
+  src/features/staff/                landing ca làm, guard, adapter shared, chọn tổ chức
   src/features/forms/                draft trong bộ nhớ và exclusive mutations dùng chung
   src/lib/                           Supabase singleton, repositories, config, session scope
   assets/                            Figma assets/fonts và native assets cũ
@@ -30,7 +30,7 @@ Route groups không thêm URL prefix. Customer giữ URL cũ; Staff có segment 
 | apps/customer | apps/mobile; package đổi thành @event/mobile; giữ toàn bộ Customer, env local, assets/font, test, script cấu hình API |
 | Customer routes | (customer), Auth routes → (auth); giữ URL Auth/payment/order/ticket, nên callback không cần đổi ở backend |
 | Customer features | src/features/customer/{account,booking,catalog,notifications,payment,refunds,support,tickets,unsupported}; Auth/forms shared; cập nhật alias/import/asset require |
-| Staff index scaffold | src/features/staff/screens/staff-home-screen.tsx; giữ component/style nền, bỏ văn bản tài liệu kỹ thuật khỏi UI, gắn vào entry chung |
+| Staff landing `/staff` | src/features/staff/screens/staff-entry-screen.tsx theo Figma s-sessions (1:2699) và s-no-assignment (149:1424); ca làm thật từ GET /api/me/staff-assignments; nút mở ca khóa cho đến khi có Chuẩn bị soát vé |
 | Staff layout | (staff)/_layout.tsx; giữ ThemeProvider/Stack, bỏ Query provider độc lập và thêm StaffGate |
 | Staff Supabase/repositories adapter | src/features/staff/lib; dùng singleton/core wrappers của app chung, không tạo session thứ hai |
 | Staff config/assets | EAS profiles/dependency phiên bản và mọi native asset trùng với nền Customer, đã đối chiếu hash; sử dụng bản chung. Cấu hình gốc và file local còn lại có bản sao ngoài repo |
