@@ -1,5 +1,7 @@
 using EventPlatform.Api;
 using EventPlatform.Core;
+using EventPlatform.Core.Outbox;
+using EventPlatform.Core.Qr;
 using EventPlatform.Core.Supabase;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,6 +12,15 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p => p
     .WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [])
     .AllowAnyHeader()
     .AllowAnyMethod()));
+
+// With a QR signing key the API also issues tickets for PAID bookings, so a single free host
+// (no separate Workers service) can take a booking all the way to signed tickets.
+if (!string.IsNullOrEmpty(builder.Configuration["Qr:SigningKey"]))
+{
+    builder.Services.Configure<QrOptions>(builder.Configuration.GetSection(QrOptions.Section));
+    builder.Services.AddSingleton<QrSigner>();
+    builder.Services.AddHostedService<IssueTicketsWorker>();
+}
 
 var app = builder.Build();
 
@@ -31,6 +42,10 @@ app.Use(async (context, next) =>
 app.UseCors();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapPaymentEndpoints();
+if (ServiceCollectionExtensions.IsTestPayments(app.Configuration))
+{
+    app.MapTestPaymentEndpoints();
+}
 app.MapAuthEndpoints();
 app.MapAccountEndpoints();
 app.MapCatalogEndpoints();

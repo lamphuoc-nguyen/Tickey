@@ -1,6 +1,7 @@
 {
   "expo": {
     "name": "Tickey",
+    "owner": "tickey",
     "slug": "event-customer",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -40,6 +41,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "bd3404ee-79a4-4f3d-85b8-9de951f25d58"
+      }
     }
   }
 }
