@@ -512,6 +512,24 @@ public class ApiEndpointTests
     }
 
     [Fact]
+    public async Task Admin_events_queue_embeds_the_org_and_sessions()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+
+        var res = await client.GetAsync("/api/admin/events?status=changes_requested&limit=100&offset=0", Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal("/rest/v1/events", request.RequestUri!.AbsolutePath);
+        var query = Uri.UnescapeDataString(request.RequestUri.Query);
+        Assert.Contains("org:organizations(id,name,slug)", query);
+        Assert.Contains("sessions(id,title,starts_at,ends_at,status)", query);
+        Assert.Contains("status=eq.CHANGES_REQUESTED", query);
+        Assert.Contains("order=updated_at", query);
+        Assert.Equal(UserJwt, request.Headers.Authorization!.Parameter);
+    }
+
+    [Fact]
     public async Task Vote_approval_upper_cases_the_decision()
     {
         var (client, handler) = Create((_, _) => (HttpStatusCode.OK, """{"status":"APPROVED"}"""), UserJwt);
