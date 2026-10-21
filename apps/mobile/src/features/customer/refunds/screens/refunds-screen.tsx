@@ -1,6 +1,7 @@
 import { formatMoney } from '@event/core';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Button, Card, Copy, Heading, Notice, QueryState, Screen } from '@/components/ui';
+import { Button, Card, Copy, Heading, QueryState, Screen } from '@/components/ui';
+import { TextAction } from '@/components/customer-controls';
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import { useRefunds } from '@/features/customer/account/hooks/use-customer-data';
 
@@ -37,21 +38,17 @@ function Content() {
         empty={!query.isPending && !query.error && !refunds.length}
         emptyText="Chưa có yêu cầu hoàn tiền trong các đơn đã tải."
       />
-      <Notice>
-        Tiền ưu tiên hoàn về phương thức thanh toán ban đầu. Chỉ gửi tài khoản ngân hàng khi hệ thống yêu cầu.
-      </Notice>
       {refunds.map((refund) => (
         <Card key={refund.id}>
           <Heading small>{refundLabels[refund.status]}</Heading>
           <Copy>{formatMoney(refund.amount)}</Copy>
           <Copy>Lý do: {refundReasonLabel(refund.reason)}</Copy>
           <Copy>Cập nhật: {new Date(refund.updatedAt).toLocaleString('vi-VN')}</Copy>
-          <Button
-            secondary
+          <TextAction
             onPress={() => router.push({ pathname: '/refunds/[refundId]', params: { refundId: refund.id } })}
           >
             Chi tiết yêu cầu
-          </Button>
+          </TextAction>
           {refund.status === 'AWAITING_BANK_INFO' && (
             <Button
               onPress={() =>
@@ -61,14 +58,13 @@ function Content() {
               Bổ sung tài khoản nhận hoàn
             </Button>
           )}
-          <Button
-            secondary
+          <TextAction
             onPress={() =>
               router.push({ pathname: '/booking/[bookingId]', params: { bookingId: refund.bookingId } })
             }
           >
             Xem đơn
-          </Button>
+          </TextAction>
         </Card>
       ))}
       {query.hasNextPage && (

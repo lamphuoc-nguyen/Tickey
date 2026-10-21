@@ -6,6 +6,12 @@
     "node": ">=22"
   },
   "scripts": {
+    "data:plan": "node supabase/scripts/import-platform-data.mjs plan",
+    "data:check": "node supabase/scripts/import-platform-data.mjs check",
+    "data:import": "node supabase/scripts/import-platform-data.mjs apply",
+    "data:bootstrap": "node supabase/scripts/import-platform-data.mjs bootstrap-sql",
+    "data:demo:import": "node supabase/scripts/import-demo-data.mjs",
+    "data:test": "node --test supabase/scripts/import-platform-data.test.mjs supabase/scripts/import-demo-data.test.mjs supabase/scripts/publish-demo-data.test.mjs supabase/scripts/clean-demo-labels.test.mjs",
     "dev:portal": "pnpm --filter @event/portal dev",
     "dev:mobile": "pnpm --filter @event/mobile start",
     "dev:customer": "pnpm dev:mobile",
@@ -15,7 +21,9 @@
     "test": "turbo run test",
     "build": "turbo run build",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "data:demo:publish": "node supabase/scripts/publish-demo-data.mjs",
+    "data:demo:labels": "node supabase/scripts/clean-demo-labels.mjs"
   },
   "devDependencies": {
     "prettier": "^3.6.0",

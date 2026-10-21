@@ -1,6 +1,5 @@
 import { useLocalSearchParams, router } from 'expo-router';
-import { Button, Field, Heading, Notice, QueryState, Screen } from '@/components/ui';
-import { Unavailable } from '@/components/detail';
+import { Button, Copy, Field, Heading, QueryState, Screen, ui } from '@/components/ui';
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import { useFormDraft } from '@/features/forms/use-form-draft';
 import { useBooking } from '../hooks/use-booking';
@@ -35,16 +34,13 @@ function Content() {
       <Heading>Người tham dự</Heading>
       <QueryState loading={query.isPending} error={query.error} retry={() => void query.refetch()} />
       <BookingSummary booking={booking} />
-      <Unavailable>
-        Thông tin nhập ở đây chưa được gửi. Bạn có thể ghi tên lên từng vé sau khi vé được phát hành.
-      </Unavailable>
+      <Copy style={ui.muted}>Thông tin tạm nhập, chưa gửi. Có thể ghi tên lên vé sau khi phát hành.</Copy>
       {names.map((name, i) => (
         <Field
           key={i}
           label={`Vé ${i + 1} · Họ tên người tham dự`}
           value={name}
           onChangeText={(value) => update({ names: names.map((n, j) => (i === j ? value : n)) })}
-          helper={!name.trim() ? 'Tên người tham dự chưa được nhập.' : undefined}
         />
       ))}
       {!booking && (
@@ -61,9 +57,7 @@ function Content() {
         onChangeText={(email) => update({ email })}
         keyboardType="email-address"
         autoCapitalize="none"
-        helper="Thông tin này chưa được lưu vào đơn."
       />
-      <Notice>Bạn vẫn có thể tiếp tục thanh toán theo trạng thái hiện tại của đơn.</Notice>
     </Screen>
   );
 }

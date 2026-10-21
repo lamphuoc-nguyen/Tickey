@@ -43,6 +43,11 @@ appsettings.*.local.json
 # supabase
 supabase/.branches/
 supabase/.temp/
+# Real import data, identity mappings, generated SQL and import receipts stay local.
+supabase/imports/local/
+*.import-state.json
+*.import-state.json.lock
+*.import-state.json.*.tmp
 
 # editors / OS
 .idea/

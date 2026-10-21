@@ -21,6 +21,7 @@ import {
   errorMessage,
 } from '@/components/ui';
 import { DetailRow, ResultPanel } from '@/components/detail';
+import { TextAction } from '@/components/customer-controls';
 import {
   useAvailability,
   useLayout,
@@ -177,7 +178,7 @@ export default function SelectionScreen() {
       footer={
         <>
           <View style={[ui.row, { justifyContent: 'space-between' }]}>
-            <Copy style={ui.semibold}>{draft.unresolved ? 'Giữ nguyên ý định đặt vé' : 'Theo lựa chọn'}</Copy>
+            <Copy style={ui.semibold}>{draft.unresolved ? 'Yêu cầu đang kiểm tra' : 'Tạm tính'}</Copy>
             <Copy style={{ color: c.accent, fontFamily: 'Outfit-Bold', fontSize: 17 }}>
               {items.length ? formatMoney(total) : 'Chưa chọn vé'}
             </Copy>
@@ -236,12 +237,6 @@ export default function SelectionScreen() {
         empty={!!isReady && !layout.data?.zones.length}
         emptyText="Chưa có sơ đồ hoặc khu vé."
       />
-      {standingContractMissing && (
-        <Notice warning>
-          Hạng vé cho khu đứng trong sơ đồ nhiều khu chưa khả dụng. Vui lòng chọn suất khác hoặc liên hệ hỗ
-          trợ.
-        </Notice>
-      )}
       {!!booking.error && <ErrorNotice error={booking.error} />}
       {freeUnavailable && (
         <>
@@ -253,8 +248,7 @@ export default function SelectionScreen() {
       )}
       {draft.unresolved && (
         <Notice warning>
-          Chưa biết máy chủ đã nhận yêu cầu hay chưa. Giữ nguyên lựa chọn và thử lại cùng yêu cầu để tránh tạo
-          đơn trùng.
+          Chưa xác nhận được đơn. Giữ nguyên lựa chọn và thử lại cùng yêu cầu để tránh đặt trùng.
         </Notice>
       )}
       {draft.unresolved && (
@@ -285,6 +279,7 @@ export default function SelectionScreen() {
       )}
       {!!isReady && (
         <>
+          <Heading small>Khu vực</Heading>
           <View style={[ui.row, { flexWrap: 'wrap' }]}>
             {layout.data?.zones.map((z) => (
               <Pressable
@@ -309,7 +304,6 @@ export default function SelectionScreen() {
               </Pressable>
             ))}
           </View>
-          {!zone && <Notice>Chọn khu vực để xem ghế hoặc hạng vé.</Notice>}
           {zone?.type === 'standing' ? (
             <>
               <Select
@@ -336,17 +330,21 @@ export default function SelectionScreen() {
                   if (/^\d{0,3}$/.test(text)) draft.setStanding({ quantity: Number(text) });
                 }}
               />
-              <Copy style={ui.muted}>
-                {selectedType
-                  ? `Tối đa hiện hiển thị: ${maxQuantity} vé. Số lượng được xác nhận khi tạo đơn.`
-                  : 'Chọn hạng vé để xem giới hạn số lượng.'}
-              </Copy>
-              <Notice>Giá hiển thị để tham khảo. Giá và số chỗ được xác nhận khi giữ chỗ.</Notice>
+              <Copy style={ui.muted}>{selectedType ? `Tối đa ${maxQuantity} vé` : 'Chưa chọn hạng vé'}</Copy>
             </>
           ) : zone ? (
             <>
-              <Notice>SÂN KHẤU</Notice>
-              <Copy style={ui.muted}>Vuốt để xem ghế · Chạm ghế để chọn · Chụm để phóng to.</Copy>
+              <View
+                style={{
+                  alignSelf: 'center',
+                  width: '70%',
+                  borderRadius: 6,
+                  backgroundColor: c.gray,
+                  padding: 8,
+                }}
+              >
+                <Copy style={{ textAlign: 'center', fontSize: 11 }}>SÂN KHẤU</Copy>
+              </View>
               <NativeSeatMap
                 key={zone.id}
                 layout={layoutData}
@@ -359,11 +357,19 @@ export default function SelectionScreen() {
                   if (!draft.unresolved) draft.toggleSeat(id);
                 }}
               />
-              <Copy>Còn trống · ✓ Đang chọn · ! Xung đột · × Chặn bán</Copy>
-              <Copy style={ui.muted}>Màu xám: đã bán · Vàng: khóa tạm · Xanh nhạt: Ban tổ chức giữ.</Copy>
-              <Button secondary onPress={() => setAccessible((p) => !p)}>
-                Danh sách ghế dễ truy cập
-              </Button>
+              <View style={[ui.row, { flexWrap: 'wrap', gap: 8 }]}>
+                {['○ Còn trống', '✓ Đang chọn', '! Xung đột', '× Chặn bán'].map((label) => (
+                  <Copy key={label} style={[ui.muted, { fontSize: 11 }]}>
+                    {label}
+                  </Copy>
+                ))}
+              </View>
+              <Copy style={[ui.muted, { fontSize: 11 }]}>
+                Xám: đã bán · Vàng: khóa tạm · Xanh nhạt: ban tổ chức giữ
+              </Copy>
+              <TextAction expanded={accessible} onPress={() => setAccessible((p) => !p)}>
+                {accessible ? 'Ẩn danh sách ghế' : 'Chọn ghế dạng danh sách'}
+              </TextAction>
               {accessible && (
                 <>
                   <View style={[ui.row, { flexWrap: 'wrap' }]}>
@@ -390,22 +396,20 @@ export default function SelectionScreen() {
                       </Pressable>
                     ))}
                   </View>
-                  <Button
+                  <TextAction
                     disabled={page === 0}
                     disabledReason="Đang ở trang đầu."
                     onPress={() => setPage((p) => p - 1)}
-                    secondary
                   >
                     Trang trước
-                  </Button>
-                  <Button
+                  </TextAction>
+                  <TextAction
                     disabled={(page + 1) * 20 >= zone.seats.length}
                     disabledReason="Đã đến trang cuối của danh sách ghế."
                     onPress={() => setPage((p) => p + 1)}
-                    secondary
                   >
                     Trang sau
-                  </Button>
+                  </TextAction>
                 </>
               )}
             </>
@@ -424,14 +428,14 @@ export default function SelectionScreen() {
                     {seatById.get(id)?.code ?? 'Ghế chưa tải được'} ·{' '}
                     {activeTypes.find((t) => t.id === seatsToType.get(id))?.name ?? 'Chưa có hạng vé'}
                   </Copy>
-                  <Button
-                    secondary
+                  <TextAction
+                    accessibilityLabel={`Bỏ chọn ghế ${seatById.get(id)?.code ?? 'đã chọn'}`}
                     disabled={draft.unresolved || booking.isPending}
                     disabledReason="Đang kiểm tra yêu cầu đặt vé, cần giữ nguyên lựa chọn."
                     onPress={() => draft.toggleSeat(id)}
                   >
                     Bỏ chọn
-                  </Button>
+                  </TextAction>
                 </View>
               ))}
               <DetailRow
@@ -454,9 +458,9 @@ export default function SelectionScreen() {
             />
           )}
           {!draft.unresolved && draft.selected.length > 0 && (
-            <Button secondary onPress={() => draft.selected.forEach((id) => draft.toggleSeat(id))}>
+            <TextAction onPress={() => draft.selected.forEach((id) => draft.toggleSeat(id))}>
               Bỏ chọn tất cả
-            </Button>
+            </TextAction>
           )}
           {refreshing && <Copy style={ui.muted}>Đang cập nhật tình trạng chỗ…</Copy>}
         </>

@@ -6,6 +6,7 @@ import { useFormDraft } from '@/features/forms/use-form-draft';
 import { useAccountActions, usePreferences } from '../hooks/use-customer-data';
 import { useScheduleReminders } from '@/features/customer/notifications/hooks/use-reminders';
 import { deviceReminderUnavailableReason } from '@/features/customer/notifications/native-notifications';
+import { MenuGroup } from '@/components/customer-controls';
 const rows = [
   ['reminder24h', 'Nhắc trước 24 giờ'],
   ['reminder2h', 'Nhắc trước 2 giờ'],
@@ -48,34 +49,43 @@ function Content() {
       }
     >
       <Heading>Nhắc lịch & thông báo</Heading>
-      {deviceUnavailable && <Notice warning>{deviceUnavailable}</Notice>}
       <QueryState loading={query.isPending} error={query.error} retry={() => void query.refetch()} />
-      {rows.map(([key, label]) => (
-        <View key={key} style={[ui.card, ui.row, { justifyContent: 'space-between' }]}>
-          <View style={{ flex: 1 }}>
-            <Copy style={ui.semibold}>{label}</Copy>
-            <Copy style={ui.muted}>
-              {typeof preferences[key] === 'boolean' ? 'Tùy chỉnh thông báo' : 'Chưa tải được lựa chọn'}
-            </Copy>
+      <MenuGroup>
+        {rows.map(([key, label]) => (
+          <View
+            key={key}
+            style={[
+              ui.row,
+              { minHeight: 56, paddingHorizontal: 16, paddingVertical: 12, justifyContent: 'space-between' },
+            ]}
+          >
+            <View style={{ flex: 1 }}>
+              <Copy style={ui.semibold}>{label}</Copy>
+              {typeof preferences[key] !== 'boolean' && <Copy style={ui.muted}>Chưa tải được lựa chọn</Copy>}
+            </View>
+            <Switch
+              accessibilityLabel={label}
+              disabled={busy}
+              value={preferences[key] ?? false}
+              trackColor={{ true: c.primary, false: c.gray }}
+              onValueChange={(value) => {
+                savePreferences.reset();
+                schedule.reset();
+                update({ values: { ...draft.values, [key]: value } });
+              }}
+            />
           </View>
-          <Switch
-            accessibilityLabel={label}
-            disabled={busy}
-            value={preferences[key] ?? false}
-            trackColor={{ true: c.primary, false: c.gray }}
-            onValueChange={(value) => {
-              savePreferences.reset();
-              schedule.reset();
-              update({ values: { ...draft.values, [key]: value } });
-            }}
-          />
-        </View>
-      ))}
-      <Notice>
-        Nhắc lịch trên thiết bị cần quyền thông báo. Gửi thông báo tự động hiện chưa được hỗ trợ đầy đủ.
-      </Notice>
+        ))}
+      </MenuGroup>
+      <Copy style={ui.muted}>
+        {deviceUnavailable ?? 'Nhắc lịch cần quyền thông báo. Thông báo tự động chưa khả dụng.'}
+      </Copy>
       {!!savePreferences.error && <ErrorNotice error={savePreferences.error} />}
-      {savePreferences.isSuccess && <Notice>Đã lưu tùy chọn.</Notice>}
+      {savePreferences.isSuccess && (
+        <Copy accessibilityLiveRegion="polite" style={ui.muted}>
+          Đã lưu tùy chọn.
+        </Copy>
+      )}
       {!!schedule.error && (
         <>
           <ErrorNotice error={schedule.error} />

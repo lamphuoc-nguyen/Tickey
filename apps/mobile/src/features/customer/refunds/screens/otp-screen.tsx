@@ -3,14 +3,16 @@ import { bankInputSchema } from '@event/core';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
   ActionFooter,
-  Button,
+  Copy,
   ErrorNotice,
   Field,
   Heading,
   Notice,
   QueryState,
   Screen,
+  ui,
 } from '@/components/ui';
+import { TextAction } from '@/components/customer-controls';
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import { useAuth } from '@/features/auth/hooks/auth-context';
 import { useAuthActions } from '@/features/auth/hooks/use-auth-actions';
@@ -89,14 +91,12 @@ function Content() {
         error={error}
         placeholder="Nhập mã được gửi tới bạn."
       />
-      <Notice>Mã xác thực dùng để xác nhận tài khoản nhận hoàn tiền.</Notice>
       {verified && (
         <Notice>
           Đã xác thực email. Bạn có thể thử gửi lại thông tin nhận hoàn nếu kết nối bị gián đoạn.
         </Notice>
       )}
-      <Button
-        secondary
+      <TextAction
         busy={actions.otp.isPending}
         disabled={!allowed || busy}
         disabledReason="Cần kiểm tra thông tin nhận hoàn trước khi gửi mã."
@@ -115,19 +115,18 @@ function Content() {
         }}
       >
         {sent ? 'Gửi lại mã' : 'Gửi mã xác thực đến email'}
-      </Button>
-      {sent && <Notice>Đã gửi mã đến email của tài khoản.</Notice>}
+      </TextAction>
+      {sent && (
+        <Copy accessibilityLiveRegion="polite" style={ui.muted}>
+          Đã gửi mã đến {auth.session?.email}.
+        </Copy>
+      )}
       {!!actions.otp.error && <ErrorNotice error={actions.otp.error} />}{' '}
       {!!actions.verify.error && <ErrorNotice error={actions.verify.error} />}{' '}
       {!!bankInfo.error && <ErrorNotice error={bankInfo.error} />}
-      <Button
-        secondary
-        disabled={busy}
-        disabledReason="Đang xác nhận thông tin."
-        onPress={() => router.back()}
-      >
+      <TextAction disabled={busy} disabledReason="Đang xác nhận thông tin." onPress={() => router.back()}>
         Quay lại thông tin tài khoản
-      </Button>
+      </TextAction>
     </Screen>
   );
 }

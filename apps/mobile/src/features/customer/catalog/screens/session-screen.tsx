@@ -1,7 +1,8 @@
 import { formatSessionTime } from '@event/core';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, View } from 'react-native';
-import { ActionFooter, Button, Copy, Heading, Notice, QueryState, Screen, c, ui } from '@/components/ui';
+import { ActionFooter, Copy, Heading, QueryState, Screen, c, ui } from '@/components/ui';
+import { TextAction } from '@/components/customer-controls';
 import { useSessions } from '../hooks/use-catalog';
 import { useBookingDraft } from '@/features/customer/booking/draft-store';
 import { useFormDraft } from '@/features/forms/use-form-draft';
@@ -96,8 +97,7 @@ export default function SessionScreen() {
               </Copy>
             </Pressable>
             {!available && (
-              <Button
-                secondary
+              <TextAction
                 onPress={() =>
                   router.push({
                     pathname: '/sessions/[sessionId]/status',
@@ -106,12 +106,12 @@ export default function SessionScreen() {
                 }
               >
                 Xem thông tin suất diễn
-              </Button>
+              </TextAction>
             )}
           </View>
         );
       })}
-      <Notice>Thời gian hiển thị theo múi giờ địa điểm tổ chức.</Notice>
+      {!!query.data?.length && <Copy style={ui.muted}>Giờ địa phương tại nơi tổ chức</Copy>}
     </Screen>
   );
 }

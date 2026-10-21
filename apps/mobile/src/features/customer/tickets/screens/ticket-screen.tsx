@@ -1,6 +1,7 @@
 import { useLocalSearchParams, router } from 'expo-router';
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import { Button, ErrorNotice, Notice, QueryState, Screen } from '@/components/ui';
+import { MenuGroup, MenuRow } from '@/components/customer-controls';
 import { useBookingTickets, useTicket } from '../hooks/use-ticket';
 import { TicketPresentation } from '../components/ticket-presentation';
 function Content() {
@@ -46,68 +47,69 @@ function Content() {
       {ticket?.session?.status === 'CANCELLED' && (
         <>
           <Notice warning>Suất diễn đã bị hủy. Vé không dùng để vào cổng.</Notice>
-          <Button
-            secondary
+          <MenuRow
+            label="Thông tin hủy suất và hoàn tiền"
             onPress={() => router.push({ pathname: '/tickets/[ticketId]/cancelled', params: { ticketId } })}
-          >
-            Thông tin hủy suất và hoàn tiền
-          </Button>
+          />
         </>
       )}
       <QueryState error={siblings.error} retry={() => void siblings.refetch()} compact />
-      <Button
-        secondary
-        disabled={!ticket}
-        disabledReason="Cần tải được vé để xác định địa điểm."
-        onPress={() => router.push({ pathname: '/tickets/[ticketId]/venue', params: { ticketId } })}
-      >
-        Thông tin địa điểm
-      </Button>
-      {ticket && !ticket.holderName && ticket.status === 'ISSUED' && online && (
-        <Button
-          secondary
-          disabled={!!query.error}
-          disabledReason="Cần kiểm tra được trạng thái vé trước khi ghi tên."
-          onPress={() => router.push({ pathname: '/tickets/[ticketId]/holder', params: { ticketId } })}
-        >
-          Ghi tên người tham dự
-        </Button>
-      )}
-      <Button
-        secondary
-        busy={download.isPending}
-        disabled={!online || !query.data || !!query.error}
-        disabledReason={
-          !online
-            ? 'Cần kết nối mạng để tải bản cập nhật của vé.'
-            : 'Cần tải được thông tin vé trước khi lưu để xem offline.'
-        }
-        onPress={() => download.mutate()}
-      >
-        {download.isSuccess ? 'Đã tải vé để xem offline' : 'Tải vé để xem offline'}
-      </Button>
+      <MenuGroup title="Thông tin vé">
+        <MenuRow
+          icon="venue"
+          label="Địa điểm tổ chức"
+          disabled={!ticket}
+          disabledReason="Cần tải được vé để xác định địa điểm."
+          onPress={() => router.push({ pathname: '/tickets/[ticketId]/venue', params: { ticketId } })}
+        />
+        {ticket && !ticket.holderName && ticket.status === 'ISSUED' && online && (
+          <MenuRow
+            icon="account"
+            label="Ghi tên người tham dự"
+            disabled={!!query.error}
+            disabledReason="Cần kiểm tra được trạng thái vé trước khi ghi tên."
+            onPress={() => router.push({ pathname: '/tickets/[ticketId]/holder', params: { ticketId } })}
+          />
+        )}
+        <MenuRow
+          icon="ticket"
+          navigation={false}
+          label={download.isSuccess ? 'Đã lưu vé trên thiết bị' : 'Lưu vé để xem offline'}
+          busy={download.isPending}
+          disabled={!online || !query.data || !!query.error}
+          disabledReason={
+            !online
+              ? 'Cần kết nối mạng để tải bản cập nhật của vé.'
+              : 'Cần tải được thông tin vé trước khi lưu để xem offline.'
+          }
+          onPress={() => download.mutate()}
+        />
+        {online && (
+          <MenuRow
+            navigation={false}
+            label="Cập nhật trạng thái vé"
+            busy={query.isRefetching}
+            onPress={() => void query.refetch()}
+          />
+        )}
+      </MenuGroup>
       {!!download.error && <ErrorNotice error={download.error} />}
-      {online && (
-        <Button secondary busy={query.isRefetching} onPress={() => void query.refetch()}>
-          Cập nhật trạng thái vé
-        </Button>
-      )}
-      <Button
-        secondary
-        disabled={!ticket}
-        disabledReason="Cần tải được vé liên quan trước khi gửi phản ánh."
-        onPress={() => router.push({ pathname: '/reports/new', params: { ticketId } })}
-      >
-        Gửi phản ánh
-      </Button>
-      <Button
-        secondary
-        onPress={() =>
-          router.push(ticket ? { pathname: '/support', params: { bookingId: ticket.bookingId } } : '/support')
-        }
-      >
-        Liên hệ hỗ trợ
-      </Button>
+      <MenuGroup title="Hỗ trợ">
+        <MenuRow
+          label="Gửi phản ánh"
+          disabled={!ticket}
+          disabledReason="Cần tải được vé liên quan trước khi gửi phản ánh."
+          onPress={() => router.push({ pathname: '/reports/new', params: { ticketId } })}
+        />
+        <MenuRow
+          label="Liên hệ hỗ trợ"
+          onPress={() =>
+            router.push(
+              ticket ? { pathname: '/support', params: { bookingId: ticket.bookingId } } : '/support',
+            )
+          }
+        />
+      </MenuGroup>
     </Screen>
   );
 }

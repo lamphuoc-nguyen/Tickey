@@ -11,7 +11,10 @@ import {
   Notice,
   QueryState,
   Screen,
+  c,
+  ui,
 } from '@/components/ui';
+import { MenuGroup, MenuRow, TextAction } from '@/components/customer-controls';
 import { DetailRow, ResultPanel } from '@/components/detail';
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import { useBookingTickets } from '@/features/customer/tickets/hooks/use-ticket';
@@ -67,19 +70,29 @@ function Content() {
       {!booking && (
         <>
           <BookingSummary />
-          <Notice>Chưa thể tải đơn. Thử lại hoặc liên hệ hỗ trợ; không có thao tác nào được gửi.</Notice>
-          <Button secondary onPress={() => router.push('/support')}>
-            Liên hệ hỗ trợ
-          </Button>
+          <TextAction onPress={() => router.push('/support')}>Liên hệ hỗ trợ</TextAction>
         </>
       )}
       {booking && (
         <>
           {booking.status === 'PENDING' && (
-            <Notice>
-              Thời gian giữ chỗ còn lại: {minutes}:{String(seconds).padStart(2, '0')}
-              {query.remainingMs === 0 ? '. Đang cập nhật trạng thái.' : ''}
-            </Notice>
+            <View
+              style={[
+                ui.row,
+                {
+                  padding: 12,
+                  backgroundColor: c.tint,
+                  borderRadius: 12,
+                  flexWrap: 'wrap',
+                  justifyContent: 'space-between',
+                },
+              ]}
+            >
+              <Copy>{query.remainingMs === 0 ? 'Đang cập nhật giữ chỗ' : 'Giữ chỗ còn'}</Copy>
+              <Copy style={[ui.semibold, { color: c.primary }]}>
+                {minutes}:{String(seconds).padStart(2, '0')}
+              </Copy>
+            </View>
           )}
           {booking.status === 'PAYMENT_PENDING' && (
             <ResultPanel
@@ -116,27 +129,22 @@ function Content() {
           </Card>
           <BookingSummary booking={booking} />
           {booking.status === 'PENDING' && (
-            <>
-              <Notice>
-                Giữ chỗ có thời hạn. Kiểm tra thông tin và thời gian giữ chỗ trước khi thanh toán.
-              </Notice>
-              <Button
-                secondary
+            <MenuGroup title="Tùy chọn thêm">
+              <MenuRow
+                label="Mua cho doanh nghiệp"
+                status="Chưa hỗ trợ"
                 onPress={() =>
                   router.push({ pathname: '/booking/[bookingId]/business', params: { bookingId } })
                 }
-              >
-                Mua cho doanh nghiệp · Chưa hỗ trợ
-              </Button>
-              <Button
-                secondary
+              />
+              <MenuRow
+                label="Giá theo người tham dự"
+                status="Chưa hỗ trợ"
                 onPress={() =>
                   router.push({ pathname: '/booking/[bookingId]/audience', params: { bookingId } })
                 }
-              >
-                Giá theo người tham dự · Chưa hỗ trợ
-              </Button>
-            </>
+              />
+            </MenuGroup>
           )}
           {booking.status === 'CONFIRMED' && (
             <>
@@ -148,34 +156,35 @@ function Content() {
                 empty={!tickets.isPending && !tickets.error && !tickets.data?.length}
                 emptyText="Chưa tải được vé đã phát hành."
               />
-              {tickets.data?.map((t, i) => (
-                <Button
-                  key={t.id}
-                  secondary
-                  onPress={() => router.push({ pathname: '/tickets/[ticketId]', params: { ticketId: t.id } })}
-                >
-                  Vé {i + 1} · {t.seat?.seatCode ?? t.ticketType?.name ?? 'Xem vé'}
-                </Button>
-              ))}
-              <Button
-                secondary
+              <MenuGroup>
+                {tickets.data?.map((t, i) => (
+                  <MenuRow
+                    key={t.id}
+                    icon="ticket"
+                    label={`Vé ${i + 1} · ${t.seat?.seatCode ?? t.ticketType?.name ?? 'Xem vé'}`}
+                    onPress={() =>
+                      router.push({ pathname: '/tickets/[ticketId]', params: { ticketId: t.id } })
+                    }
+                  />
+                ))}
+              </MenuGroup>
+              <MenuRow
+                label="Yêu cầu hoàn tiền"
+                status="Chưa hỗ trợ"
                 onPress={() =>
                   router.push({ pathname: '/booking/[bookingId]/refund-request', params: { bookingId } })
                 }
-              >
-                Yêu cầu hoàn tiền · Chưa hỗ trợ
-              </Button>
+              />
             </>
           )}
           {canCancel(booking) && (
-            <Button
-              secondary
+            <TextAction
               disabled={!!query.error}
               disabledReason="Cần cập nhật được trạng thái đơn trước khi hủy."
               onPress={() => setConfirmCancel(true)}
             >
-              Hủy đơn đang giữ chỗ
-            </Button>
+              Hủy đơn
+            </TextAction>
           )}
           <Modal
             visible={confirmCancel}
@@ -196,7 +205,7 @@ function Content() {
                   label="Ghế đang giữ"
                   value={booking.items.map((i) => i.seatCode ?? 'Khu đứng').join(', ')}
                 />
-                <Copy>Chỉ hủy khi đơn cho phép. Chỗ được trả lại sau khi xác nhận hủy.</Copy>
+                <Copy>Các chỗ trong đơn sẽ được trả lại khi hủy.</Copy>
                 <Button
                   busy={cancel.isPending}
                   disabled={!canCancel(booking) || !!query.error}
@@ -224,27 +233,27 @@ function Content() {
             </View>
           </Modal>
           {['REFUND_PENDING', 'PARTIALLY_REFUNDED', 'REFUNDED'].includes(booking.status) && (
-            <Button secondary onPress={() => router.push({ pathname: '/refunds', params: { bookingId } })}>
-              Theo dõi hoàn tiền
-            </Button>
+            <MenuRow
+              label="Theo dõi hoàn tiền"
+              onPress={() => router.push({ pathname: '/refunds', params: { bookingId } })}
+            />
           )}
           {['EXPIRED', 'CANCELLED'].includes(booking.status) && (
             <Button onPress={() => router.replace('/')}>Khám phá và chọn lại vé</Button>
           )}
-          <Button
-            secondary
-            onPress={() =>
-              router.push({ pathname: '/booking/[bookingId]/payment-status', params: { bookingId } })
-            }
-          >
-            Thông tin giao dịch
-          </Button>
-          <Button secondary onPress={() => router.push({ pathname: '/support', params: { bookingId } })}>
-            Liên hệ hỗ trợ
-          </Button>
-          <Button secondary onPress={() => router.replace('/orders')}>
-            Xem đơn của tôi
-          </Button>
+          <MenuGroup>
+            <MenuRow
+              label="Thông tin giao dịch"
+              onPress={() =>
+                router.push({ pathname: '/booking/[bookingId]/payment-status', params: { bookingId } })
+              }
+            />
+            <MenuRow
+              label="Liên hệ hỗ trợ"
+              onPress={() => router.push({ pathname: '/support', params: { bookingId } })}
+            />
+            <MenuRow label="Đơn của tôi" onPress={() => router.replace('/orders')} />
+          </MenuGroup>
         </>
       )}
     </Screen>

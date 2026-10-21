@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { Pressable, View } from 'react-native';
-import { ActionFooter, Button, Copy, Field, Heading, QueryState, Screen, c, ui } from '@/components/ui';
+import { Button, Copy, Field, Heading, QueryState, Screen, c, ui } from '@/components/ui';
 import { useCategories, useEvents } from '../hooks/use-catalog';
 import { EventCard } from '../components/event-card';
 import { useFormDraft } from '@/features/forms/use-form-draft';
@@ -11,7 +11,6 @@ export default function SearchScreen() {
     text: '',
     q: '',
     categoryId: params.categoryId ?? '',
-    selectedId: '',
   });
   useEffect(() => {
     const timer = setTimeout(() => update({ q: draft.text.trim() }), 300);
@@ -20,23 +19,8 @@ export default function SearchScreen() {
   const query = useEvents({ q: draft.q, categoryId: draft.categoryId || undefined }),
     categories = useCategories();
   const events = query.data?.pages.flat() ?? [];
-  const selected = events.find((e) => e.id === draft.selectedId);
   return (
-    <Screen
-      footer={
-        <ActionFooter
-          disabled={!selected || !!query.error}
-          disabledReason={
-            query.error ? 'Chưa thể tải sự kiện. Vui lòng thử lại.' : 'Chọn sự kiện để tiếp tục.'
-          }
-          onPress={() =>
-            selected && router.push({ pathname: '/events/[eventId]', params: { eventId: selected.id } })
-          }
-        >
-          {selected ? `Xem ${selected.title}` : 'Tiếp tục'}
-        </ActionFooter>
-      }
-    >
+    <Screen>
       <Heading>Tìm sự kiện</Heading>
       <Field
         label="Tên sự kiện"
@@ -72,20 +56,20 @@ export default function SearchScreen() {
           { label: 'Thời gian', reason: 'Lọc theo tháng chưa được hỗ trợ.' },
           { label: 'Địa điểm', reason: 'Lọc theo địa điểm chưa được hỗ trợ.' },
         ].map((filter) => (
-          <View key={filter.label} style={{ flex: 1, minWidth: 120, gap: 8 }}>
+          <View key={filter.label} style={{ flex: 1, minWidth: 120 }}>
             <Pressable
               disabled
               accessibilityRole="button"
               accessibilityState={{ disabled: true }}
               accessibilityHint={filter.reason}
-              style={{ minHeight: 48, padding: 12, borderRadius: 8, backgroundColor: c.blueTint }}
+              style={{ minHeight: 48, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: c.border }}
             >
-              <Copy style={{ color: c.blue }}>{filter.label}</Copy>
+              <Copy style={ui.muted}>{filter.label}</Copy>
             </Pressable>
-            <Copy style={[ui.muted, { fontSize: 12, lineHeight: 19 }]}>{filter.reason}</Copy>
           </View>
         ))}
       </View>
+      <Copy style={[ui.muted, { fontSize: 12 }]}>Lọc thời gian và địa điểm chưa khả dụng.</Copy>
       <QueryState
         loading={query.isPending}
         error={query.error}
@@ -94,12 +78,7 @@ export default function SearchScreen() {
         emptyText="Không tìm thấy sự kiện phù hợp."
       />
       {events.map((event) => (
-        <EventCard
-          key={event.id}
-          event={event}
-          selected={event.id === draft.selectedId}
-          onSelect={() => update({ selectedId: event.id })}
-        />
+        <EventCard key={event.id} event={event} />
       ))}
       {query.hasNextPage && (
         <Button busy={query.isFetchingNextPage} onPress={() => void query.fetchNextPage()} secondary>

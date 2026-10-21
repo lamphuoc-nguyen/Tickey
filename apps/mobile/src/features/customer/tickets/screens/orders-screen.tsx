@@ -2,78 +2,60 @@ import { formatMoney } from '@event/core';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import { Pressable, RefreshControl, View } from 'react-native';
-import { ActionFooter, Button, Copy, Heading, QueryState, Screen, ui } from '@/components/ui';
+import { Button, Copy, Heading, Icon, QueryState, Screen, ui } from '@/components/ui';
+import { MenuRow } from '@/components/customer-controls';
 import { TabBar } from '@/components/tab-bar';
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import { useOrders } from '@/features/customer/account/hooks/use-customer-data';
 import { bookingLabels } from '@/features/customer/booking/booking-presentation';
-import { useFormDraft } from '@/features/forms/use-form-draft';
 
 function Content() {
   const query = useOrders();
   const orders = query.data?.pages.flat() ?? [];
-  const { draft, update } = useFormDraft('orders:selection', { id: '' });
-  const selected = orders.find((order) => order.id === draft.id);
   const empty = !query.isPending && !query.error && !orders.length;
   return (
     <Screen
       back={false}
-      footer={
-        empty ? (
-          <ActionFooter onPress={() => router.replace('/')}>Khám phá sự kiện</ActionFooter>
-        ) : (
-          <View style={{ gap: 16 }}>
-            {!!orders.length && (
-              <Button
-                disabled={!selected}
-                disabledReason="Chọn một đơn trong danh sách để xem chi tiết."
-                onPress={() => {
-                  if (selected)
-                    router.push({ pathname: '/booking/[bookingId]', params: { bookingId: selected.id } });
-                }}
-              >
-                {selected ? `Xem đơn ${selected.code}` : 'Xem đơn đã chọn'}
-              </Button>
-            )}
-            <TabBar current="/orders" />
-          </View>
-        )
-      }
+      footer={<TabBar current="/orders" />}
       refreshControl={
         <RefreshControl refreshing={query.isRefetching} onRefresh={() => void query.refetch()} />
       }
     >
-      <Heading>{empty ? 'Bạn chưa có đơn vé' : 'Đơn của tôi'}</Heading>
-      {empty && <Copy style={ui.muted}>Vé của bạn sẽ xuất hiện ở đây sau khi đặt.</Copy>}
+      <Heading>Đơn của tôi</Heading>
       <QueryState
         loading={query.isPending}
         error={query.error}
         retry={() => void query.refetch()}
         empty={empty}
-        emptyText="Khám phá sự kiện và chọn vé phù hợp với bạn."
+        emptyText="Bạn chưa có đơn vé"
       />
+      {empty && <Button onPress={() => router.replace('/')}>Khám phá sự kiện</Button>}
       {orders.map((order) => (
         <Pressable
-          accessibilityRole="radio"
-          accessibilityState={{ checked: order.id === selected?.id }}
-          accessibilityLabel={`Đơn ${order.code}`}
-          onPress={() => update({ id: order.id })}
+          accessibilityRole="button"
+          accessibilityLabel={`Đơn ${order.code}, ${order.session?.event?.title ?? ''}, ${bookingLabels[order.status]}`}
+          onPress={() => router.push({ pathname: '/booking/[bookingId]', params: { bookingId: order.id } })}
           key={order.id}
-          style={[ui.card, { padding: 8 }, order.id === selected?.id && { borderColor: '#B93620' }]}
+          style={({ pressed }) => [ui.card, ui.row, pressed && { opacity: 0.8 }]}
         >
           {order.session?.event?.coverImageUrl && (
             <Image
               source={order.session.event.coverImageUrl}
-              style={{ height: 68, width: '100%', borderRadius: 10 }}
+              style={{ height: 68, width: 68, borderRadius: 10 }}
               contentFit="cover"
             />
           )}
-          <Copy style={ui.semibold}>
-            {order.code} · {order.session?.event?.title}
-          </Copy>
-          <Copy style={[ui.muted, { fontSize: 11 }]}>
-            {order.itemCount} vé · {formatMoney(order.totalAmount)} · {bookingLabels[order.status]}
-          </Copy>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Copy style={ui.semibold}>{order.session?.event?.title ?? order.code}</Copy>
+            <Copy style={ui.muted}>
+              {order.code} · {order.itemCount} vé
+            </Copy>
+            <Copy>{formatMoney(order.totalAmount)}</Copy>
+            <Copy style={[ui.muted, { fontSize: 12 }]}>{bookingLabels[order.status]}</Copy>
+          </View>
+          <View style={{ transform: [{ rotate: '-90deg' }] }} accessible={false}>
+            <Icon name="chevron" />
+          </View>
         </Pressable>
       ))}
       {query.hasNextPage && (
@@ -81,9 +63,12 @@ function Content() {
           Xem thêm đơn
         </Button>
       )}
-      <Button secondary onPress={() => router.push('/tickets')}>
-        Danh sách vé · Vé đã tải
-      </Button>
+      <MenuRow
+        icon="ticket"
+        label="Vé của tôi"
+        description="Vé điện tử và vé đã lưu"
+        onPress={() => router.push('/tickets')}
+      />
     </Screen>
   );
 }

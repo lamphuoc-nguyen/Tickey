@@ -1,5 +1,7 @@
 # Customer mobile — triển khai và bàn giao
 
+Cập nhật UI 21/10/2026 theo phản hồi ảnh menu: [thu gọn điều hướng và ghi chú Customer](CUSTOMER_UI_REFINEMENT.md). Search/Orders mở chi tiết bằng một lần chạm; menu nhóm gọn, ít banner hơn. Giữ các hạn chế backend và không nâng trạng thái kiểm chứng toàn bộ 79 frame.
+
 Rà soát mới nhất ngày **21/10/2026**: [đối chiếu backend, thay đổi Customer và kết quả kiểm tra](CUSTOMER_BACKEND_AUDIT.md). Mobile 76 tests, Core 61, backend 81 qua; kiểm tra GET thật trả catalog rỗng. Android phiên này chỉ xác nhận Home/Search lỗi kết nối và Staff guest guard; không xác nhận flow đơn/vé hoặc UI/UX hoàn chỉnh. Chưa có staging, chỉ kiểm thử cục bộ và đọc hosted.
 
 Phạm vi theo phân công Customer mới: `apps/mobile` và package chung cần thiết. Mobile là **một app dùng chung Customer/Staff**, đăng nhập chung và phân giao diện theo quyền server, không có nút chuyển role. Nền Customer đã chuyển sang `apps/mobile` (`@event/mobile`), giữ Expo Router và cấu hình native hiện có; không khởi tạo app mới. Giữ tài liệu phân công gốc, nhánh giaunh-cusmobile và công việc của đồng đội. Lần audit 21/10/2026 không sửa backend/migration/Figma; commit/push theo yêu cầu người dùng trên nhánh hiện có, không merge/deploy, EAS/store, reset/seed hoặc ghi dữ liệu hosted PRODUCTION.

@@ -52,10 +52,12 @@ export function EventCard({
         </View>
       )}
       <View style={{ gap: 4 }}>
-        <Copy style={ui.semibold}>{event.title}</Copy>
-        <Copy style={{ color: c.muted, fontSize: 11, lineHeight: 16 }}>
-          {event.summary ?? 'Thông tin chi tiết trong sự kiện'}
+        <Copy numberOfLines={small ? 2 : 3} style={ui.semibold}>
+          {event.title}
         </Copy>
+        {event.category && (
+          <Copy style={{ color: c.muted, fontSize: 11, lineHeight: 16 }}>{event.category.name}</Copy>
+        )}
         <Copy style={{ color: c.accent, fontFamily: 'BeVietnamPro-SemiBold', fontSize: 12 }}>
           Xem hạng vé
         </Copy>

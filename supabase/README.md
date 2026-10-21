@@ -11,6 +11,12 @@ psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/scrip
 bash supabase/scripts/concurrency_ac01.sh      # AC-01 song song thật (50 kết nối)
 ```
 
+## Nhập dữ liệu thật của nhóm
+
+Bộ dữ liệu giả được người dùng yêu cầu đã nhập riêng trên hosted: [SUPABASE_DEMO_DATA.md](../docs/SUPABASE_DEMO_DATA.md). 4 sự kiện đã PUBLISHED và có trên Customer; tên hiển thị nghiệp vụ đã bỏ tiền tố, còn giới hạn nhãn sơ đồ bất biến/tài khoản được ghi rõ trong bàn giao. Không chạy seed local để nhập lại. Journal/credentials DEMO đã mã hóa Windows DPAPI và Git ignore.
+
+Dùng công cụ riêng và mẫu trống theo [SUPABASE_DATA_IMPORT.md](../docs/SUPABASE_DATA_IMPORT.md): `pnpm data:plan` kiểm offline, `pnpm data:check` chỉ đọc Auth, `pnpm data:import` gọi RPC bằng tài khoản thật. `pnpm data:bootstrap` chỉ xuất SQL tham chiếu để review, không chạy database. Không dùng `seed.sql` hoặc các lệnh reset/test ghi dành cho local trên hosted PRODUCTION. Link project không phải nguồn dữ liệu; cần điền dữ liệu nhóm thật trước khi nhập.
+
 ## Tài khoản test (seed.sql)
 
 Mật khẩu chung (chỉ dùng local): **`Dev@123456`**

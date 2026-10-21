@@ -1,17 +1,8 @@
 import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable } from 'react-native';
-import {
-  ActionFooter,
-  Button,
-  Copy,
-  ErrorNotice,
-  Heading,
-  Notice,
-  QueryState,
-  Screen,
-  ui,
-} from '@/components/ui';
+import { ActionFooter, Copy, ErrorNotice, Heading, Notice, QueryState, Screen, ui } from '@/components/ui';
+import { MenuRow } from '@/components/customer-controls';
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import { useBooking } from '@/features/customer/booking/hooks/use-booking';
 import { canPay } from '@/features/customer/booking/booking-presentation';
@@ -34,7 +25,7 @@ function Content() {
           disabled={!configured || !terms || !booking || !canPay(booking, query.remainingMs)}
           disabledReason={
             !configured
-              ? 'Thanh toán trực tuyến chưa khả dụng. Bạn có thể về đơn hoặc liên hệ hỗ trợ.'
+              ? 'Thanh toán trực tuyến chưa khả dụng.'
               : !booking
                 ? 'Cần tải được đơn trước khi thanh toán.'
                 : !canPay(booking, query.remainingMs)
@@ -54,30 +45,22 @@ function Content() {
         <>
           <Heading small>{booking.code}</Heading>
           <BookingSummary booking={booking} />
-          <Notice>
-            Kết quả thanh toán được xác nhận trước khi phát hành vé. Mỗi người sử dụng một vé riêng.
-          </Notice>
           <Pressable
             accessibilityRole="checkbox"
             accessibilityState={{ checked: terms }}
             onPress={() => setTerms((p) => !p)}
             style={[ui.card, { minHeight: 56 }]}
           >
-            <Copy>{terms ? '✓' : '○'} Tôi đã kiểm tra đơn và đồng ý điều khoản thanh toán.</Copy>
+            <Copy>{terms ? '☑' : '☐'} Tôi đồng ý điều khoản thanh toán.</Copy>
           </Pressable>
-          {!configured && (
-            <Notice warning>Thanh toán đang được cấu hình. Vui lòng thử lại sau hoặc liên hệ hỗ trợ.</Notice>
-          )}
           {booking.status !== 'PENDING' && (
             <Notice>Đơn đã đổi trạng thái. Mở đơn để xem kết quả mới nhất.</Notice>
           )}
           {!!payment.error && <ErrorNotice error={payment.error} />}
-          <Button
-            secondary
+          <MenuRow
+            label="Chi tiết đơn"
             onPress={() => router.replace({ pathname: '/booking/[bookingId]', params: { bookingId } })}
-          >
-            Quay về và kiểm tra đơn
-          </Button>
+          />
         </>
       )}
     </Screen>
