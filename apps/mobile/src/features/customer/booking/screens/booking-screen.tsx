@@ -22,7 +22,7 @@ function Content() {
   const { bookingId = '' } = useLocalSearchParams<{ bookingId: string }>();
   const query = useBooking(bookingId),
     cancel = useCancelBooking(),
-    tickets = useBookingTickets(bookingId);
+    tickets = useBookingTickets(bookingId, query.data?.status === 'CONFIRMED');
   const [confirmCancel, setConfirmCancel] = useState(false);
   const booking = query.data;
   const minutes = Math.floor(query.remainingMs / 60000),

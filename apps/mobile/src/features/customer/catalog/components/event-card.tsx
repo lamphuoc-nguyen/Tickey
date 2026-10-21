@@ -10,20 +10,27 @@ export function EventCard({
   event,
   small = false,
   onSelect,
+  selected = false,
 }: {
   event: Event;
   small?: boolean;
   onSelect?: () => void;
+  selected?: boolean;
 }) {
   return (
     <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`Xem ${event.title}`}
+      accessibilityRole={onSelect ? 'radio' : 'button'}
+      accessibilityState={onSelect ? { checked: selected } : undefined}
+      accessibilityLabel={`${onSelect ? 'Chọn' : 'Xem'} ${event.title}`}
       onPress={() => {
-        onSelect?.();
-        router.push({ pathname: '/events/[eventId]', params: { eventId: event.id } });
+        if (onSelect) onSelect();
+        else router.push({ pathname: '/events/[eventId]', params: { eventId: event.id } });
       }}
-      style={[ui.card, { padding: 8, gap: 12, width: small ? 170 : '100%', minHeight: small ? 224 : 228 }]}
+      style={[
+        ui.card,
+        { padding: 8, gap: 12, width: small ? 170 : '100%', minHeight: small ? 224 : 228 },
+        selected && { borderColor: c.accent, backgroundColor: c.tint },
+      ]}
     >
       {event.coverImageUrl ? (
         <Image

@@ -86,6 +86,11 @@ function Content() {
         editable={!holder.isPending}
         onChangeText={(phone) => update({ phone })}
         keyboardType="phone-pad"
+        error={
+          checked && draft.phone && !/^[+\d\s()-]{6,20}$/.test(draft.phone)
+            ? 'Số điện thoại cần 6–20 ký tự hợp lệ.'
+            : undefined
+        }
       />
       {!!holder.error && <ErrorNotice error={holder.error} />}
     </Screen>

@@ -7,6 +7,7 @@ import { Pressable, View } from 'react-native';
 import {
   ActionFooter,
   Button,
+  Card,
   Copy,
   ErrorNotice,
   Field,
@@ -19,7 +20,7 @@ import {
   Select,
   errorMessage,
 } from '@/components/ui';
-import { ResultPanel } from '@/components/detail';
+import { DetailRow, ResultPanel } from '@/components/detail';
 import {
   useAvailability,
   useLayout,
@@ -30,7 +31,7 @@ import {
 import { useBookingDraft } from '../draft-store';
 import { useSelectionBooking } from '../hooks/use-selection-booking';
 import { FreeRegistrationFields } from '../components/free-registration-fields';
-import { selectionLimit } from '../selection-rules';
+import { selectedSeatItems, selectionLimit } from '../selection-rules';
 
 const seatStatusLabels: Record<SeatState, string> = {
   AVAILABLE: 'Còn trống',
@@ -68,24 +69,23 @@ export default function SelectionScreen() {
       ),
     [pricing.data],
   );
+  const seated = selectedSeatItems(draft.selected, seatsToType);
+  const mixedSelection = zone?.type === 'standing' && draft.selected.length > 0;
   const items: BookingItemInput[] =
     zone?.type === 'standing'
       ? selectedType
         ? [{ ticketTypeId: selectedType.id, zoneId: zone.id, quantity: draft.quantity }]
         : []
       : zone?.type === 'seated'
-        ? draft.selected.flatMap((id) => {
-            const typeId = seatsToType.get(id);
-            return typeId ? [{ seatId: id, ticketTypeId: typeId }] : [];
-          })
+        ? seated.items
         : [];
   const limit = selectionLimit(
     items,
     activeTypes,
     sessions.data?.find((s) => s.id === sessionId)?.maxTicketsPerAccount,
   );
-  const allSeats = layout.data?.zones.flatMap((z) => z.seats) ?? [];
-  const seatById = new Map(allSeats.map((s) => [s.id, s]));
+  const allSeats = useMemo(() => layout.data?.zones.flatMap((z) => z.seats) ?? [], [layout.data]);
+  const seatById = useMemo(() => new Map(allSeats.map((s) => [s.id, s])), [allSeats]);
   const total =
     zone?.type === 'standing'
       ? (selectedType?.priceAmount ?? 0) * draft.quantity
@@ -111,7 +111,7 @@ export default function SelectionScreen() {
   const changed = draft.selected.some(
     (id) => !seatById.has(id) || (seatStates[id] && seatStates[id] !== 'AVAILABLE'),
   );
-  const error = layout.error ?? availability.error ?? pricing.error ?? types.error;
+  const error = layout.error ?? availability.error ?? pricing.error ?? types.error ?? sessions.error;
   const refreshing = availability.isRefetching;
   const layoutData: LayoutData = useMemo(
     () => ({
@@ -134,6 +134,8 @@ export default function SelectionScreen() {
       !items.length ||
       !zone ||
       standingContractMissing ||
+      mixedSelection ||
+      seated.missing.length > 0 ||
       !!limit ||
       (zone?.type === 'standing' ? draft.quantity > maxQuantity || draft.quantity < 1 : changed));
   const visibleAccessibleSeats = (zone?.seats ?? []).slice(page * 20, page * 20 + 20);
@@ -183,6 +185,10 @@ export default function SelectionScreen() {
           <ActionFooter
             disabled={disabled}
             disabledReason={
+              (mixedSelection ? 'Bỏ chọn các ghế đang chọn trước khi đặt vé khu đứng.' : null) ??
+              (seated.missing.length
+                ? 'Chưa tải được hạng vé của một số ghế. Bỏ chọn hoặc tải lại thông tin.'
+                : null) ??
               limit ??
               (error
                 ? 'Chưa thể tải đầy đủ thông tin chỗ. Vui lòng thử lại.'
@@ -225,6 +231,7 @@ export default function SelectionScreen() {
           void availability.refetch();
           void pricing.refetch();
           void types.refetch();
+          if (eventId) void sessions.refetch();
         }}
         empty={!!isReady && !layout.data?.zones.length}
         emptyText="Chưa có sơ đồ hoặc khu vé."
@@ -354,21 +361,6 @@ export default function SelectionScreen() {
               />
               <Copy>Còn trống · ✓ Đang chọn · ! Xung đột · × Chặn bán</Copy>
               <Copy style={ui.muted}>Màu xám: đã bán · Vàng: khóa tạm · Xanh nhạt: Ban tổ chức giữ.</Copy>
-              {draft.selected.map((id) => (
-                <View key={id} style={[ui.card, ui.row]}>
-                  <Copy style={{ flex: 1 }}>
-                    {seatById.get(id)?.code} · {activeTypes.find((t) => t.id === seatsToType.get(id))?.name}
-                  </Copy>
-                  <Button
-                    disabled={draft.unresolved}
-                    disabledReason="Đang kiểm tra yêu cầu đặt vé, cần giữ nguyên lựa chọn."
-                    secondary
-                    onPress={() => draft.toggleSeat(id)}
-                  >
-                    Bỏ chọn
-                  </Button>
-                </View>
-              ))}
               <Button secondary onPress={() => setAccessible((p) => !p)}>
                 Danh sách ghế dễ truy cập
               </Button>
@@ -418,6 +410,37 @@ export default function SelectionScreen() {
               )}
             </>
           ) : null}
+          {(draft.selected.length > 0 || (zone?.type === 'standing' && selectedType)) && (
+            <Card>
+              <Heading small>Vé đã chọn</Heading>
+              {mixedSelection && (
+                <Notice warning>
+                  Bạn còn ghế đang chọn ở khu ngồi. Bỏ chọn các ghế này trước khi đặt vé khu đứng.
+                </Notice>
+              )}
+              {draft.selected.map((id) => (
+                <View key={id} style={[ui.row, { flexWrap: 'wrap' }]}>
+                  <Copy style={{ flex: 1 }}>
+                    {seatById.get(id)?.code ?? 'Ghế chưa tải được'} ·{' '}
+                    {activeTypes.find((t) => t.id === seatsToType.get(id))?.name ?? 'Chưa có hạng vé'}
+                  </Copy>
+                  <Button
+                    secondary
+                    disabled={draft.unresolved || booking.isPending}
+                    disabledReason="Đang kiểm tra yêu cầu đặt vé, cần giữ nguyên lựa chọn."
+                    onPress={() => draft.toggleSeat(id)}
+                  >
+                    Bỏ chọn
+                  </Button>
+                </View>
+              ))}
+              <DetailRow
+                label="Số lượng"
+                value={`${zone?.type === 'standing' ? draft.quantity : draft.selected.length} vé`}
+              />
+              {!mixedSelection && <DetailRow label="Tổng tham khảo" value={formatMoney(total)} />}
+            </Card>
+          )}
           {isFree && (
             <FreeRegistrationFields
               sessionId={sessionId}

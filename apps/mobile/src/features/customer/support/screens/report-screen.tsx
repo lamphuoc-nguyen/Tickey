@@ -16,6 +16,7 @@ import {
   Select,
 } from '@/components/ui';
 import { AuthGate } from '@/features/auth/components/auth-gate';
+import { useTickets } from '@/features/customer/account/hooks/use-customer-data';
 import { useTicket } from '@/features/customer/tickets/hooks/use-ticket';
 import { useFormDraft } from '@/features/forms/use-form-draft';
 import { useSupportActions } from '../hooks/use-support-actions';
@@ -24,8 +25,9 @@ type Category = 'NOT_AS_DESCRIBED' | 'EVENT_NOT_HELD' | 'ENTRY_DENIED' | 'SAFETY
 function Content() {
   const { ticketId = '' } = useLocalSearchParams<{ ticketId?: string }>();
   const { ticket, query, online } = useTicket(ticketId);
+  const tickets = useTickets();
   const actions = useSupportActions();
-  const { draft, update, clear } = useFormDraft(`report:${ticketId}`, {
+  const { draft, update, clear } = useFormDraft('report-new', {
     category: 'NOT_AS_DESCRIBED' as Category,
     description: '',
     assets: [] as DocumentPickerAsset[],
@@ -76,9 +78,34 @@ function Content() {
         <Copy>{ticket?.session?.event?.title ?? 'Chưa chọn được vé'}</Copy>
         <Copy>{ticket?.seat?.seatCode ?? (ticket ? 'Khu đứng' : 'Chưa có thông tin vị trí')}</Copy>
         {!ticketId && (
-          <Button secondary onPress={() => router.push('/tickets')}>
-            Chọn vé của tôi
-          </Button>
+          <>
+            <Select
+              label="Chọn vé của tôi"
+              value=""
+              options={(tickets.data?.pages.flat() ?? []).map((t) => ({
+                value: t.id,
+                label: `${t.session?.event?.title ?? 'Vé Tickey'} · ${t.seat?.seatCode ?? t.ticketType?.name ?? 'Khu đứng'}`,
+              }))}
+              onChange={(id) => router.replace({ pathname: '/reports/new', params: { ticketId: id } })}
+            />
+            <QueryState
+              loading={tickets.isPending}
+              error={tickets.error}
+              retry={() => void tickets.refetch()}
+              empty={!tickets.isPending && !tickets.error && !tickets.data?.pages.flat().length}
+              emptyText="Bạn chưa có vé để gửi phản ánh."
+              compact
+            />
+            {tickets.hasNextPage && (
+              <Button
+                secondary
+                busy={tickets.isFetchingNextPage}
+                onPress={() => void tickets.fetchNextPage()}
+              >
+                Tải thêm vé
+              </Button>
+            )}
+          </>
         )}
       </Card>
       <Notice>Gửi trong thời hạn phản ánh. Quyền sở hữu vé và thời hạn được kiểm tra khi gửi.</Notice>

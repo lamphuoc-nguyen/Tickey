@@ -8,6 +8,8 @@ import { staffAccess } from '../staff-access';
 export function StaffGate({ children }: PropsWithChildren) {
   const { auth, actions, access: mobile } = useMobileAccess();
   const next = usePathname();
+  // Local-only visual preview. It is opt-in and never enabled by production env files.
+  const demoStaff = process.env.EXPO_PUBLIC_STAFF_DEMO === 'true';
   const access = staffAccess({
     session: auth.session,
     authLoading: auth.loading,
@@ -16,6 +18,7 @@ export function StaffGate({ children }: PropsWithChildren) {
     membershipError: actions.workspaces.error,
     workspaces: actions.workspaces.data,
   });
+  if (demoStaff) return children;
   if (mobile === 'customer') return <Redirect href="/" />;
   if (access === 'allowed') return children;
   if (access === 'select-workspace') return <WorkspaceScreen staffOnly returnPath={next} />;

@@ -319,8 +319,12 @@ export function ErrorNotice({ error }: { error: unknown }) {
 }
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) {
+    if (error.details.reason === 'REQUEST_TIMEOUT')
+      return 'Kết nối mất quá nhiều thời gian. Vui lòng thử lại.';
+    if (error.details.reason === 'SESSION_SCOPE_CHANGED')
+      return 'Tài khoản hoặc tổ chức đã thay đổi. Vui lòng kiểm tra lại trước khi tiếp tục.';
     if (error.details.reason === 'WORKSPACE_NOT_ACTIVATED')
-      return 'Chưa thể xác nhận vai trò đã chọn. Vui lòng thử lại hoặc liên hệ người quản lý.';
+      return 'Chưa thể xác nhận quyền truy cập. Vui lòng thử lại hoặc liên hệ người quản lý.';
     if (error.details.reason === 'AUTH_LINK_EXPIRED')
       return 'Mã hoặc liên kết xác thực không hợp lệ, đã hết hạn hoặc đã được sử dụng. Vui lòng yêu cầu email mới.';
     if (error.details.reason === 'AUTH_RECOVERY_REQUIRED')
@@ -352,6 +356,8 @@ export function errorMessage(error: unknown): string {
       SESSION_NOT_ON_SALE: 'Suất diễn hiện không bán vé. Vui lòng chọn suất khác.',
       BOOKING_EXPIRED: 'Đã hết thời gian giữ chỗ. Vui lòng chọn lại.',
       OTP_REQUIRED: 'Bạn cần xác thực OTP trước khi gửi tài khoản nhận hoàn.',
+      MFA_REQUIRED: 'Thao tác cần xác thực bảo mật bổ sung. Vui lòng liên hệ hỗ trợ nếu chưa thiết lập.',
+      DEVICE_REVOKED: 'Thiết bị không còn được phép thực hiện thao tác này. Vui lòng liên hệ người quản lý.',
       NOT_FOUND: 'Không tìm thấy thông tin này.',
       INVALID_STATE: 'Thao tác không còn phù hợp với trạng thái hiện tại.',
     };
@@ -390,7 +396,7 @@ export function QueryState({
     );
   if (error)
     return (
-      <View style={ui.state}>
+      <View style={[ui.state, compact && { paddingVertical: 20 }]}>
         <Heading small>
           {error instanceof ApiError
             ? ((
