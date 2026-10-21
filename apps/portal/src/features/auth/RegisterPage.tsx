@@ -23,20 +23,28 @@ export function RegisterPage() {
       return;
     }
 
-    const { error: signUpError } = await supabase.auth.signUp({
+    // full_name is what handle_new_user copies into public.profiles.
+    const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
-          display_name: fullName,
+          full_name: fullName,
         },
       },
     });
 
     setBusy(false);
     if (signUpError) {
-      navigate('/verify');
+      setError(
+        /already registered/i.test(signUpError.message)
+          ? 'Email này đã có tài khoản. Vui lòng đăng nhập.'
+          : 'Không thể đăng ký lúc này. Vui lòng thử lại.',
+      );
+    } else if (data.session) {
+      navigate('/workspaces');
     } else {
+      // Email confirmation is on: the 6-digit code from the email finishes the sign-up.
       setSuccess(true);
     }
   };
@@ -153,10 +161,14 @@ export function RegisterPage() {
               </div>
               <h3 style={{ marginBottom: '8px' }}>Kiểm tra hòm thư của bạn</h3>
               <p style={{ fontSize: '14px', color: 'var(--muted)', marginBottom: '20px' }}>
-                Chúng tôi đã gửi liên kết xác nhận tài khoản tới <strong>{email}</strong>. Vui lòng xác thực email để tiếp tục.
+                Chúng tôi đã gửi mã xác minh 6 chữ số tới <strong>{email}</strong>. Nhập mã để kích hoạt tài khoản.
               </p>
-              <button onClick={() => navigate('/login')} className="btn btn-primary" style={{ width: '100%' }}>
-                Quay lại đăng nhập
+              <button
+                onClick={() => navigate('/verify', { state: { email } })}
+                className="btn btn-primary"
+                style={{ width: '100%' }}
+              >
+                Nhập mã xác minh
               </button>
             </div>
           ) : (

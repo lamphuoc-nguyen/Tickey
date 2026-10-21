@@ -136,7 +136,10 @@ export function useSetMember(orgId: string | null) {
 export function useAssignStaff() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ sessionId, ...body }: {
+    mutationFn: ({
+      sessionId,
+      ...body
+    }: {
       sessionId: string;
       userId: string;
       permissions: string[];

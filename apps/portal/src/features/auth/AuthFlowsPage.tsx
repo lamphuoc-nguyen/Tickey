@@ -1,14 +1,12 @@
-import { useState, type FormEvent } from 'react';
+import { ApiError } from '@event/core';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { TickeyLogo } from '../../components/common/TickeyLogo';
+import { errorMessage } from '../../lib/api';
+import { repositories } from '../../lib/repositories';
+import { supabase } from '../../lib/supabase';
 
-export type AuthFlowScreen =
-  | 'w-mfa'
-  | 'w-mfa-setup'
-  | 'w-mfa-admin'
-  | 'w-verify'
-  | 'w-forgot'
-  | 'w-reset';
+export type AuthFlowScreen = 'w-mfa' | 'w-mfa-setup' | 'w-mfa-admin' | 'w-verify' | 'w-forgot' | 'w-reset';
 
 const FLOW_TABS: Array<{ id: AuthFlowScreen; path: string; label: string; nodeId: string }> = [
   { id: 'w-mfa', path: '/mfa', label: '2FA (w-mfa)', nodeId: '1:4698' },
@@ -19,35 +17,159 @@ const FLOW_TABS: Array<{ id: AuthFlowScreen; path: string; label: string; nodeId
   { id: 'w-reset', path: '/reset-password', label: 'Đặt lại mật khẩu (w-reset)', nodeId: '17:7501' },
 ];
 
+const codeInput = { fontFamily: 'monospace', fontSize: '16px', letterSpacing: '0.12em' } as const;
+
+// Supabase Auth errors are plain objects/Errors, not ApiError; give them readable text.
+function authMessage(error: unknown): string {
+  if (error instanceof ApiError) return errorMessage(error);
+  const message = error instanceof Error ? error.message : String(error);
+  if (/invalid.*(totp|code)|expired|otp/i.test(message))
+    return 'Mã không đúng hoặc đã hết hạn. Vui lòng thử lại.';
+  if (/rate limit|too many/i.test(message))
+    return 'Bạn thao tác quá nhanh. Vui lòng chờ một chút rồi thử lại.';
+  if (/password/i.test(message)) return 'Mật khẩu chưa đạt yêu cầu (tối thiểu 8 ký tự).';
+  return 'Không thể hoàn tất. Vui lòng thử lại.';
+}
+
+interface Enrollment {
+  factorId: string;
+  qrCode: string;
+  secret: string;
+}
+
 export function AuthFlowsPage({ defaultScreen }: { defaultScreen?: AuthFlowScreen }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const passedEmail = (location.state as { email?: string } | null)?.email ?? '';
 
   const resolvedScreen: AuthFlowScreen =
-    defaultScreen ??
-    (FLOW_TABS.find((t) => location.pathname === t.path)?.id || 'w-mfa');
+    defaultScreen ?? (FLOW_TABS.find((t) => location.pathname === t.path)?.id || 'w-mfa');
 
-  const [otp, setOtp] = useState('482910');
-  const [email, setEmail] = useState('owner@anhtrang.vn');
-  const [newPassword, setNewPassword] = useState('••••••••••••');
-  const [confirmPassword, setConfirmPassword] = useState('••••••••••••');
-  const [useBackupCode, setUseBackupCode] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [email, setEmail] = useState(passedEmail);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [factorId, setFactorId] = useState<string | null>(null);
+  const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
+  const [alreadyEnrolled, setAlreadyEnrolled] = useState(false);
+
+  const isMfaChallenge = resolvedScreen === 'w-mfa' || resolvedScreen === 'w-mfa-admin';
+
+  // 2FA challenge: the verified TOTP factor; none yet → set one up first.
+  useEffect(() => {
+    if (!isMfaChallenge) return;
+    void supabase.auth.mfa.listFactors().then(({ data, error: listError }) => {
+      if (listError) {
+        setError(authMessage(listError));
+        return;
+      }
+      const totp = data.totp[0];
+      if (totp) setFactorId(totp.id);
+      else navigate('/mfa-setup', { replace: true });
+    });
+  }, [isMfaChallenge, navigate]);
+
+  // 2FA setup: drop half-finished enrolments, then enrol a new TOTP factor and show its QR code.
+  useEffect(() => {
+    if (resolvedScreen !== 'w-mfa-setup') return;
+    let cancelled = false;
+    void (async () => {
+      const { data: factors, error: listError } = await supabase.auth.mfa.listFactors();
+      if (listError) return setError(authMessage(listError));
+      if (factors.totp.length) {
+        if (!cancelled) setAlreadyEnrolled(true);
+        return;
+      }
+      for (const factor of factors.all.filter((f) => f.factor_type === 'totp' && f.status === 'unverified')) {
+        await supabase.auth.mfa.unenroll({ factorId: factor.id });
+      }
+      const { data, error: enrollError } = await supabase.auth.mfa.enroll({
+        factorType: 'totp',
+        // Unique: friendly names must not repeat, and a re-run effect may enrol twice.
+        friendlyName: `Tickey ${new Date().toISOString()}`,
+      });
+      if (cancelled) return;
+      if (enrollError) return setError(authMessage(enrollError));
+      setEnrollment({ factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedScreen]);
+
+  const run = async (action: () => Promise<void>) => {
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      await action();
+    } catch (failure) {
+      setError(authMessage(failure));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const verifyTotp = async (id: string) => {
+    const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
+      factorId: id,
+      code: otp.trim(),
+    });
+    if (verifyError) throw verifyError;
+  };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (resolvedScreen === 'w-mfa' || resolvedScreen === 'w-mfa-setup') {
-      navigate('/workspaces');
-    } else if (resolvedScreen === 'w-mfa-admin') {
-      navigate('/admin');
-    } else if (resolvedScreen === 'w-verify') {
-      navigate('/workspaces');
-    } else if (resolvedScreen === 'w-forgot') {
-      navigate('/reset-password');
-    } else if (resolvedScreen === 'w-reset') {
-      navigate('/login');
-    }
+    void run(async () => {
+      if (isMfaChallenge) {
+        if (!factorId) throw new Error('otp');
+        await verifyTotp(factorId);
+        navigate('/workspaces');
+      } else if (resolvedScreen === 'w-mfa-setup') {
+        if (alreadyEnrolled) return navigate('/mfa');
+        if (!enrollment) return;
+        await verifyTotp(enrollment.factorId);
+        navigate('/workspaces');
+      } else if (resolvedScreen === 'w-verify') {
+        await repositories.auth.verifyOtp(email, otp, 'signup');
+        navigate('/workspaces');
+      } else if (resolvedScreen === 'w-forgot') {
+        await repositories.auth.forgotPassword(email, `${window.location.origin}/reset-password`);
+        navigate('/reset-password', { state: { email } });
+      } else if (resolvedScreen === 'w-reset') {
+        if (newPassword !== confirmPassword) {
+          setError('Hai mật khẩu chưa trùng khớp.');
+          return;
+        }
+        await repositories.auth.verifyOtp(email, otp, 'recovery');
+        await repositories.auth.resetPassword(newPassword);
+        await supabase.auth.signOut();
+        navigate('/login');
+      }
+    });
   };
+
+  const resendSignup = () =>
+    void run(async () => {
+      await repositories.auth.resendSignup(email);
+      setNotice('Đã gửi lại mã xác minh 6 chữ số tới email của bạn.');
+    });
+
+  const emailField = (
+    <label>
+      Email
+      <input
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="Nhập email"
+        required
+      />
+    </label>
+  );
 
   return (
     <div
@@ -60,46 +182,56 @@ export function AuthFlowsPage({ defaultScreen }: { defaultScreen?: AuthFlowScree
         padding: '32px 24px 64px',
       }}
     >
-      {/* Top Figma Frame Switcher Bar for Section 00 */}
-      <div
-        className="card"
-        style={{
-          width: '100%',
-          maxWidth: '980px',
-          padding: '12px 18px',
-          marginBottom: '32px',
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '10px',
-        }}
-      >
-        <span className="tag-overline" style={{ marginBottom: 0 }}>
-          00 / ĐĂNG NHẬP CHUNG · Web
-        </span>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-          <Link to="/login" className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '12px' }}>
-            Đăng nhập (w-login)
-          </Link>
-          <Link to="/register" className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '12px' }}>
-            Đăng ký (w-register)
-          </Link>
-          <Link to="/workspaces" className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '12px' }}>
-            Workspace (w-workspace)
-          </Link>
-          {FLOW_TABS.map((tab) => (
+      {/* Figma frame switcher: a design-review aid, local development only */}
+      {import.meta.env.DEV && (
+        <div
+          className="card"
+          style={{
+            width: '100%',
+            maxWidth: '980px',
+            padding: '12px 18px',
+            marginBottom: '32px',
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px',
+          }}
+        >
+          <span className="tag-overline" style={{ marginBottom: 0 }}>
+            00 / ĐĂNG NHẬP CHUNG · Web
+          </span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            <Link to="/login" className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '12px' }}>
+              Đăng nhập (w-login)
+            </Link>
             <Link
-              key={tab.id}
-              to={tab.path}
-              className={`btn ${resolvedScreen === tab.id ? 'btn-primary' : 'btn-outline'}`}
+              to="/register"
+              className="btn btn-outline"
               style={{ padding: '6px 12px', fontSize: '12px' }}
             >
-              {tab.label}
+              Đăng ký (w-register)
             </Link>
-          ))}
+            <Link
+              to="/workspaces"
+              className="btn btn-outline"
+              style={{ padding: '6px 12px', fontSize: '12px' }}
+            >
+              Workspace (w-workspace)
+            </Link>
+            {FLOW_TABS.map((tab) => (
+              <Link
+                key={tab.id}
+                to={tab.path}
+                className={`btn ${resolvedScreen === tab.id ? 'btn-primary' : 'btn-outline'}`}
+                style={{ padding: '6px 12px', fontSize: '12px' }}
+              >
+                {tab.label}
+              </Link>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Main Centered Figma Frame Card */}
       <div
@@ -125,69 +257,64 @@ export function AuthFlowsPage({ defaultScreen }: { defaultScreen?: AuthFlowScree
           </span>
         </div>
 
-        {notice && (
+        {(notice || error) && (
           <div
             style={{
               padding: '12px 14px',
               borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--success-bg)',
-              color: 'var(--success)',
+              backgroundColor: error ? 'var(--danger-bg)' : 'var(--success-bg)',
+              color: error ? 'var(--danger)' : 'var(--success)',
               fontSize: '13px',
               fontWeight: 600,
               marginBottom: '20px',
             }}
           >
-            {notice}
+            {error || notice}
           </div>
         )}
 
-        {/* 1:4698 | w-mfa / Xác thực hai bước */}
-        {resolvedScreen === 'w-mfa' && (
+        {/* 1:4698 | w-mfa  ·  1:16827 | w-mfa-admin / Xác thực hai bước */}
+        {isMfaChallenge && (
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div>
+              {resolvedScreen === 'w-mfa-admin' && (
+                <span className="badge badge-info" style={{ marginBottom: '10px' }}>
+                  BẢO MẬT QUẢN TRỊ NỀN TẢNG
+                </span>
+              )}
               <h1 style={{ fontSize: '28px', marginBottom: '6px' }}>Xác thực hai bước</h1>
               <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>
-                Dùng cho tài khoản Admin hoặc thao tác nhạy cảm
+                Bắt buộc với Chủ tổ chức, Kế toán và Admin nền tảng
               </p>
             </div>
 
             <label>
-              {useBackupCode ? 'Mã dự phòng 8 chữ số' : 'Mã xác thực'}
+              Mã xác thực
               <input
                 type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
-                placeholder={
-                  useBackupCode
-                    ? 'Nhập mã dự phòng (VD: 1842-9910)'
-                    : 'Nhập mã 6 chữ số từ ứng dụng xác thực'
-                }
-                style={{ fontFamily: 'monospace', fontSize: '16px', letterSpacing: '0.12em' }}
+                placeholder="Nhập mã 6 chữ số từ ứng dụng xác thực"
+                style={codeInput}
+                required
               />
-              <span style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 400 }}>
-                Nhập mã 6 chữ số từ ứng dụng xác thực
-              </span>
             </label>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
-              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-                Xác nhận
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setUseBackupCode((v) => !v);
-                  setOtp(useBackupCode ? '482910' : '1842-9910');
-                }}
-                className="btn btn-outline"
-                style={{ width: '100%' }}
-              >
-                Dùng mã dự phòng
-              </button>
-            </div>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={{ width: '100%' }}
+              disabled={busy || !factorId}
+            >
+              {busy ? 'Đang xác minh…' : 'Xác nhận'}
+            </button>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', paddingTop: '6px' }}>
-              <Link to="/mfa-setup">Thiết lập ứng dụng 2FA mới</Link>
+            <div style={{ fontSize: '12px', color: 'var(--muted)' }}>
+              Mất ứng dụng xác thực? Liên hệ quản trị nền tảng để gỡ 2FA cũ, rồi thiết lập lại.
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '13px' }}>
               <Link to="/login" style={{ color: 'var(--muted)' }}>
                 Quay lại đăng nhập
               </Link>
@@ -201,126 +328,102 @@ export function AuthFlowsPage({ defaultScreen }: { defaultScreen?: AuthFlowScree
             <div>
               <h1 style={{ fontSize: '28px', marginBottom: '6px' }}>Thiết lập xác thực hai bước</h1>
               <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>
-                Quét mã trên ứng dụng xác thực
+                {alreadyEnrolled
+                  ? 'Tài khoản đã bật xác thực hai bước.'
+                  : 'Quét mã bằng Google Authenticator, Microsoft Authenticator hoặc ứng dụng tương tự'}
               </p>
             </div>
 
-            <div
-              style={{
-                backgroundColor: 'var(--bg)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-lg)',
-                padding: '18px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '18px',
-              }}
-            >
+            {!alreadyEnrolled && (
               <div
                 style={{
-                  width: '104px',
-                  height: '104px',
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: 'var(--bg)',
                   border: '1px solid var(--border)',
-                  borderRadius: '10px',
-                  padding: '10px',
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(5, 1fr)',
-                  gridTemplateRows: 'repeat(5, 1fr)',
-                  gap: '3px',
-                  flexShrink: 0,
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '18px',
                 }}
               >
-                {Array.from({ length: 25 }).map((_, idx) => (
+                <div
+                  style={{
+                    width: '132px',
+                    height: '132px',
+                    backgroundColor: '#FFFFFF',
+                    border: '1px solid var(--border)',
+                    borderRadius: '10px',
+                    padding: '6px',
+                    flexShrink: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 12,
+                    color: 'var(--muted)',
+                  }}
+                >
+                  {enrollment ? (
+                    <img
+                      src={enrollment.qrCode}
+                      alt="Mã QR thiết lập 2FA"
+                      style={{ width: '100%', height: '100%' }}
+                    />
+                  ) : (
+                    'Đang tạo mã…'
+                  )}
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div
-                    key={idx}
                     style={{
-                      borderRadius: '2px',
-                      backgroundColor: [0, 1, 2, 4, 5, 6, 10, 12, 14, 18, 19, 20, 22, 24].includes(idx)
-                        ? 'var(--navy)'
-                        : '#E7E4DF',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      color: 'var(--muted)',
+                      textTransform: 'uppercase',
                     }}
-                  />
-                ))}
-              </div>
-
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
-                  Khóa thiết lập
-                </div>
-                <div style={{ fontSize: '15px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--primary)', marginTop: '2px' }}>
-                  JBSWY3DPEHPK3PXP
-                </div>
-                <div style={{ height: '1px', backgroundColor: 'var(--border)', margin: '10px 0' }} />
-                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
-                  Mã dự phòng
-                </div>
-                <div style={{ fontSize: '13px', fontWeight: 600, fontFamily: 'monospace', color: 'var(--text)', marginTop: '2px' }}>
-                  1842-9910 • 7731-4402
+                  >
+                    Khóa thiết lập (nhập tay nếu không quét được)
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      fontFamily: 'monospace',
+                      color: 'var(--primary)',
+                      marginTop: '2px',
+                      wordBreak: 'break-all',
+                    }}
+                  >
+                    {enrollment?.secret ?? '…'}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            <label>
-              Mã xác nhận đầu tiên
-              <input
-                type="text"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                placeholder="Nhập mã 6 chữ số"
-                style={{ fontFamily: 'monospace', fontSize: '16px', letterSpacing: '0.12em' }}
-              />
-            </label>
+            {!alreadyEnrolled && (
+              <label>
+                Mã xác nhận đầu tiên
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  placeholder="Nhập mã 6 chữ số"
+                  style={codeInput}
+                  required
+                />
+              </label>
+            )}
 
-            <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-              Bật xác thực hai bước
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={{ width: '100%' }}
+              disabled={busy || (!alreadyEnrolled && !enrollment)}
+            >
+              {alreadyEnrolled ? 'Xác thực để tiếp tục' : busy ? 'Đang bật…' : 'Bật xác thực hai bước'}
             </button>
-          </form>
-        )}
-
-        {/* 1:16827 | w-mfa-admin / Xác thực hai bước trước khi vào Admin */}
-        {resolvedScreen === 'w-mfa-admin' && (
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div>
-              <span className="badge badge-info" style={{ marginBottom: '10px' }}>
-                BẢO MẬT QUẢN TRỊ NỀN TẢNG
-              </span>
-              <h1 style={{ fontSize: '28px', marginBottom: '6px' }}>Xác thực hai bước</h1>
-              <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>
-                Dùng cho tài khoản Admin hoặc thao tác nhạy cảm
-              </p>
-            </div>
-
-            <label>
-              Mã xác thực
-              <input
-                type="text"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                placeholder="Nhập mã 6 chữ số từ ứng dụng xác thực"
-                style={{ fontFamily: 'monospace', fontSize: '16px', letterSpacing: '0.12em' }}
-              />
-              <span style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 400 }}>
-                Nhập mã 6 chữ số từ ứng dụng xác thực
-              </span>
-            </label>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
-              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-                Xác nhận và vào Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setOtp('7731-4402');
-                  setNotice('Đã chuyển sang chế độ nhập mã dự phòng Admin.');
-                }}
-                className="btn btn-outline"
-                style={{ width: '100%' }}
-              >
-                Dùng mã dự phòng
-              </button>
-            </div>
           </form>
         )}
 
@@ -330,30 +433,35 @@ export function AuthFlowsPage({ defaultScreen }: { defaultScreen?: AuthFlowScree
             <div>
               <h1 style={{ fontSize: '28px', marginBottom: '6px' }}>Xác minh email</h1>
               <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>
-                Đã gửi mã 6 chữ số tới email đã đăng ký
+                Nhập mã 6 chữ số đã gửi tới email đăng ký
               </p>
             </div>
+
+            {emailField}
 
             <label>
               Mã xác minh
               <input
                 type="text"
+                inputMode="numeric"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
                 placeholder="Nhập mã 6 chữ số"
-                style={{ fontFamily: 'monospace', fontSize: '16px', letterSpacing: '0.12em' }}
+                style={codeInput}
+                required
               />
             </label>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
-              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-                Xác minh và tiếp tục
+              <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={busy}>
+                {busy ? 'Đang xác minh…' : 'Xác minh và tiếp tục'}
               </button>
               <button
                 type="button"
-                onClick={() => setNotice('Đã gửi lại mã xác minh 6 chữ số tới email của bạn.')}
+                onClick={resendSignup}
                 className="btn btn-outline"
                 style={{ width: '100%' }}
+                disabled={busy || !email}
               >
                 Gửi lại mã
               </button>
@@ -367,23 +475,15 @@ export function AuthFlowsPage({ defaultScreen }: { defaultScreen?: AuthFlowScree
             <div>
               <h1 style={{ fontSize: '28px', marginBottom: '6px' }}>Quên mật khẩu</h1>
               <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>
-                Nhập email đã đăng ký để nhận hướng dẫn đặt lại mật khẩu
+                Nhập email đã đăng ký để nhận mã đặt lại mật khẩu
               </p>
             </div>
 
-            <label>
-              Email công việc
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Nhập email công việc"
-              />
-            </label>
+            {emailField}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
-              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-                Gửi mã khôi phục
+              <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={busy}>
+                {busy ? 'Đang gửi…' : 'Gửi mã khôi phục'}
               </button>
               <button
                 type="button"
@@ -407,13 +507,17 @@ export function AuthFlowsPage({ defaultScreen }: { defaultScreen?: AuthFlowScree
               </p>
             </div>
 
+            {emailField}
+
             <label>
               Mã xác nhận 6 chữ số
               <input
                 type="text"
+                inputMode="numeric"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
-                style={{ fontFamily: 'monospace', fontSize: '16px', letterSpacing: '0.12em' }}
+                style={codeInput}
+                required
               />
             </label>
 
@@ -421,8 +525,11 @@ export function AuthFlowsPage({ defaultScreen }: { defaultScreen?: AuthFlowScree
               Mật khẩu mới
               <input
                 type="password"
+                autoComplete="new-password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
+                minLength={8}
+                required
               />
             </label>
 
@@ -430,13 +537,21 @@ export function AuthFlowsPage({ defaultScreen }: { defaultScreen?: AuthFlowScree
               Nhập lại mật khẩu mới
               <input
                 type="password"
+                autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                minLength={8}
+                required
               />
             </label>
 
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '6px' }}>
-              Cập nhật mật khẩu
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={{ width: '100%', marginTop: '6px' }}
+              disabled={busy}
+            >
+              {busy ? 'Đang cập nhật…' : 'Cập nhật mật khẩu'}
             </button>
           </form>
         )}

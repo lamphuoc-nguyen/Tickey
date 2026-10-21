@@ -153,7 +153,10 @@ export function OrgStaffPage() {
       },
       {
         onSuccess: () => {
-          showToast(`Đã phân công ${memberName(memberByUser.get(chosenUserId))} vào ${chosenSession.label}.`, 'success');
+          showToast(
+            `Đã phân công ${memberName(memberByUser.get(chosenUserId))} vào ${chosenSession.label}.`,
+            'success',
+          );
           setScreen('o-staff');
         },
         onError: (error) => showToast(errorMessage(error), 'danger'),
@@ -314,7 +317,9 @@ export function OrgStaffPage() {
       {activeScreen === 'o-member-add' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 18, alignItems: 'start' }}>
           <div className="card" style={{ padding: 22 }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}>
+            <div
+              style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}
+            >
               Thêm nhân sự mới vào tổ chức
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -328,13 +333,17 @@ export function OrgStaffPage() {
                   onChange={(e) => setInviteEmail(e.target.value)}
                 />
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
-                  Nhân sự cần đăng ký tài khoản Tickey trước. Việc thêm vào tổ chức không tự cấp quyền soát vé:
-                  cần phân công theo từng suất diễn.
+                  Nhân sự cần đăng ký tài khoản Tickey trước. Việc thêm vào tổ chức không tự cấp quyền soát
+                  vé: cần phân công theo từng suất diễn.
                 </div>
               </div>
               <div>
                 <label className="form-label">Vai trò trong tổ chức</label>
-                <select className="form-input" value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}>
+                <select
+                  className="form-input"
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value)}
+                >
                   {ROLE_OPTIONS.map((option) => (
                     <option key={option.label} value={option.label}>
                       {option.label}
@@ -343,7 +352,12 @@ export function OrgStaffPage() {
                 </select>
               </div>
               <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
-                <button type="button" className="btn btn-primary" disabled={setMember.isPending} onClick={addMember}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={setMember.isPending}
+                  onClick={addMember}
+                >
                   {setMember.isPending ? 'Đang thêm…' : 'Thêm nhân sự'}
                 </button>
                 <button type="button" className="btn btn-secondary" onClick={() => setScreen('o-members')}>
@@ -386,8 +400,11 @@ export function OrgStaffPage() {
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, marginBottom: 6 }}>
             Đã thêm thành viên
           </div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 460, marginBottom: 14, lineHeight: 1.5 }}>
-            {inviteEmail || 'Tài khoản'} đã được thêm vào tổ chức. Phân công ca trực để nhân sự có thể soát vé.
+          <div
+            style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 460, marginBottom: 14, lineHeight: 1.5 }}
+          >
+            {inviteEmail || 'Tài khoản'} đã được thêm vào tổ chức. Phân công ca trực để nhân sự có thể soát
+            vé.
           </div>
           <span className="badge badge-success" style={{ marginBottom: 18 }}>
             {inviteRole.split(' · ')[0]}
@@ -457,7 +474,9 @@ export function OrgStaffPage() {
                             {formatDateTime(s.validFrom, timeZone)} – {formatDateTime(s.validUntil, timeZone)}
                           </td>
                           <td>
-                            <span className={`badge ${s.status === 'ACTIVE' ? 'badge-success' : 'badge-danger'}`}>
+                            <span
+                              className={`badge ${s.status === 'ACTIVE' ? 'badge-success' : 'badge-danger'}`}
+                            >
                               {s.status === 'ACTIVE' ? 'Sẵn sàng' : 'Đã thu hồi'}
                             </span>
                           </td>
@@ -481,7 +500,9 @@ export function OrgStaffPage() {
       {activeScreen === 'o-staff-assign' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 18, alignItems: 'start' }}>
           <div className="card" style={{ padding: 22 }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}>
+            <div
+              style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}
+            >
               Thông tin chi tiết · Phân công cổng
             </div>
             <QueryNotice
@@ -522,7 +543,12 @@ export function OrgStaffPage() {
                   }}
                 >
                   <div
-                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: 6,
+                    }}
                   >
                     <label className="form-label" style={{ fontWeight: 700, color: 'var(--ink)', margin: 0 }}>
                       🎪 Sự kiện & Suất diễn
@@ -556,9 +582,13 @@ export function OrgStaffPage() {
                     ))}
                   </select>
                   <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
-                    📍 Địa điểm: <strong>{chosenSession?.session.venue?.name ?? 'Chưa định'}</strong> · ⏰ Mở cửa:{' '}
+                    📍 Địa điểm: <strong>{chosenSession?.session.venue?.name ?? 'Chưa định'}</strong> · ⏰ Mở
+                    cửa:{' '}
                     <strong>
-                      {formatDateTime(chosenSession?.session.doorsOpenAt, chosenSession?.session.venue?.timezone)}
+                      {formatDateTime(
+                        chosenSession?.session.doorsOpenAt,
+                        chosenSession?.session.venue?.timezone,
+                      )}
                     </strong>
                   </div>
                 </div>
@@ -567,7 +597,11 @@ export function OrgStaffPage() {
                   <label className="form-label" style={{ fontWeight: 600 }}>
                     🚪 Cổng soát vé
                   </label>
-                  <select className="form-select" value={assignGateId} onChange={(e) => setAssignGateId(e.target.value)}>
+                  <select
+                    className="form-select"
+                    value={assignGateId}
+                    onChange={(e) => setAssignGateId(e.target.value)}
+                  >
                     <option value="">Mọi cổng của suất diễn</option>
                     {(gates.data ?? [])
                       .filter((gate) => gate.status === 'ACTIVE')
@@ -585,13 +619,18 @@ export function OrgStaffPage() {
                   </label>
                   <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
                     {Object.entries(PERMISSION_LABELS).map(([permission, label]) => (
-                      <label key={permission} style={{ display: 'flex', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                      <label
+                        key={permission}
+                        style={{ display: 'flex', gap: 6, fontSize: 13, cursor: 'pointer' }}
+                      >
                         <input
                           type="checkbox"
                           checked={permissions.includes(permission)}
                           onChange={(e) =>
                             setPermissions((current) =>
-                              e.target.checked ? [...current, permission] : current.filter((p) => p !== permission),
+                              e.target.checked
+                                ? [...current, permission]
+                                : current.filter((p) => p !== permission),
                             )
                           }
                         />
@@ -602,14 +641,21 @@ export function OrgStaffPage() {
                 </div>
 
                 <div
-                  style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', background: '#FAF9F6' }}
+                  style={{
+                    border: '1px solid var(--border)',
+                    borderRadius: 10,
+                    padding: '12px 14px',
+                    background: '#FAF9F6',
+                  }}
                 >
                   <label className="form-label" style={{ fontWeight: 700, color: 'var(--ink)' }}>
                     ⏰ Khung giờ ca trực
                   </label>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                     <div>
-                      <span style={{ fontSize: 11, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>
+                      <span
+                        style={{ fontSize: 11, color: 'var(--muted)', display: 'block', marginBottom: 4 }}
+                      >
                         Bắt đầu
                       </span>
                       <input
@@ -620,7 +666,9 @@ export function OrgStaffPage() {
                       />
                     </div>
                     <div>
-                      <span style={{ fontSize: 11, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>
+                      <span
+                        style={{ fontSize: 11, color: 'var(--muted)', display: 'block', marginBottom: 4 }}
+                      >
                         Kết thúc
                       </span>
                       <input
@@ -673,18 +721,25 @@ export function OrgStaffPage() {
               />
             ) : (
               <>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}>
+                <div
+                  style={{
+                    fontFamily: 'var(--font-display)',
+                    fontSize: 15.5,
+                    fontWeight: 700,
+                    marginBottom: 16,
+                  }}
+                >
                   Phân công · {memberName(memberByUser.get(detail.userId))}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   {[
                     ['Suất diễn', sessionById.get(detail.sessionId)?.label ?? 'Suất diễn'],
-                    ['Cổng phụ trách', detail.gate ? `${detail.gate.code} · ${detail.gate.name}` : 'Mọi cổng'],
-                    ['Quyền', detail.permissions.map((p) => PERMISSION_LABELS[p] ?? p).join(', ')],
                     [
-                      'Ca trực',
-                      `${formatDateTime(detail.validFrom)} – ${formatDateTime(detail.validUntil)}`,
+                      'Cổng phụ trách',
+                      detail.gate ? `${detail.gate.code} · ${detail.gate.name}` : 'Mọi cổng',
                     ],
+                    ['Quyền', detail.permissions.map((p) => PERMISSION_LABELS[p] ?? p).join(', ')],
+                    ['Ca trực', `${formatDateTime(detail.validFrom)} – ${formatDateTime(detail.validUntil)}`],
                     ['Trạng thái', detail.status === 'ACTIVE' ? 'Sẵn sàng' : 'Đã thu hồi'],
                   ].map(([label, value]) => (
                     <div key={label}>
@@ -713,8 +768,8 @@ export function OrgStaffPage() {
           </div>
           <FigmaEventPreviewCard
             title={detail ? sessionById.get(detail.sessionId)?.event.title : undefined}
-            subtitle={detail ? sessionById.get(detail.sessionId)?.session.venue?.name ?? '' : undefined}
-            image={detail ? sessionById.get(detail.sessionId)?.event.coverImageUrl ?? null : null}
+            subtitle={detail ? (sessionById.get(detail.sessionId)?.session.venue?.name ?? '') : undefined}
+            image={detail ? (sessionById.get(detail.sessionId)?.event.coverImageUrl ?? null) : null}
           />
         </div>
       )}
