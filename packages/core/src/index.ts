@@ -12,3 +12,5 @@ export * from './repositories/auth-repository';
 export * from './models/customer';
 export * from './models/database-mapper';
 export * from './repositories/customer-repository';
+export * from './models/staff';
+export * from './repositories/staff-repository';

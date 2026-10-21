@@ -3,6 +3,7 @@ import {
   HttpClient,
   HttpCustomerRepository,
   HttpPaymentApi,
+  HttpStaffRepository,
   SupabaseAuthRepository,
   SupabaseBookingRepository,
   SupabasePreferencesRepository,
@@ -18,6 +19,7 @@ function createRepositories() {
     http,
     catalog: new HttpCatalogRepository(http),
     customer: new HttpCustomerRepository(http),
+    staff: new HttpStaffRepository(http),
     preferences: new SupabasePreferencesRepository(client),
     auth: new SupabaseAuthRepository(client),
     booking: new SupabaseBookingRepository(client),
@@ -35,6 +37,9 @@ export const repositories = {
   },
   get customer() {
     return getRepositories().customer;
+  },
+  get staff() {
+    return getRepositories().staff;
   },
   get preferences() {
     return getRepositories().preferences;

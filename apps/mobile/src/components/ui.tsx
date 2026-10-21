@@ -234,9 +234,11 @@ export const icons = {
 export function Header({
   back = true,
   navigationEnabled = true,
+  label = 'TICKEY',
 }: {
   back?: boolean;
   navigationEnabled?: boolean;
+  label?: string;
 }) {
   return (
     <View style={ui.header}>
@@ -250,7 +252,7 @@ export function Header({
           <Icon name="back" />
         </Pressable>
       )}
-      <Copy style={[ui.wordmark, !back && { marginLeft: 20 }]}>TICKEY</Copy>
+      <Copy style={[ui.wordmark, !back && { marginLeft: 20 }]}>{label}</Copy>
       {navigationEnabled && (
         <Pressable
           accessibilityRole="button"
@@ -272,8 +274,10 @@ export function Screen({
   scroll = true,
   refreshControl,
   contentStyle,
+  label,
 }: PropsWithChildren<{
   footer?: React.ReactNode;
+  label?: string;
   back?: boolean;
   navigationEnabled?: boolean;
   scroll?: boolean;
@@ -286,7 +290,7 @@ export function Screen({
       behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
       style={[ui.screen, { paddingTop: insets.top }]}
     >
-      <Header back={back} navigationEnabled={navigationEnabled} />
+      <Header back={back} navigationEnabled={navigationEnabled} label={label} />
       {scroll ? (
         <ScrollView
           keyboardShouldPersistTaps="handled"
