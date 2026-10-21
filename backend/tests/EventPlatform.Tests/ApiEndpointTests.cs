@@ -648,4 +648,100 @@ public class ApiEndpointTests
         Assert.Contains("booking_type=eq.COMP", query);
         Assert.Contains($"tenant_id=eq.{orgId}", query);
     }
+
+    [Fact]
+    public async Task Org_finance_calls_the_summary_rpc_with_the_org_and_the_callers_jwt()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK,
+            """{"ledger_balance":109140000,"held":12840000,"ready":0,"paid_out":0,"in_progress":0,"active_holds":[]}"""),
+            UserJwt);
+        var orgId = Guid.NewGuid();
+
+        var res = await client.GetAsync($"/api/organizations/{orgId}/finance", Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal("/rest/v1/rpc/get_org_finance_summary", request.RequestUri!.AbsolutePath);
+        using var sent = JsonDocument.Parse(Assert.Single(handler.Calls).Body);
+        Assert.Equal(orgId, sent.RootElement.GetProperty("p_org_id").GetGuid());
+        Assert.Equal(UserJwt, request.Headers.Authorization!.Parameter);
+        Assert.Equal(109140000, (await res.Content.ReadFromJsonAsync<JsonElement>(Ct))
+            .GetProperty("ledger_balance").GetInt64());
+    }
+
+    [Fact]
+    public async Task Org_settlements_are_filtered_to_the_tenant_with_the_session_embed()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+        var orgId = Guid.NewGuid();
+
+        var res = await client.GetAsync($"/api/organizations/{orgId}/settlements", Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal("/rest/v1/settlements", request.RequestUri!.AbsolutePath);
+        var query = Uri.UnescapeDataString(request.RequestUri.Query);
+        Assert.Contains($"tenant_id=eq.{orgId}", query);
+        Assert.Contains("session:sessions(", query);
+        Assert.Equal(UserJwt, request.Headers.Authorization!.Parameter);
+    }
+
+    [Fact]
+    public async Task Org_payouts_are_filtered_to_the_tenant_and_the_status()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+        var orgId = Guid.NewGuid();
+
+        await client.GetAsync($"/api/organizations/{orgId}/payouts?status=proposed", Ct);
+
+        var query = Uri.UnescapeDataString(Assert.Single(handler.Calls).Request.RequestUri!.Query);
+        Assert.Contains($"tenant_id=eq.{orgId}", query);
+        Assert.Contains("status=eq.PROPOSED", query);
+    }
+
+    [Fact]
+    public async Task Org_bank_accounts_are_filtered_to_the_org()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+        var orgId = Guid.NewGuid();
+
+        await client.GetAsync($"/api/organizations/{orgId}/bank-accounts", Ct);
+
+        var query = Uri.UnescapeDataString(Assert.Single(handler.Calls).Request.RequestUri!.Query);
+        Assert.Contains($"org_id=eq.{orgId}", query);
+    }
+
+    [Fact]
+    public async Task Requesting_a_bank_account_change_forwards_the_org_and_the_fields()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "\"22222222-2222-2222-2222-222222222222\""),
+            UserJwt);
+        var orgId = Guid.NewGuid();
+
+        var res = await client.PostAsJsonAsync($"/api/organizations/{orgId}/bank-accounts",
+            new { bankCode = "VCB", accountNumber = "0071001234567", accountHolder = "CONG TY AM SAC" }, Ct);
+
+        Assert.Equal(HttpStatusCode.Created, res.StatusCode);
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal("/rest/v1/rpc/request_bank_account_change", request.RequestUri!.AbsolutePath);
+        using var sent = JsonDocument.Parse(Assert.Single(handler.Calls).Body);
+        var root = sent.RootElement;
+        Assert.Equal(orgId, root.GetProperty("p_org_id").GetGuid());
+        Assert.Equal("VCB", root.GetProperty("p_bank_code").GetString());
+        Assert.Equal("0071001234567", root.GetProperty("p_account_number").GetString());
+        Assert.Equal("CONG TY AM SAC", root.GetProperty("p_account_holder").GetString());
+        Assert.Equal(UserJwt, request.Headers.Authorization!.Parameter);
+    }
+
+    [Fact]
+    public async Task Org_finance_maps_a_foreign_org_forbidden_to_403()
+    {
+        var (client, _) = Create((_, _) => (HttpStatusCode.BadRequest,
+            """{"code":"P0001","message":"FORBIDDEN","details":"{}"}"""), UserJwt);
+
+        var res = await client.GetAsync($"/api/organizations/{Guid.NewGuid()}/finance", Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+        Assert.Equal("FORBIDDEN", (await res.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("message").GetString());
+    }
 }
