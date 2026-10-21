@@ -74,9 +74,37 @@ export interface Organization {
   name: string;
   slug: string;
   logoUrl: string | null;
+  description: string | null;
   businessType: string;
+  legalName: string | null;
+  taxCode: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
   status: string;
+  statusReason: string | null;
   tier: string;
+  approvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface KycDocument {
+  id: string;
+  docType: string;
+  storagePath: string;
+  createdAt: string;
+}
+
+export interface KycSubmission {
+  id: string;
+  orgId: string;
+  status: 'SUBMITTED' | 'APPROVED' | 'NEEDS_INFO' | 'REJECTED';
+  legalInfo: Record<string, unknown> | null;
+  reviewedBy: string | null;
+  reviewNote: string | null;
+  submittedAt: string;
+  reviewedAt: string | null;
+  documents: KycDocument[];
 }
 
 export interface Gate {
@@ -145,6 +173,62 @@ export function useOrganization(orgId: string | null) {
     queryKey: ['org', orgId, 'organization'],
     queryFn: () => api.get<Organization>(`/api/organizations/${orgId}`),
     enabled: !!orgId,
+  });
+}
+
+/** Statuses of the Org record relevant to the KYC (onboarding) flow. */
+export const ORG_STATUS: Record<string, { label: string; badge: string }> = {
+  DRAFT: { label: 'Bản nháp', badge: 'badge-info' },
+  PENDING_REVIEW: { label: 'Chờ xét duyệt', badge: 'badge-warning' },
+  APPROVED: { label: 'Đã xác minh', badge: 'badge-success' },
+  NEEDS_INFO: { label: 'Cần bổ sung hồ sơ', badge: 'badge-warning' },
+  REJECTED: { label: 'Hồ sơ bị từ chối', badge: 'badge-danger' },
+  SUSPENDED: { label: 'Tạm ngưng hoạt động', badge: 'badge-danger' },
+};
+
+/** Statuses of a KYC submission (kyc_submissions.status). */
+export const KYC_STATUS: Record<string, { label: string; badge: string }> = {
+  SUBMITTED: { label: 'Chờ xét duyệt', badge: 'badge-warning' },
+  APPROVED: { label: 'Đã phê duyệt', badge: 'badge-success' },
+  NEEDS_INFO: { label: 'Cần bổ sung', badge: 'badge-warning' },
+  REJECTED: { label: 'Bị từ chối', badge: 'badge-danger' },
+};
+
+/** Document types accepted by submit_kyc (kyc_documents.doc_type). */
+export const KYC_DOC_TYPES: Record<string, string> = {
+  BUSINESS_REGISTRATION: 'Giấy phép đăng ký kinh doanh',
+  IDENTITY_CARD: 'CCCD/Hộ chiếu người đại diện',
+  OTHER: 'Tài liệu bổ sung',
+};
+
+export const KYC_REQUIRED_DOC_TYPES = ['BUSINESS_REGISTRATION', 'IDENTITY_CARD'] as const;
+
+/** The Org's KYC submissions, newest first, each with its documents. */
+export function useOrgKyc(orgId: string | null) {
+  return useQuery({
+    queryKey: ['org', orgId, 'kyc'],
+    queryFn: () => api.get<KycSubmission[]>(`/api/organizations/${orgId}/kyc`),
+    enabled: !!orgId,
+  });
+}
+
+/**
+ * Submits (or re-submits) a KYC dossier (submit_kyc). Documents must already be uploaded with
+ * purpose KYC, so each storage_path starts with `<orgId>/`. Allowed while the Org is
+ * DRAFT / NEEDS_INFO / REJECTED; it moves the Org to PENDING_REVIEW.
+ */
+export function useSubmitKyc(orgId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      legalInfo: Record<string, unknown>;
+      identityNumber: string;
+      documents: { docType: string; storagePath: string }[];
+    }) => api.post<{ id: string }>(`/api/organizations/${orgId}/kyc`, input),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['org', orgId, 'kyc'] });
+      client.invalidateQueries({ queryKey: ['org', orgId, 'organization'] });
+    },
   });
 }
 

@@ -47,7 +47,6 @@ const ONBOARDING_STEP_SCREENS = new Set([
   'o-kyc-pending',
   'o-kyc-info',
   'o-org-rejected',
-  'o-songviet-venue',
 ]);
 
 export function PortalLayout({ children }: PortalLayoutProps) {
@@ -128,7 +127,7 @@ export function PortalLayout({ children }: PortalLayoutProps) {
   const activeOnboardingStep =
     currentScreen === 'o-create' || !currentScreen
       ? 1
-      : currentScreen === 'o-kyc' || currentScreen === 'o-songviet-venue'
+      : currentScreen === 'o-kyc'
         ? 2
         : 3;
 

@@ -734,6 +734,60 @@ public class ApiEndpointTests
     }
 
     [Fact]
+    public async Task Org_kyc_submissions_are_filtered_to_the_org_with_documents()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+        var orgId = Guid.NewGuid();
+
+        var res = await client.GetAsync($"/api/organizations/{orgId}/kyc", Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal("/rest/v1/kyc_submissions", request.RequestUri!.AbsolutePath);
+        var query = Uri.UnescapeDataString(request.RequestUri.Query);
+        Assert.Contains($"org_id=eq.{orgId}", query);
+        Assert.Contains("documents:kyc_documents(", query);
+        Assert.Contains("order=submitted_at.desc", query);
+        Assert.Equal(UserJwt, request.Headers.Authorization!.Parameter);
+    }
+
+    [Fact]
+    public async Task Submitting_kyc_forwards_the_org_legal_info_identity_and_documents()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "\"33333333-3333-3333-3333-333333333333\""),
+            UserJwt);
+        var orgId = Guid.NewGuid();
+
+        var res = await client.PostAsJsonAsync($"/api/organizations/{orgId}/kyc", new
+        {
+            legalInfo = new { legal_name = "CONG TY AM SAC", representative = "Nguyen Van A" },
+            identityNumber = "079200012345",
+            documents = new[]
+            {
+                new { docType = "BUSINESS_REGISTRATION", storagePath = $"{orgId}/gpkd.pdf" },
+                new { docType = "IDENTITY_CARD", storagePath = $"{orgId}/cccd.pdf" },
+            },
+        }, Ct);
+
+        Assert.Equal(HttpStatusCode.Created, res.StatusCode);
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal("/rest/v1/rpc/submit_kyc", request.RequestUri!.AbsolutePath);
+        using var sent = JsonDocument.Parse(Assert.Single(handler.Calls).Body);
+        var root = sent.RootElement;
+        Assert.Equal(orgId, root.GetProperty("p_org_id").GetGuid());
+        Assert.Equal("079200012345", root.GetProperty("p_identity_number").GetString());
+        Assert.Equal("CONG TY AM SAC",
+            root.GetProperty("p_legal_info").GetProperty("legal_name").GetString());
+        var documents = root.GetProperty("p_documents");
+        Assert.Equal(2, documents.GetArrayLength());
+        Assert.Equal("BUSINESS_REGISTRATION", documents[0].GetProperty("doc_type").GetString());
+        Assert.Equal($"{orgId}/gpkd.pdf", documents[0].GetProperty("storage_path").GetString());
+        Assert.Equal(UserJwt, request.Headers.Authorization!.Parameter);
+        Assert.Equal("33333333-3333-3333-3333-333333333333",
+            (await res.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetString());
+    }
+
+    [Fact]
     public async Task Org_finance_maps_a_foreign_org_forbidden_to_403()
     {
         var (client, _) = Create((_, _) => (HttpStatusCode.BadRequest,
