@@ -521,4 +521,5 @@ export const ui = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   muted: { color: c.muted },
   semibold: { fontFamily: fonts.semibold },
+  secure: { textAlign: 'center', fontFamily: fonts.medium, fontSize: 10, color: c.muted, lineHeight: 15 },
 });
