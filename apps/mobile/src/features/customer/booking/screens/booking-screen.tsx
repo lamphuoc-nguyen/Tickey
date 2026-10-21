@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Modal, View } from 'react-native';
+import { Modal, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ActionFooter,
   Button,
@@ -22,6 +23,7 @@ import { useBooking, useCancelBooking } from '../hooks/use-booking';
 import { bookingLabels, canCancel, canPay } from '../booking-presentation';
 import { BookingSummary } from '../components/booking-summary';
 function Content() {
+  const insets = useSafeAreaInsets();
   const { bookingId = '' } = useLocalSearchParams<{ bookingId: string }>();
   const query = useBooking(bookingId),
     cancel = useCancelBooking(),
@@ -196,39 +198,48 @@ function Content() {
           >
             <View
               accessibilityViewIsModal
-              style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.25)', padding: 20 }}
+              style={{
+                flex: 1,
+                justifyContent: 'center',
+                backgroundColor: 'rgba(0,0,0,0.25)',
+                paddingHorizontal: 20,
+                paddingTop: Math.max(insets.top, 20),
+                paddingBottom: Math.max(insets.bottom, 20),
+              }}
             >
-              <Card>
-                <Heading>Hủy đơn đang giữ chỗ</Heading>
-                <DetailRow label="Đơn" value={booking.code} />
-                <DetailRow
-                  label="Ghế đang giữ"
-                  value={booking.items.map((i) => i.seatCode ?? 'Khu đứng').join(', ')}
-                />
-                <Copy>Các chỗ trong đơn sẽ được trả lại khi hủy.</Copy>
-                <Button
-                  busy={cancel.isPending}
-                  disabled={!canCancel(booking) || !!query.error}
-                  disabledReason="Đơn hiện không cho phép hủy."
-                  onPress={() => {
-                    if (!cancel.isPending)
-                      void cancel
-                        .mutateAsync(booking.id)
-                        .then(() => setConfirmCancel(false))
-                        .catch(() => {});
-                  }}
-                >
-                  Xác nhận hủy đơn
-                </Button>
-                <Button
-                  secondary
-                  disabled={cancel.isPending}
-                  disabledReason="Đang xử lý hủy đơn."
-                  onPress={() => setConfirmCancel(false)}
-                >
-                  Giữ đơn
-                </Button>
-                {!!cancel.error && <ErrorNotice error={cancel.error} />}
+              <Card style={{ maxHeight: '100%', flexShrink: 1 }}>
+                <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ gap: 12 }}>
+                  <Heading>Hủy đơn đang giữ chỗ</Heading>
+                  <DetailRow label="Đơn" value={booking.code} />
+                  <DetailRow
+                    label="Ghế đang giữ"
+                    value={booking.items.map((i) => i.seatCode ?? 'Khu đứng').join(', ')}
+                  />
+                  <Copy>Các chỗ trong đơn sẽ được trả lại khi hủy.</Copy>
+                  <Button
+                    busy={cancel.isPending}
+                    disabled={!canCancel(booking) || !!query.error}
+                    disabledReason="Đơn hiện không cho phép hủy."
+                    onPress={() => {
+                      if (!cancel.isPending)
+                        void cancel
+                          .mutateAsync(booking.id)
+                          .then(() => setConfirmCancel(false))
+                          .catch(() => {});
+                    }}
+                  >
+                    Xác nhận hủy đơn
+                  </Button>
+                  <Button
+                    secondary
+                    disabled={cancel.isPending}
+                    disabledReason="Đang xử lý hủy đơn."
+                    onPress={() => setConfirmCancel(false)}
+                  >
+                    Giữ đơn
+                  </Button>
+                  {!!cancel.error && <ErrorNotice error={cancel.error} />}
+                </ScrollView>
               </Card>
             </View>
           </Modal>

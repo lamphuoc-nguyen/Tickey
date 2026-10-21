@@ -165,7 +165,7 @@ function Content() {
           </TextAction>
         </Card>
       ))}
-      {!!actions.pickEvidence.error && <ErrorNotice error={actions.pickEvidence.error} />}{' '}
+      {!!actions.pickEvidence.error && <ErrorNotice error={actions.pickEvidence.error} />}
       {!!actions.report.error && (
         <>
           <ErrorNotice error={actions.report.error} />

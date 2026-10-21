@@ -33,7 +33,7 @@ function Content() {
     >
       <Heading>Người tham dự</Heading>
       <QueryState loading={query.isPending} error={query.error} retry={() => void query.refetch()} />
-      <BookingSummary booking={booking} />
+      <BookingSummary booking={booking} compact />
       <Copy style={ui.muted}>Thông tin tạm nhập, chưa gửi. Có thể ghi tên lên vé sau khi phát hành.</Copy>
       {names.map((name, i) => (
         <Field

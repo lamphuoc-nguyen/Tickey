@@ -1,18 +1,9 @@
 import { useState } from 'react';
 import { bankInputSchema } from '@event/core';
 import { router, useLocalSearchParams } from 'expo-router';
-import {
-  ActionFooter,
-  Copy,
-  ErrorNotice,
-  Field,
-  Heading,
-  Notice,
-  QueryState,
-  Screen,
-  ui,
-} from '@/components/ui';
+import { ActionFooter, Copy, ErrorNotice, Heading, Notice, QueryState, Screen, ui } from '@/components/ui';
 import { TextAction } from '@/components/customer-controls';
+import { OtpInput } from '@/components/otp-input';
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import { useAuth } from '@/features/auth/hooks/auth-context';
 import { useAuthActions } from '@/features/auth/hooks/use-auth-actions';
@@ -81,15 +72,12 @@ function Content() {
     >
       <Heading>Xác thực OTP</Heading>
       <QueryState loading={refund.isPending} error={refund.error} retry={() => void refund.refetch()} />
-      <Field
+      <OtpInput
         label="Mã xác thực"
         value={otp}
         onChangeText={setOtp}
-        keyboardType="number-pad"
-        textContentType="oneTimeCode"
         editable={!busy && !verified}
         error={error}
-        placeholder="Nhập mã được gửi tới bạn."
       />
       {verified && (
         <Notice>
@@ -121,8 +109,8 @@ function Content() {
           Đã gửi mã đến {auth.session?.email}.
         </Copy>
       )}
-      {!!actions.otp.error && <ErrorNotice error={actions.otp.error} />}{' '}
-      {!!actions.verify.error && <ErrorNotice error={actions.verify.error} />}{' '}
+      {!!actions.otp.error && <ErrorNotice error={actions.otp.error} />}
+      {!!actions.verify.error && <ErrorNotice error={actions.verify.error} />}
       {!!bankInfo.error && <ErrorNotice error={bankInfo.error} />}
       <TextAction disabled={busy} disabledReason="Đang xác nhận thông tin." onPress={() => router.back()}>
         Quay lại thông tin tài khoản

@@ -3,7 +3,7 @@ import { ApiError, formatMoney, type BookingItemInput } from '@event/core';
 import { NativeSeatMap } from '@event/seat-map/native';
 import type { LayoutData, SeatState } from '@event/seat-map';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import {
   ActionFooter,
   Button,
@@ -33,6 +33,7 @@ import { useBookingDraft } from '../draft-store';
 import { useSelectionBooking } from '../hooks/use-selection-booking';
 import { FreeRegistrationFields } from '../components/free-registration-fields';
 import { selectedSeatItems, selectionLimit } from '../selection-rules';
+import { selectionMapHeight } from '../seat-map-viewport';
 
 const seatStatusLabels: Record<SeatState, string> = {
   AVAILABLE: 'Còn trống',
@@ -43,6 +44,7 @@ const seatStatusLabels: Record<SeatState, string> = {
 };
 
 export default function SelectionScreen() {
+  const { height: screenHeight } = useWindowDimensions();
   const { sessionId = '', eventId = '' } = useLocalSearchParams<{ sessionId: string; eventId: string }>();
   const layout = useLayout(sessionId);
   const availability = useAvailability(sessionId);
@@ -121,6 +123,7 @@ export default function SelectionScreen() {
     }),
     [layout.data, draft.zoneId],
   );
+  const mapHeight = useMemo(() => selectionMapHeight(layoutData, screenHeight), [layoutData, screenHeight]);
   const maxQuantity = Math.min(
     selectedType?.maxPerOrder ?? 1,
     availability.data?.zones.find((z) => z.zoneId === zone?.id)?.remaining ?? 0,
@@ -280,7 +283,7 @@ export default function SelectionScreen() {
       {!!isReady && (
         <>
           <Heading small>Khu vực</Heading>
-          <View style={[ui.row, { flexWrap: 'wrap' }]}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
             {layout.data?.zones.map((z) => (
               <Pressable
                 disabled={draft.unresolved || booking.isPending}
@@ -295,15 +298,17 @@ export default function SelectionScreen() {
                   ui.card,
                   {
                     minHeight: 48,
+                    justifyContent: 'center',
+                    padding: 12,
                     borderColor: zone?.id === z.id ? c.accent : c.border,
                     backgroundColor: zone?.id === z.id ? c.tint : 'white',
                   },
                 ]}
               >
-                <Copy>{z.name}</Copy>
+                <Copy numberOfLines={1}>{z.name}</Copy>
               </Pressable>
             ))}
-          </View>
+          </ScrollView>
           {zone?.type === 'standing' ? (
             <>
               <Select
@@ -348,6 +353,7 @@ export default function SelectionScreen() {
               <NativeSeatMap
                 key={zone.id}
                 layout={layoutData}
+                height={mapHeight}
                 seatStates={seatStates}
                 selectedSeatIds={new Set(draft.selected)}
                 conflictSeatIds={new Set(draft.conflicts)}

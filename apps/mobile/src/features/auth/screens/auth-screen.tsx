@@ -3,6 +3,8 @@ import { ApiError } from '@event/core';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { View } from 'react-native';
+import { Disclosure, TextAction } from '@/components/customer-controls';
+import { OtpInput } from '@/components/otp-input';
 import {
   ActionFooter,
   Button,
@@ -60,7 +62,7 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
     register: 'Tạo tài khoản',
     forgot: 'Quên mật khẩu',
     reset: 'Đặt lại mật khẩu',
-    verify: 'Kiểm tra email của bạn',
+    verify: 'Xác nhận email',
     'verify-recovery': 'Nhập mã khôi phục',
   }[mode];
   const continueToAccount = () =>
@@ -172,7 +174,28 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
           contentFit="cover"
         />
       )}
-      <Heading>{title}</Heading>
+      {isVerification ? (
+        <View style={[ui.row, { alignItems: 'flex-start' }]}>
+          <View
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#FFF3D9',
+            }}
+          >
+            <Icon name="email" />
+          </View>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Heading>{title}</Heading>
+            <Copy style={ui.muted}>Nhập mã từ email mới nhất.</Copy>
+          </View>
+        </View>
+      ) : (
+        <Heading>{title}</Heading>
+      )}
       {mode === 'login' && <Copy style={ui.muted}>Đăng nhập để mua vé hoặc vào ca làm được phân công.</Copy>}
       {mode === 'register' && (
         <Field
@@ -232,38 +255,14 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
       )}
       {isVerification && (
         <>
-          <View
-            style={{
-              alignSelf: 'center',
-              width: 112,
-              height: 112,
-              borderRadius: 56,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: '#FFF3D9',
-              marginVertical: 16,
-            }}
-          >
-            <Icon name="email" />
-          </View>
-          <Notice>
-            {isRecovery
-              ? 'Nếu email đã đăng ký, bạn sẽ nhận được mã khôi phục. Nhập mã trong email mới nhất để tiếp tục đặt mật khẩu mới.'
-              : 'Nhập mã xác nhận trong email mới nhất. Bạn có thể đọc email trên máy tính và nhập mã vào ứng dụng.'}
-          </Notice>
-          <Field
+          <OtpInput
             label={isRecovery ? 'Mã OTP khôi phục mật khẩu' : 'Mã xác nhận email'}
             value={token}
             error={errors.token}
-            keyboardType="number-pad"
-            autoCorrect={false}
-            autoComplete="one-time-code"
             onChangeText={setToken}
-            autoCapitalize="none"
-            textContentType="oneTimeCode"
+            editable={!current.isPending && !resend.isPending}
           />
-          <Button
-            secondary
+          <TextAction
             busy={resend.isPending}
             disabled={current.isPending}
             disabledReason="Đang xác nhận mã. Vui lòng chờ kết quả."
@@ -288,17 +287,18 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
             }}
           >
             {isRecovery ? 'Gửi lại mã OTP' : 'Gửi lại email'}
-          </Button>
+          </TextAction>
           {!!resend.error && <ErrorNotice error={resend.error} />}
-          {!isRecovery && (
-            <Notice>
-              Nếu email chỉ có liên kết, hãy mở liên kết một lần rồi quay lại đăng nhập trong ứng dụng này.
-              Nếu liên kết báo hết hạn, hãy yêu cầu email mới.
-            </Notice>
-          )}
+          <Disclosure title="Không nhận được mã?">
+            <Copy>
+              Kiểm tra thư rác và địa chỉ email. Bạn có thể đọc email trên máy tính rồi nhập mã vào ứng dụng.
+              {isRecovery
+                ? ' Email khôi phục chỉ được gửi nếu địa chỉ đã đăng ký.'
+                : ' Nếu email chỉ có liên kết, mở liên kết một lần rồi quay lại đăng nhập. Liên kết hết hạn cần được gửi lại.'}
+            </Copy>
+          </Disclosure>
           {isRecovery && (
-            <Button
-              secondary
+            <TextAction
               disabled={current.isPending || resend.isPending}
               disabledReason="Vui lòng chờ yêu cầu hiện tại hoàn tất."
               onPress={() => {
@@ -307,10 +307,9 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
               }}
             >
               Dùng email khác
-            </Button>
+            </TextAction>
           )}
-          <Button
-            secondary
+          <TextAction
             disabled={current.isPending || resend.isPending}
             disabledReason="Vui lòng chờ thao tác xác nhận email hoàn tất."
             onPress={() =>
@@ -318,7 +317,7 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
             }
           >
             Quay lại đăng nhập
-          </Button>
+          </TextAction>
         </>
       )}
       {mode === 'forgot' && <Copy>Nhập email đã đăng ký để nhận mã OTP khôi phục mật khẩu.</Copy>}

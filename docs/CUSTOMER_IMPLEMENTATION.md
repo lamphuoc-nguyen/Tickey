@@ -99,6 +99,20 @@ Chỉ packages/core import @supabase/supabase-js. Không fetch hoặc truy vấn
 
 Chuyển nhượng/đổi lịch/voucher/khiếu nại lại không có frame riêng trong hai section đã đọc; không thêm backend hoặc flow gửi giả. Phần mock: **không có runtime mock/preview**, fixture chỉ nằm trong unit tests.
 
+## Chỉnh bố cục Customer ngày 22/10/2026
+
+- Home: dãy sự kiện hiện khoảng 2,3 thẻ theo chiều rộng thực; bộ lọc có thể vuốt ngang ở màn hẹp, ô “Tất cả” rộng hơn và không xuống dòng. Icon khớp slug danh mục tiếng Việt đang được server trả về. Footer chi tiết sự kiện không tràn mép.
+- Xác nhận email/khôi phục: rút gọn phần đầu và hướng dẫn; trợ giúp dài nằm trong mục mở rộng. Giữ nhập mã, gửi lại, validation và callback thật; không gửi email trong QA lần này.
+- OTP xác nhận email, khôi phục mật khẩu và nhận hoàn dùng chung component từng ô: nhập một số chuyển ô tiếp theo, Backspace ở ô trống quay lại, sửa một số không dịch các số còn lại; hỗ trợ dán/tự điền cả mã. Ban đầu 6 ô theo cấu hình local, vẫn nhận đủ mã 6–10 số theo contract hiện có. Không tự gửi khi nhập xong. Đã kiểm tra tương tác trên web ở 320/390 px bằng mã kiểm thử nhập cục bộ, không gửi lên server; chưa kiểm tra bàn phím/autofill native hoặc màn hoàn tiền bằng record thật.
+- Chọn ghế: các khu nằm trên một hàng vuốt ngang. Chiều cao sơ đồ phụ thuộc kích thước bố trí và màn hình, giữ kích thước ghế của renderer, dùng prop `height` có sẵn; không sửa renderer/package chung. Khu đứng thiếu mapping vẫn khóa đúng và giải thích lý do.
+- Người tham dự: tóm tắt số vé/tổng tiền, mở rộng để xem từng vé; không để danh sách chi tiết dài đẩy form xuống quá xa. Hỗ trợ: ô nhập và lỗi gửi nằm cạnh nút gửi trong footer, giữ draft và khóa khi request đang chạy hoặc yêu cầu đã kết thúc. Vé offline mở ngay trong mục đã chọn, có trạng thái mở/đóng cho accessibility và giữ thời điểm tải/cảnh báo hiệu lực.
+- Bỏ ba whitespace string nằm trực tiếp ngoài Text ở OTP hoàn tiền/Report. Không thay API, quyền, dữ liệu production hoặc thêm runtime mock.
+- Rà lại trước commit: hộp chọn có chiều cao giới hạn, danh sách tùy chọn cuộn và có padding safe area; xác nhận hủy đơn cuộn được khi nội dung dài/chữ lớn. Đây là sửa từ kiểm tra code; chưa mở hộp hủy bằng một đơn thật để kiểm chứng native.
+
+Kiểm tra đợt này: Mobile lint/typecheck và **84/84 test logic (24 files)** qua, gồm ba kiểm thử mới cho chiều cao sơ đồ và năm kiểm thử chỉnh sửa mã OTP. Đã kiểm tra web bằng API local và dữ liệu catalog server: 31 trường hợp ban đầu, sau đó 13 trường hợp sau chỉnh sửa ở 320/360/390 px, gồm chọn khu thật, mở trợ giúp và validation form rỗng. Không gửi request ghi dữ liệu. Màn người tham dự, hội thoại hỗ trợ có dữ liệu và mở vé offline **đã sửa nhưng chưa kiểm tra runtime bằng đơn/vé/tài khoản thật**. Chưa kiểm tra lại native trong đợt này; các kết quả native cũ ở dưới không phải xác nhận cho bản sửa mới. Dữ liệu server còn tên khu chứa DEMO và một sự kiện thiếu cover; chưa sửa production hoặc thay bằng ảnh/dữ liệu giả trong UI.
+
+Kiểm tra theo các bước CI trên nhánh trước commit: `pnpm lint`, `pnpm typecheck`, `pnpm test`, build Portal và 130/130 test backend đều qua. Root test gồm Mobile 84, Core 73 và Seat-map 8; các package không đổi có kết quả được Turborepo cache phục hồi. Portal hiện chỉ có script “no tests yet”, ui-kit không có test file; không tính hai script đó là kiểm thử UI. Build Portal có cảnh báo chunk lớn đã tồn tại. Chưa chạy pgTAP vì môi trường không có Docker/Supabase CLI; không dùng hosted PRODUCTION để thay thế. Remote main có các thay đổi mới của đồng đội; đợt commit UI này giữ trên nhánh giaunh-cusmobile hiện tại, chưa merge các thay đổi đó. Không suy rộng kết quả local sang CI của main mới.
+
 ## Kiểm tra thực tế và giới hạn
 
 | Kiểm tra | Kết quả |
@@ -106,8 +120,8 @@ Chuyển nhượng/đổi lịch/voucher/khiếu nại lại không có frame ri
 | Mobile lint/typecheck | Qua sau chỉnh UI và logic cuối. |
 | Core/seat-map/ui-kit và Portal typecheck; Staff nằm trong mobile typecheck | Qua, giữ tương thích app khác. |
 | Dependency peer check | Có mismatch đã tồn tại trong lockfile gốc: Customer metro-config 0.87.1 so với community-cli-plugin 0.86.3; Portal React/React DOM 19.2.3 so với react-router 8.4.0 yêu cầu >=19.2.7. Không nâng framework hoặc sửa Portal trong nhiệm vụ này. |
-| Mobile Vitest | **76/76**, 22 files. Auth/callback/recovery, Staff priority/guard, account/workspace scope, exclusive requests/idempotent booking, countdown, selection limits/mapping/duplicate seats, offline cache/access, bank OTP retry, reminder/notification destinations và Expo Go loader. |
-| Core Vitest | **61/61**, 10 files. Mapper/Zod/HTTP error/empty/permission/not-found, 403 business codes, timeout/cancellation, Auth email/OTP/recovery và PaymentSession contract. |
+| Mobile Vitest | **84/84**, 24 files. Auth/callback/recovery, Staff priority/guard, account/workspace scope, exclusive requests/idempotent booking, countdown, selection limits/mapping/duplicate seats, chiều cao sơ đồ ghế, chỉnh sửa/dán/xóa OTP, offline cache/access, bank OTP retry, reminder/notification destinations và Expo Go loader. |
+| Core Vitest | **73/73**, 12 files (kết quả cache trong root test trước commit). Mapper/Zod/HTTP error/empty/permission/not-found, 403 business codes, timeout/cancellation, Auth email/OTP/recovery, PaymentSession, media và workspace contract. |
 | Seat-map Vitest | **8/8**, 3 files. Geometry/spatial/render-plan. |
 | Web Edge headless 390×844 | Lần kiểm tra trước khi tạo .env.local: chỉ root lỗi thiếu cấu hình, đúng thông báo; không console/page errors, failed HTTP responses hoặc request ghi dữ liệu. Artifact kiểm tra được giữ ngoài repo; ảnh preview cũ đã bỏ. |
 | Android Expo export | Hermes bundle/assets sau migration: 2.715 modules, 61 assets. Đây là bundle build, không phải chạy app trên Android hay test native component. |

@@ -118,6 +118,7 @@ export function Select<Value extends string>({
   disabledReason?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const insets = useSafeAreaInsets();
   return (
     <View style={{ gap: 8 }}>
       <Copy style={ui.label}>{label}</Copy>
@@ -140,11 +141,18 @@ export function Select<Value extends string>({
       <Modal visible={open} transparent animationType="none" onRequestClose={() => setOpen(false)}>
         <View
           accessibilityViewIsModal
-          style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.25)', padding: 20 }}
+          style={{
+            flex: 1,
+            justifyContent: 'center',
+            backgroundColor: 'rgba(0,0,0,0.25)',
+            paddingHorizontal: 20,
+            paddingTop: Math.max(insets.top, 20),
+            paddingBottom: Math.max(insets.bottom, 20),
+          }}
         >
-          <Card>
+          <Card style={{ maxHeight: '100%', flexShrink: 1 }}>
             <Heading small>{label}</Heading>
-            <ScrollView style={{ maxHeight: 400 }}>
+            <ScrollView style={{ maxHeight: 400, flexShrink: 1 }} keyboardShouldPersistTaps="handled">
               {options.map((option) => (
                 <Pressable
                   key={option.value}
