@@ -452,6 +452,55 @@ public class ApiEndpointTests
     }
 
     [Fact]
+    public async Task Admin_kyc_queue_embeds_the_org_and_documents()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+
+        var res = await client.GetAsync("/api/admin/kyc-submissions?limit=100&offset=0", Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal("/rest/v1/kyc_submissions", request.RequestUri!.AbsolutePath);
+        var query = Uri.UnescapeDataString(request.RequestUri.Query);
+        Assert.Contains("org:organizations(", query);
+        Assert.Contains("documents:kyc_documents(", query);
+        Assert.Contains("order=submitted_at.desc", query);
+        Assert.Equal(UserJwt, request.Headers.Authorization!.Parameter);
+    }
+
+    [Fact]
+    public async Task Admin_orgs_are_filtered_by_status_and_name()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+
+        await client.GetAsync("/api/admin/organizations?status=approved&q=am%20sac", Ct);
+
+        var query = Uri.UnescapeDataString(Assert.Single(handler.Calls).Request.RequestUri!.Query);
+        Assert.Contains("status=eq.APPROVED", query);
+        Assert.Contains("name=ilike.*am sac*", query);
+    }
+
+    [Fact]
+    public async Task Admin_org_status_change_opens_an_approval()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "\"44444444-4444-4444-4444-444444444444\""),
+            UserJwt);
+        var orgId = Guid.NewGuid();
+
+        var res = await client.PostAsJsonAsync($"/api/admin/organizations/{orgId}/status-change",
+            new { action = " suspend ", reason = "Rà soát tỷ lệ hoàn vé" }, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal("/rest/v1/rpc/request_org_status_change", request.RequestUri!.AbsolutePath);
+        using var sent = JsonDocument.Parse(Assert.Single(handler.Calls).Body);
+        var root = sent.RootElement;
+        Assert.Equal(orgId, root.GetProperty("p_org_id").GetGuid());
+        Assert.Equal("SUSPEND", root.GetProperty("p_action").GetString());
+        Assert.Equal("Rà soát tỷ lệ hoàn vé", root.GetProperty("p_reason").GetString());
+    }
+
+    [Fact]
     public async Task Admin_events_default_to_pending_review()
     {
         var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
