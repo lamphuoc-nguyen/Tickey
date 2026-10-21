@@ -1,13 +1,15 @@
 import { ticketStatusLabels } from '../ticket-status';
 import { useState } from 'react';
+import { router } from 'expo-router';
 import { formatSessionTime } from '@event/core';
 import { Button, Card, Copy, Heading, Notice, QueryState, Screen } from '@/components/ui';
-import { useOfflineTickets } from '../hooks/use-ticket';
+import { useConnection, useOfflineTickets } from '../hooks/use-ticket';
 import { TicketPresentation } from '../components/ticket-presentation';
 
 /** Local downloads remain viewable if a refresh token cannot be renewed offline. No authenticated writes here. */
 export default function OfflineScreen() {
   const query = useOfflineTickets();
+  const online = useConnection();
   const [id, setId] = useState<string | null>(null);
   const selected = query.data?.find((entry) => entry.ticket.id === id);
   return (
@@ -43,6 +45,11 @@ export default function OfflineScreen() {
             Đóng vé đã tải
           </Button>
         </Card>
+      )}
+      {online && (
+        <Button secondary onPress={() => router.replace('/tickets')}>
+          Kiểm tra vé với máy chủ
+        </Button>
       )}
     </Screen>
   );

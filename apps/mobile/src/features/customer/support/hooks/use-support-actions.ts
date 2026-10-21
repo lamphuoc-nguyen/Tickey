@@ -55,13 +55,17 @@ export function useSupportActions() {
     }),
     report: useExclusiveMutation('submit-report', {
       retry: false,
-      mutationFn: async (p: {
-        input: Omit<z.input<typeof reportInputSchema>, 'attachmentPaths'>;
-        assets: DocumentPicker.DocumentPickerAsset[];
-      }) => {
+      mutationFn: async (
+        p: {
+          input: Omit<z.input<typeof reportInputSchema>, 'attachmentPaths'>;
+          assets: DocumentPicker.DocumentPickerAsset[];
+        },
+        assertCurrent,
+      ) => {
         reportInputSchema.parse({ ...p.input, attachmentPaths: [] });
         const paths: string[] = [];
         for (const asset of p.assets) {
+          await assertCurrent();
           const key = `${session?.userId}:${asset.uri}`;
           const existing = uploaded.current.get(key);
           if (existing) {
@@ -81,6 +85,7 @@ export function useSupportActions() {
           uploaded.current.set(key, upload.path);
           paths.push(upload.path);
         }
+        await assertCurrent();
         return repositories.customer.submitReport({ ...p.input, attachmentPaths: paths });
       },
       onSuccess: () => {

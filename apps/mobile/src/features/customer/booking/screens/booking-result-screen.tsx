@@ -9,7 +9,7 @@ import { bookingOutcome } from '../booking-outcome';
 function Content() {
   const { bookingId = '' } = useLocalSearchParams<{ bookingId: string }>();
   const query = useBooking(bookingId),
-    tickets = useBookingTickets(bookingId);
+    tickets = useBookingTickets(bookingId, query.data?.status === 'CONFIRMED');
   const booking = query.data;
   const confirmed = booking?.status === 'CONFIRMED';
   return (

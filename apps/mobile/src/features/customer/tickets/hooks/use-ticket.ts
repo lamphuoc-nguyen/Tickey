@@ -26,6 +26,7 @@ export function useSavedTickets() {
     queryKey: ['saved-tickets', ...sessionScope(session)],
     queryFn: () => ticketCache.list(session!.userId),
     enabled: !!session,
+    networkMode: 'always',
   });
 }
 export function useTicket(id: string) {
@@ -102,12 +103,12 @@ export function useOfflineTickets() {
     data: auth.loading ? undefined : query.data,
   };
 }
-export function useBookingTickets(id: string) {
+export function useBookingTickets(id: string, enabled = true) {
   const { session } = useAuth();
   return useQuery({
     queryKey: ['booking-tickets', ...sessionScope(session), id],
     queryFn: ({ signal }) => repositories.customer.bookingTickets(id, signal),
-    enabled: !!id && session?.workspace.kind === 'CUSTOMER',
+    enabled: enabled && !!id && session?.workspace.kind === 'CUSTOMER',
   });
 }
 export function useOrder(id: string) {

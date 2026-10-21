@@ -16,6 +16,7 @@ import { useAuth } from '@/features/auth/hooks/auth-context';
 import { useAuthActions } from '@/features/auth/hooks/use-auth-actions';
 import { useRefund, useSupportActions } from '@/features/customer/support/hooks/use-support-actions';
 import { useFormDraft } from '@/features/forms/use-form-draft';
+import { submitVerifiedBankInfo } from '../bank-submission';
 function Content() {
   const { refundId = '' } = useLocalSearchParams<{ refundId: string }>();
   const refund = useRefund(refundId);
@@ -27,6 +28,10 @@ function Content() {
   const { otp, sent } = verification.draft;
   const setOtp = (otp: string) => verification.update({ otp });
   const [error, setError] = useState('');
+  const verificationScope = `${auth.session?.userId ?? ''}:${refundId}`;
+  const [verifiedScope, setVerifiedScope] = useState<string | null>(null);
+  const verified = verifiedScope === verificationScope;
+  const setVerified = (value: boolean) => setVerifiedScope(value ? verificationScope : null);
   const busy = actions.otp.isPending || actions.verify.isPending || bankInfo.isPending;
   const allowed =
     refund.data?.status === 'AWAITING_BANK_INFO' &&
@@ -35,14 +40,19 @@ function Content() {
     bankInputSchema.safeParse(bank.draft).success;
   async function submit() {
     if (!allowed || busy || !auth.session) return;
-    if (!/^\d{6,10}$/.test(otp)) {
+    if (!verified && !/^\d{6,10}$/.test(otp.trim())) {
       setError('Nhập mã xác thực gửi đến email.');
       return;
     }
     setError('');
     try {
-      await actions.verify.mutateAsync({ email: auth.session.email, token: otp });
-      await bankInfo.mutateAsync({ id: refundId, input: bank.draft });
+      const email = auth.session.email;
+      await submitVerifiedBankInfo({
+        verified,
+        setVerified,
+        verify: () => actions.verify.mutateAsync({ email, token: otp.trim() }),
+        submit: () => bankInfo.mutateAsync({ id: refundId, input: bank.draft }),
+      });
       bank.clear();
       verification.clear();
       router.replace({ pathname: '/refunds/[refundId]', params: { refundId } });
@@ -75,11 +85,16 @@ function Content() {
         onChangeText={setOtp}
         keyboardType="number-pad"
         textContentType="oneTimeCode"
-        editable={!busy}
+        editable={!busy && !verified}
         error={error}
         placeholder="Nhập mã được gửi tới bạn."
       />
       <Notice>Mã xác thực dùng để xác nhận tài khoản nhận hoàn tiền.</Notice>
+      {verified && (
+        <Notice>
+          Đã xác thực email. Bạn có thể thử gửi lại thông tin nhận hoàn nếu kết nối bị gián đoạn.
+        </Notice>
+      )}
       <Button
         secondary
         busy={actions.otp.isPending}
@@ -89,7 +104,13 @@ function Content() {
           if (auth.session)
             void actions.otp
               .mutateAsync(auth.session.email)
-              .then(() => verification.update({ sent: true }))
+              .then(() => {
+                setVerified(false);
+                setError('');
+                actions.verify.reset();
+                bankInfo.reset();
+                verification.update({ sent: true, otp: '' });
+              })
               .catch(() => {});
         }}
       >
