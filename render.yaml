@@ -1,0 +1,26 @@
+# Render Blueprint for the .NET API (render.com → New → Blueprint → this repo).
+# Builds the root Dockerfile. Values marked sync: false are entered in the Render dashboard, never committed.
+services:
+  - type: web
+    name: tickey-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      # The container listens on 8080 (ASPNETCORE_URLS in the Dockerfile).
+      - key: PORT
+        value: "8080"
+      - key: Supabase__Url
+        value: https://ddourrslmudoqevqlvpv.supabase.co
+      # Publishable key (sb_publishable_…).
+      - key: Supabase__AnonKey
+        sync: false
+      # Secret key (sb_secret_…). Backend only.
+      - key: Supabase__ServiceRoleKey
+        sync: false
+      # This service's own https URL, e.g. https://tickey-api.onrender.com (used for payment return links).
+      - key: Api__PublicUrl
+        sync: false
