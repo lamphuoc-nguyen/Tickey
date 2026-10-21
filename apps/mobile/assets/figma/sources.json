@@ -92,7 +92,7 @@
   {
     "node": "1:532",
     "constant": "imgPhotographyCrowd",
-    "file": "1-532-imgPhotographyCrowd.png",
+    "file": "1-532-imgPhotographyCrowd.jpg",
     "bytes": 40778
   },
   {
@@ -134,7 +134,7 @@
   {
     "node": "1:573",
     "constant": "imgPhotographyOutdoor",
-    "file": "1-573-imgPhotographyOutdoor.png",
+    "file": "1-573-imgPhotographyOutdoor.jpg",
     "bytes": 71516
   },
   {
@@ -164,7 +164,7 @@
   {
     "node": "1:2125",
     "constant": "imgPhotographyTheater",
-    "file": "1-2125-imgPhotographyTheater.png",
+    "file": "1-2125-imgPhotographyTheater.jpg",
     "bytes": 105606
   },
   {
