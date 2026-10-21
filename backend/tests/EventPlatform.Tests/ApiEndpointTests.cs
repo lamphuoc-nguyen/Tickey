@@ -565,10 +565,87 @@ public class ApiEndpointTests
     [InlineData("/api/admin/kyc-submissions")]
     [InlineData("/api/admin/refunds/11111111-1111-1111-1111-111111111111/bank-info")]
     [InlineData("/api/disputes")]
+    [InlineData("/api/organizations/11111111-1111-1111-1111-111111111111/orders")]
+    [InlineData("/api/organizations/11111111-1111-1111-1111-111111111111/comp-tickets")]
     public async Task Org_and_admin_endpoints_need_a_jwt(string path)
     {
         var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"));
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync(path, Ct)).StatusCode);
         Assert.Empty(handler.Calls);
+    }
+
+    [Fact]
+    public async Task Org_orders_are_filtered_to_the_tenant_and_forward_the_jwt()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+        var orgId = Guid.NewGuid();
+
+        var res = await client.GetAsync($"/api/organizations/{orgId}/orders", Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal("/rest/v1/bookings", request.RequestUri!.AbsolutePath);
+        var query = Uri.UnescapeDataString(request.RequestUri.Query);
+        Assert.Contains($"tenant_id=eq.{orgId}", query);
+        Assert.Contains("session:sessions(", query);
+        Assert.Contains("items:booking_items(", query);
+        Assert.Contains("payments(", query);
+        Assert.Equal(UserJwt, request.Headers.Authorization!.Parameter);
+    }
+
+    [Fact]
+    public async Task Org_orders_can_be_filtered_and_searched()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+        var orgId = Guid.NewGuid();
+
+        await client.GetAsync($"/api/organizations/{orgId}/orders?status=paid&type=comp&q=Nguyen", Ct);
+
+        var query = Uri.UnescapeDataString(Assert.Single(handler.Calls).Request.RequestUri!.Query);
+        Assert.Contains("status=eq.PAID", query);
+        Assert.Contains("booking_type=eq.COMP", query);
+        Assert.Contains("or=(code.ilike.*Nguyen*,", query);
+        Assert.Contains("buyer_snapshot->>full_name.ilike.*Nguyen*", query);
+    }
+
+    [Fact]
+    public async Task Order_detail_is_404_when_rls_hides_the_booking()
+    {
+        var (client, _) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+        var orgId = Guid.NewGuid();
+
+        var res = await client.GetAsync($"/api/organizations/{orgId}/orders/{Guid.NewGuid()}", Ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
+        Assert.Equal("NOT_FOUND", (await res.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task Order_detail_shows_the_issued_tickets()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, """[{"id":"b1"}]"""), UserJwt);
+        var orgId = Guid.NewGuid();
+        var bookingId = Guid.NewGuid();
+
+        var res = await client.GetAsync($"/api/organizations/{orgId}/orders/{bookingId}", Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var request = Assert.Single(handler.Calls).Request;
+        var query = Uri.UnescapeDataString(request.RequestUri!.Query);
+        Assert.Contains("tickets:tickets(", query);
+        Assert.Contains($"id=eq.{bookingId}", query);
+    }
+
+    [Fact]
+    public async Task Comp_tickets_are_only_the_comp_bookings()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+        var orgId = Guid.NewGuid();
+
+        await client.GetAsync($"/api/organizations/{orgId}/comp-tickets", Ct);
+
+        var query = Uri.UnescapeDataString(Assert.Single(handler.Calls).Request.RequestUri!.Query);
+        Assert.Contains("booking_type=eq.COMP", query);
+        Assert.Contains($"tenant_id=eq.{orgId}", query);
     }
 }

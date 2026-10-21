@@ -69,6 +69,16 @@ export interface OrgEvent {
   sessions: OrgSession[];
 }
 
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  logoUrl: string | null;
+  businessType: string;
+  status: string;
+  tier: string;
+}
+
 export interface Gate {
   id: string;
   code: string;
@@ -125,6 +135,15 @@ export function useOrgEvents(orgId: string | null) {
   return useQuery({
     queryKey: ['org', orgId, 'events'],
     queryFn: () => api.get<OrgEvent[]>(`/api/organizations/${orgId}/events?limit=100`),
+    enabled: !!orgId,
+  });
+}
+
+/** The Org of the active workspace (name, logo, status). */
+export function useOrganization(orgId: string | null) {
+  return useQuery({
+    queryKey: ['org', orgId, 'organization'],
+    queryFn: () => api.get<Organization>(`/api/organizations/${orgId}`),
     enabled: !!orgId,
   });
 }

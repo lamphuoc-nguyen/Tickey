@@ -51,6 +51,36 @@ public sealed record DisputeMessageRequest(string Body, JsonElement? Attachments
 /// </summary>
 public static class OrgEndpoints
 {
+    /// <summary>Columns of a booking for the Org order list: the buyer, the session and what was sold.</summary>
+    private const string OrderColumns = """
+        id, code, status, booking_type, session_id, item_count, list_amount, discount_amount, total_amount,
+        currency, buyer_snapshot, created_at, paid_at, confirmed_at, cancelled_at, expired_at, flagged, flag_reason,
+        session:sessions(id, title, starts_at, ends_at, event:events(id, title)),
+        items:booking_items(id, quantity, unit_price, ticket_type_id, seat_id, zone_id,
+            ticket_type:ticket_types(name, kind), seat:seats(seat_code)),
+        payments(gateway, amount, status, paid_at)
+        """;
+
+    /// <summary>Order detail also shows the issued tickets (the QR a guest carries).</summary>
+    private const string OrderDetailColumns = """
+        id, code, status, booking_type, session_id, user_id, created_by, item_count, list_amount, discount_amount,
+        total_amount, currency, buyer_snapshot, sold_by, created_at, paid_at, confirmed_at, cancelled_at, expired_at,
+        flagged, flag_reason,
+        session:sessions(id, title, starts_at, ends_at, event:events(id, title)),
+        items:booking_items(id, quantity, unit_price, ticket_type_id, seat_id, zone_id,
+            ticket_type:ticket_types(name, kind), seat:seats(seat_code)),
+        payments(gateway, amount, status, paid_at, initiated_at),
+        tickets:tickets(id, status, holder_name, holder_email, ticket_type:ticket_types(name, kind),
+            seat:seats(seat_code))
+        """;
+
+    /// <summary>The buyer snapshot holds different keys per booking type (CUSTOMER vs COMP / POS).</summary>
+    private static readonly string[] BuyerColumns =
+    [
+        "buyer_snapshot->>full_name", "buyer_snapshot->>email",
+        "buyer_snapshot->>holder_name", "buyer_snapshot->>holder_email",
+    ];
+
     public static void MapOrgEndpoints(this IEndpointRouteBuilder app)
     {
         var api = app.MapGroup("/api").RequireBearer();
@@ -61,6 +91,7 @@ public static class OrgEndpoints
         MapSeatsAndStaff(api);
         MapDisputes(api);
         MapFinance(api);
+        MapOrders(api);
     }
 
     private static void MapOrganization(RouteGroupBuilder api)
@@ -410,6 +441,35 @@ public static class OrgEndpoints
             }, http.Jwt(), ct);
             return Results.Created($"/api/organizations/{orgId}/bank-accounts/{id}", new { id });
         });
+    }
+
+    /// <summary>
+    /// Đơn vé (bookings) của Org: khách hàng đã mua và vé mời COMP đã phát. Đọc qua RLS (OWNER / FINANCE /
+    /// EVENT_MANAGER / GATE_MANAGER); vé mời được phát bằng issue_comp_tickets.
+    /// </summary>
+    private static void MapOrders(RouteGroupBuilder api)
+    {
+        // Đơn vé của Org. type: CUSTOMER | COMP | POS | B2B. q tìm theo mã đơn, tên và email người mua.
+        api.MapGet("/organizations/{orgId:guid}/orders", async (Guid orgId, string? status, string? type, string? q,
+            int? limit, int? offset, HttpContext http, SupabaseRestClient db, CancellationToken ct) =>
+            Results.Ok(await db.SelectAsync("bookings", Query(
+                Select(OrderColumns), Eq("tenant_id", orgId), Status(status), EqUpper("booking_type", type),
+                Search(q, new[] { "code" }.Concat(BuyerColumns).ToArray()),
+                "order=created_at.desc", Page(limit, offset)), http.Jwt(), ct)));
+
+        // Chi tiết một đơn vé: gồm vé đã phát (mã QR) và lịch sử thanh toán.
+        api.MapGet("/organizations/{orgId:guid}/orders/{bookingId:guid}", async (Guid orgId, Guid bookingId,
+            HttpContext http, SupabaseRestClient db, CancellationToken ct) =>
+            Single(await db.SelectAsync("bookings", Query(
+                Select(OrderDetailColumns), Eq("tenant_id", orgId), Eq("id", bookingId)), http.Jwt(), ct)));
+
+        // Vé mời (COMP) đã phát của Org, mới nhất trước.
+        api.MapGet("/organizations/{orgId:guid}/comp-tickets", async (Guid orgId, Guid? sessionId, string? status,
+            int? limit, int? offset, HttpContext http, SupabaseRestClient db, CancellationToken ct) =>
+            Results.Ok(await db.SelectAsync("bookings", Query(
+                Select(OrderColumns), Eq("tenant_id", orgId), Eq("booking_type", "COMP"),
+                sessionId is { } session ? Eq("session_id", session) : null, Status(status),
+                "order=created_at.desc", Page(limit, offset)), http.Jwt(), ct)));
     }
 
     /// <summary>save_* RPC: 201 + Location on create (no id), 200 on update; both return { id }.</summary>

@@ -26,19 +26,6 @@ export interface GateItem {
   totalExpected: number;
 }
 
-export interface OrderItem {
-  id: string;
-  customer: string;
-  email: string;
-  event: string;
-  tier: string;
-  quantity: number;
-  total: string;
-  paymentMethod: string;
-  time: string;
-  status: string;
-}
-
 export interface PayoutItem {
   id: string;
   organizer: string;
@@ -169,15 +156,6 @@ export interface FigmaPortalDomainState {
     gateCode: string;
     staffName: string;
     status: 'ONLINE' | 'REVOKED';
-  }[];
-  orders: {
-    id: string;
-    code: string;
-    customerName: string;
-    sessionName: string;
-    seats: string;
-    total: string;
-    status: 'PAID' | 'COMP' | 'REFUND_REQUESTED';
   }[];
   compTickets: {
     id: string;
@@ -507,35 +485,6 @@ const initialFigmaState: FigmaPortalDomainState = {
       status: 'ONLINE',
     },
   ],
-  orders: [
-    {
-      id: 'o-1',
-      code: 'TK-1024',
-      customerName: 'Nguyễn Minh Anh',
-      sessionName: 'Đêm 1 · 24/10/2026',
-      seats: 'C04, C05 (VIP)',
-      total: '1.800.000đ',
-      status: 'PAID',
-    },
-    {
-      id: 'o-2',
-      code: 'TK-1025',
-      customerName: 'Trần Hoàng Nam',
-      sessionName: 'Đêm 1 · 24/10/2026',
-      seats: 'A06, A07 (Standard)',
-      total: '1.000.000đ',
-      status: 'PAID',
-    },
-    {
-      id: 'o-3',
-      code: 'TK-COMP-01',
-      customerName: 'Võ Bích Ngọc',
-      sessionName: 'Đêm 1 · 24/10/2026',
-      seats: 'G01 (COMP)',
-      total: '0đ',
-      status: 'COMP',
-    },
-  ],
   compTickets: [
     {
       id: 'c-1',
@@ -818,7 +767,6 @@ interface MockStoreState {
   updateStaff: (id: string, updates: Partial<StaffItem>) => void;
   gates: GateItem[];
   addDeviceToGate: (gateId: string, device: Omit<GateDevice, 'id'>) => void;
-  orders: OrderItem[];
   payouts: PayoutItem[];
   requestPayout: (data: {
     amount: number;
@@ -1630,7 +1578,6 @@ export const useMockStore = create<MockStoreState>()(
       updateStaff: () => {},
       gates: [],
       addDeviceToGate: () => {},
-      orders: [],
       payouts: [
         {
           id: 'po-1',
