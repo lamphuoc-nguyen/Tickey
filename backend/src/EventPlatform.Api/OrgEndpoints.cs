@@ -83,7 +83,7 @@ public static class OrgEndpoints
         api.MapGet("/organizations/{orgId:guid}/members", async (Guid orgId, HttpContext http, SupabaseRestClient db,
             CancellationToken ct) =>
             Results.Ok(await db.SelectAsync("memberships", Query(
-                Select("id, user_id, scope, org_id, roles, status, invited_by, created_at, updated_at"),
+                Select("id, user_id, scope, org_id, roles, status, invited_by, created_at, updated_at, profile:profiles!memberships_user_id_fkey(full_name, phone)"),
                 Eq("org_id", orgId), "order=created_at"), http.Jwt(), ct)));
 
         // Adds or updates a member by email (the user must have signed up). Empty roles removes them. OWNER + TOTP.
@@ -119,7 +119,7 @@ public static class OrgEndpoints
         api.MapGet("/organizations/{orgId:guid}/events", async (Guid orgId, string? status, int? limit, int? offset,
             HttpContext http, SupabaseRestClient db, CancellationToken ct) =>
             Results.Ok(await db.SelectAsync("events", Query(
-                Select("*, sessions(id, title, starts_at, ends_at, status, sales_paused)"),
+                Select("*, sessions(id, title, starts_at, ends_at, doors_open_at, status, sales_paused, venue:venues(id, name, timezone))"),
                 Eq("tenant_id", orgId), Status(status), "order=created_at.desc", Page(limit, offset)), http.Jwt(), ct)));
 
         api.MapGet("/organizations/{orgId:guid}/devices", async (Guid orgId, string? status, HttpContext http,
