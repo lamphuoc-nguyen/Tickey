@@ -21,7 +21,7 @@ describe('auth form validation', () => {
     expect(validateAuthForm('verify', { ...empty, email: 'user@example.test', token: ' 12345678 ' })).toEqual(
       {},
     );
-    for (const token of ['12345', '12345678901', 'abcd1234'])
+    for (const token of ['12345', '123456', '1234567', '123456789', '1234567890', '12345678901', 'abcd1234'])
       expect(validateAuthForm('verify', { ...empty, email: 'user@example.test', token })).toHaveProperty(
         'token',
       );
@@ -31,7 +31,16 @@ describe('auth form validation', () => {
     expect(
       validateAuthForm('verify-recovery', { ...empty, email: 'user@example.test', token: ' 12345678 ' }),
     ).toEqual({});
-    for (const token of ['', '12345', '12345678901', 'not-a-code'])
+    for (const token of [
+      '',
+      '12345',
+      '123456',
+      '1234567',
+      '123456789',
+      '1234567890',
+      '12345678901',
+      'not-a-code',
+    ])
       expect(
         validateAuthForm('verify-recovery', { ...empty, email: 'user@example.test', token }),
       ).toHaveProperty('token');
