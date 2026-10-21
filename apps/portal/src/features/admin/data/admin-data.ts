@@ -392,3 +392,342 @@ export function useReplySupportRequest() {
     onSuccess: () => client.invalidateQueries({ queryKey: ['admin', 'support-requests'] }),
   });
 }
+
+// ---------------------------------------------------------------------------------------------
+// Tiền tệ nền tảng: hoàn tiền khách hàng, chargeback, giải ngân cho Org, xác minh ngân hàng và
+// đối soát. Đọc qua /api/admin/* (RLS cho FINANCE_ADMIN / DISPUTE_ADMIN), ghi qua các RPC có kiểm
+// tra vai trò + TOTP. Không có orgId: phạm vi do RLS quyết định.
+// ---------------------------------------------------------------------------------------------
+
+export interface AdminRefund {
+  id: string;
+  orgId: string;
+  bookingId: string;
+  paymentId: string | null;
+  amount: number;
+  reason: string;
+  sourceType: string | null;
+  sourceId: string | null;
+  status: string;
+  gatewayRefundId: string | null;
+  attempts: number;
+  lastError: string | null;
+  approvalId: string | null;
+  requestedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  succeededAt: string | null;
+}
+
+/** Đích nhận tiền hoàn do khách khai báo (chỉ FINANCE_ADMIN đọc được). */
+export interface RefundBankInfo {
+  refundId: string;
+  bankCode: string;
+  accountNumber: string;
+  accountHolder: string;
+  otpVerifiedAt: string | null;
+  transferredAt: string | null;
+  transferRef: string | null;
+}
+
+export interface Chargeback {
+  id: string;
+  orgId: string;
+  paymentId: string;
+  bookingId: string;
+  gatewayCaseId: string | null;
+  amount: number;
+  reason: string | null;
+  status: string;
+  recordedBy: string;
+  resolutionNote: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
+export interface AdminPayout {
+  id: string;
+  tenantId: string;
+  bankAccountId: string;
+  amount: number;
+  status: string;
+  approvalId: string | null;
+  gatewayPayoutRef: string | null;
+  proposedBy: string | null;
+  failureReason: string | null;
+  sentAt: string | null;
+  confirmedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  org?: AdminOrgRef | null;
+}
+
+export interface AdminOrgRef {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface AdminBankAccount {
+  id: string;
+  orgId: string;
+  bankCode: string;
+  accountNumber: string;
+  accountHolder: string;
+  status: string;
+  effectiveAt: string | null;
+  verifiedAt: string | null;
+  createdAt: string;
+  org?: AdminOrgRef | null;
+}
+
+export interface AdminSettlement {
+  id: string;
+  tenantId: string;
+  sessionId: string;
+  status: string;
+  cutoffAt: string | null;
+  grossAmount: number;
+  refundAmount: number;
+  chargebackAmount: number;
+  feeAmount: number;
+  netAmount: number;
+  report: Record<string, unknown>;
+  computedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  session?: {
+    id: string;
+    title: string | null;
+    startsAt: string;
+    event?: { id: string; title: string } | null;
+  } | null;
+}
+
+export interface GatewayStatementLine {
+  id: string;
+  gateway: string;
+  statementDate: string;
+  txnType: 'PAYMENT' | 'REFUND' | 'PAYOUT' | 'CHARGEBACK';
+  gatewayTxnId: string;
+  amount: number;
+  paymentId: string | null;
+  refundId: string | null;
+  matchStatus: string;
+  raw: unknown;
+  importedAt: string;
+}
+
+/** Trạng thái hồ sơ chargeback (chargebacks.status). */
+export const CHARGEBACK_STATUS: Record<string, { label: string; badge: string }> = {
+  OPEN: { label: 'Đang kháng nghị', badge: 'badge-warning' },
+  WON: { label: 'Thắng kháng nghị', badge: 'badge-success' },
+  LOST: { label: 'Thua kháng nghị', badge: 'badge-danger' },
+  ACCEPTED: { label: 'Chấp nhận bồi hoàn', badge: 'badge-danger' },
+};
+
+/** Kết quả đối chiếu sao kê cổng thanh toán (gateway_statement_lines.match_status). */
+export const GATEWAY_MATCH_STATUS: Record<string, { label: string; badge: string }> = {
+  UNMATCHED: { label: 'Chưa đối chiếu', badge: 'badge-info' },
+  MATCHED: { label: 'Khớp', badge: 'badge-success' },
+  MISSING_IN_SYSTEM: { label: 'Có ở cổng, thiếu ở hệ thống', badge: 'badge-danger' },
+  AMOUNT_MISMATCH: { label: 'Sai lệch số tiền', badge: 'badge-warning' },
+};
+
+/** Loại giao dịch trên sao kê cổng thanh toán. */
+export const GATEWAY_TXN_TYPE: Record<string, string> = {
+  PAYMENT: 'Thu tiền',
+  REFUND: 'Hoàn tiền',
+  PAYOUT: 'Giải ngân',
+  CHARGEBACK: 'Bồi hoàn thẻ',
+};
+
+/** Danh sách lệnh hoàn tiền toàn nền tảng, lọc theo trạng thái. */
+export function useAdminRefunds(status?: string) {
+  return useQuery({
+    queryKey: ['admin', 'refunds', status ?? null],
+    queryFn: () => {
+      const search = new URLSearchParams({ limit: '100', offset: '0' });
+      if (status) search.set('status', status);
+      return api.get<AdminRefund[]>(`/api/admin/refunds?${search.toString()}`);
+    },
+  });
+}
+
+/** Thông tin ngân hàng nhận tiền hoàn của khách (null khi khách chưa khai báo). */
+export function useRefundBankInfo(refundId: string | null) {
+  return useQuery({
+    queryKey: ['admin', 'refund-bank-info', refundId],
+    queryFn: () => api.get<RefundBankInfo | null>(`/api/admin/refunds/${refundId}/bank-info`),
+    enabled: !!refundId,
+  });
+}
+
+/** Tạo lệnh hoàn thủ công (create_manual_refund). Trên ngưỡng sẽ thành phiếu duyệt kép. */
+export function useCreateManualRefund() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { bookingId: string; amount: number; note: string; ticketIds?: string[] | null }) =>
+      api.post<{ refund_id?: string; approval_id?: string; status: string }>('/api/admin/refunds', {
+        bookingId: body.bookingId,
+        amount: body.amount,
+        note: body.note,
+        ticketIds: body.ticketIds ?? null,
+      }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['admin', 'refunds'] }),
+  });
+}
+
+/** Ghi nhận đã chuyển khoản hoàn tiền thủ công (confirm_manual_transfer). */
+export function useManualTransfer() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, transferRef }: { id: string; transferRef: string }) =>
+      api.post<void>(`/api/admin/refunds/${id}/manual-transfer`, { transferRef }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['admin', 'refunds'] });
+      client.invalidateQueries({ queryKey: ['admin', 'refund-bank-info'] });
+    },
+  });
+}
+
+/** Thử lại hoặc yêu cầu bổ sung thông tin ngân hàng (admin_refund_action). */
+export function useRefundAction() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, action }: { id: string; action: 'RETRY' | 'REQUEST_BANK_INFO' }) =>
+      api.post<{ status: string }>(`/api/admin/refunds/${id}/actions`, { action }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['admin', 'refunds'] }),
+  });
+}
+
+/** Hồ sơ chargeback toàn nền tảng, lọc theo trạng thái. */
+export function useAdminChargebacks(status?: string) {
+  return useQuery({
+    queryKey: ['admin', 'chargebacks', status ?? null],
+    queryFn: () => {
+      const search = new URLSearchParams({ limit: '100', offset: '0' });
+      if (status) search.set('status', status);
+      return api.get<Chargeback[]>(`/api/admin/chargebacks?${search.toString()}`);
+    },
+  });
+}
+
+/** Kết luận kháng nghị chargeback (resolve_chargeback). Cần FINANCE_ADMIN. */
+export function useResolveChargeback() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, outcome, note }: { id: string; outcome: 'WON' | 'LOST' | 'ACCEPTED'; note?: string | null }) =>
+      api.post<void>(`/api/admin/chargebacks/${id}/resolve`, { outcome, note: note ?? null }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['admin', 'chargebacks'] }),
+  });
+}
+
+/** Lệnh giải ngân toàn nền tảng, lọc theo trạng thái. */
+export function useAdminPayouts(status?: string) {
+  return useQuery({
+    queryKey: ['admin', 'payouts', status ?? null],
+    queryFn: () => {
+      const search = new URLSearchParams({ limit: '100', offset: '0' });
+      if (status) search.set('status', status);
+      return api.get<AdminPayout[]>(`/api/admin/payouts?${search.toString()}`);
+    },
+  });
+}
+
+/** Hủy / tạm hoãn lệnh giải ngân (cancel_payout). */
+export function useCancelPayout() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      api.post<void>(`/api/admin/payouts/${id}/cancel`, { reason }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['admin', 'payouts'] }),
+  });
+}
+
+/** Đề xuất giải ngân số dư READY của Org (propose_payout → phiếu duyệt kép). */
+export function useProposePayout() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (orgId: string) =>
+      api.post<{ payout_id: string; approval_id: string; amount: number }>('/api/admin/payouts', { orgId }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['admin', 'payouts'] }),
+  });
+}
+
+/** Tài khoản ngân hàng của Org, mặc định chỉ bản PENDING cần duyệt. */
+export function useAdminBankAccounts(status?: string) {
+  return useQuery({
+    queryKey: ['admin', 'bank-accounts', status ?? null],
+    queryFn: () => {
+      const search = new URLSearchParams({ limit: '100', offset: '0' });
+      if (status) search.set('status', status);
+      return api.get<AdminBankAccount[]>(`/api/admin/bank-accounts?${search.toString()}`);
+    },
+  });
+}
+
+/** Duyệt / từ chối tài khoản ngân hàng nhận tiền (review_bank_account). */
+export function useReviewBankAccount() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, decision, note }: { id: string; decision: 'APPROVE' | 'REJECT'; note?: string | null }) =>
+      api.post<void>(`/api/admin/bank-accounts/${id}/review`, { decision, note: note ?? null }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['admin', 'bank-accounts'] }),
+  });
+}
+
+/** Kỳ đối soát doanh thu toàn nền tảng. */
+export function useAdminSettlements(filters: { orgId?: string; status?: string }) {
+  return useQuery({
+    queryKey: ['admin', 'settlements', filters],
+    queryFn: () => {
+      const search = new URLSearchParams({ limit: '100', offset: '0' });
+      if (filters.orgId) search.set('orgId', filters.orgId);
+      if (filters.status) search.set('status', filters.status);
+      return api.get<AdminSettlement[]>(`/api/admin/settlements?${search.toString()}`);
+    },
+  });
+}
+
+/** Tính lại kỳ đối soát của một suất diễn (recompute_settlement). */
+export function useRecomputeSettlement() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (sessionId: string) =>
+      api.post<Record<string, unknown>>(`/api/admin/sessions/${sessionId}/settlement`),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['admin', 'settlements'] });
+      client.invalidateQueries({ queryKey: ['org'] });
+    },
+  });
+}
+
+/** Dòng sao kê cổng thanh toán đã nhập, kèm trạng thái đối chiếu. */
+export function useGatewayStatements(filters: { gateway?: string; date?: string }) {
+  return useQuery({
+    queryKey: ['admin', 'gateway-statements', filters],
+    queryFn: () => {
+      const search = new URLSearchParams({ limit: '100', offset: '0' });
+      if (filters.gateway) search.set('gateway', filters.gateway);
+      if (filters.date) search.set('date', filters.date);
+      return api.get<GatewayStatementLine[]>(`/api/admin/gateway-statements?${search.toString()}`);
+    },
+  });
+}
+
+/** Nhập sao kê cổng thanh toán (import_gateway_statement). Trả về { matched, mismatches }. */
+export function useImportGatewayStatement() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      gateway: string;
+      statementDate: string;
+      lines: { txnType: string; gatewayTxnId: string; amount: number; raw: unknown }[];
+    }) => api.post<{ matched: number; mismatches: number }>('/api/admin/gateway-statements', body),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['admin', 'gateway-statements'] });
+      client.invalidateQueries({ queryKey: ['admin', 'settlements'] });
+    },
+  });
+}

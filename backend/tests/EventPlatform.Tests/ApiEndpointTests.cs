@@ -667,6 +667,149 @@ public class ApiEndpointTests
     }
 
     [Fact]
+    public async Task Admin_settlements_read_embeds_org_session_and_event_without_a_tenant_filter()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+
+        var res = await client.GetAsync("/api/admin/settlements?status=ready&limit=100&offset=0", Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal("/rest/v1/settlements", request.RequestUri!.AbsolutePath);
+        var query = Uri.UnescapeDataString(request.RequestUri.Query).Replace("+", " ");
+        Assert.Contains("status=eq.READY", query);
+        Assert.Contains("session:sessions(id,title,starts_at,event:events(id,title))", query);
+        Assert.DoesNotContain("org:organizations(", query);
+        Assert.Contains("order=created_at.desc", query);
+        Assert.DoesNotContain("tenant_id=eq.", query);
+        Assert.Equal(UserJwt, request.Headers.Authorization!.Parameter);
+    }
+
+    [Fact]
+    public async Task Admin_gateway_statements_filter_by_gateway_and_statement_date()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+
+        var res = await client.GetAsync("/api/admin/gateway-statements?gateway=VNPAY&date=2026-10-21", Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var request = Assert.Single(handler.Calls).Request;
+        Assert.Equal("/rest/v1/gateway_statement_lines", request.RequestUri!.AbsolutePath);
+        var query = Uri.UnescapeDataString(request.RequestUri.Query);
+        Assert.Contains("gateway=eq.VNPAY", query);
+        Assert.Contains("statement_date=eq.2026-10-21", query);
+        Assert.Contains("order=statement_date.desc,gateway.asc,gateway_txn_id.asc", query);
+    }
+
+    [Fact]
+    public async Task Admin_bank_accounts_default_to_pending_review()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
+
+        var res = await client.GetAsync("/api/admin/bank-accounts", Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var query = Uri.UnescapeDataString(Assert.Single(handler.Calls).Request.RequestUri!.Query).Replace("+", " ");
+        Assert.Contains("status=eq.PENDING", query);
+        Assert.Contains("org:organizations(id,name,slug)", query);
+    }
+
+    [Fact]
+    public async Task Admin_cancels_a_payout_with_a_reason()
+    {
+        var id = Guid.NewGuid();
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "{}"), UserJwt);
+
+        var res = await client.PostAsJsonAsync($"/api/admin/payouts/{id}/cancel",
+            new { reason = "Chờ đối chiếu" }, Ct);
+
+        Assert.Equal(HttpStatusCode.NoContent, res.StatusCode);
+        var call = Assert.Single(handler.Calls);
+        Assert.Equal("/rest/v1/rpc/cancel_payout", call.Request.RequestUri!.AbsolutePath);
+        using var sent = JsonDocument.Parse(call.Body);
+        Assert.Equal(id, sent.RootElement.GetProperty("p_payout_id").GetGuid());
+        Assert.Equal("Chờ đối chiếu", sent.RootElement.GetProperty("p_reason").GetString());
+    }
+
+    [Fact]
+    public async Task Admin_resolves_a_chargeback_with_the_uppercased_outcome()
+    {
+        var id = Guid.NewGuid();
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "{}"), UserJwt);
+
+        var res = await client.PostAsJsonAsync($"/api/admin/chargebacks/{id}/resolve",
+            new { outcome = "won", note = "3DS2 hợp lệ" }, Ct);
+
+        Assert.Equal(HttpStatusCode.NoContent, res.StatusCode);
+        var call = Assert.Single(handler.Calls);
+        Assert.Equal("/rest/v1/rpc/resolve_chargeback", call.Request.RequestUri!.AbsolutePath);
+        using var sent = JsonDocument.Parse(call.Body);
+        Assert.Equal(id, sent.RootElement.GetProperty("p_chargeback_id").GetGuid());
+        Assert.Equal("WON", sent.RootElement.GetProperty("p_outcome").GetString());
+        Assert.Equal("3DS2 hợp lệ", sent.RootElement.GetProperty("p_note").GetString());
+    }
+
+    [Fact]
+    public async Task Admin_confirms_a_manual_refund_transfer_with_the_reference()
+    {
+        var id = Guid.NewGuid();
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "{}"), UserJwt);
+
+        var res = await client.PostAsJsonAsync($"/api/admin/refunds/{id}/manual-transfer",
+            new { transferRef = "VCB-REF-1" }, Ct);
+
+        Assert.Equal(HttpStatusCode.NoContent, res.StatusCode);
+        var call = Assert.Single(handler.Calls);
+        Assert.Equal("/rest/v1/rpc/confirm_manual_transfer", call.Request.RequestUri!.AbsolutePath);
+        using var sent = JsonDocument.Parse(call.Body);
+        Assert.Equal(id, sent.RootElement.GetProperty("p_refund_id").GetGuid());
+        Assert.Equal("VCB-REF-1", sent.RootElement.GetProperty("p_transfer_ref").GetString());
+    }
+
+    [Fact]
+    public async Task Admin_imports_gateway_statement_lines_as_snake_case_rpc_args()
+    {
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, """{"matched":2,"mismatches":0}"""), UserJwt);
+
+        var res = await client.PostAsJsonAsync("/api/admin/gateway-statements", new
+        {
+            gateway = "VNPAY",
+            statementDate = "2026-10-21",
+            lines = new[] { new { txnType = "PAYMENT", gatewayTxnId = "TXN-1", amount = 1800000 } },
+        }, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var call = Assert.Single(handler.Calls);
+        Assert.Equal("/rest/v1/rpc/import_gateway_statement", call.Request.RequestUri!.AbsolutePath);
+        using var sent = JsonDocument.Parse(call.Body);
+        var root = sent.RootElement;
+        Assert.Equal("VNPAY", root.GetProperty("p_gateway").GetString());
+        Assert.Equal("2026-10-21", root.GetProperty("p_statement_date").GetString());
+        var lines = root.GetProperty("p_lines");
+        Assert.Equal(1, lines.GetArrayLength());
+        Assert.Equal("PAYMENT", lines[0].GetProperty("txn_type").GetString());
+        Assert.Equal("TXN-1", lines[0].GetProperty("gateway_txn_id").GetString());
+        Assert.Equal(1800000, lines[0].GetProperty("amount").GetInt64());
+    }
+
+    [Fact]
+    public async Task Admin_recomputes_a_session_settlement()
+    {
+        var id = Guid.NewGuid();
+        var (client, handler) = Create((_, _) => (HttpStatusCode.OK, """{"status":"READY","net_amount":171000}"""), UserJwt);
+
+        var res = await client.PostAsJsonAsync($"/api/admin/sessions/{id}/settlement", new { }, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var call = Assert.Single(handler.Calls);
+        Assert.Equal("/rest/v1/rpc/recompute_settlement", call.Request.RequestUri!.AbsolutePath);
+        using var sent = JsonDocument.Parse(call.Body);
+        Assert.Equal(id, sent.RootElement.GetProperty("p_session_id").GetGuid());
+        var body = await res.Content.ReadFromJsonAsync<JsonElement>(Ct);
+        Assert.Equal(171000, body.GetProperty("net_amount").GetInt64());
+    }
+
+    [Fact]
     public async Task Mfa_required_is_403()
     {
         var (client, _) = Create((_, _) => (HttpStatusCode.BadRequest,
