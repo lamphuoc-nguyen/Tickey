@@ -28,6 +28,8 @@ public class ApiEndpointTests
         var handler = new FakeHttpHandler(respond);
         var factory = new WebApplicationFactory<IApiMarker>().WithWebHostBuilder(builder =>
         {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting("MediaStorage:ImageProvider", "Supabase");
             builder.UseSetting("Supabase:Url", "http://db.test");
             builder.UseSetting("Supabase:AnonKey", "sb_publishable_test");
             builder.UseSetting("Supabase:ServiceRoleKey", "sb_secret_test");

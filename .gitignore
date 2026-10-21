@@ -56,3 +56,6 @@ Thumbs.db
 
 # corepack cache (pnpm binaries downloaded locally)
 .corepack/
+
+# Local editor snapshots can contain stale code or configuration.
+.history/

@@ -21,6 +21,8 @@ public class AuthEmailTests
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting("MediaStorage:ImageProvider", "Supabase");
             builder.UseSetting("Supabase:Url", "http://auth-email.test");
             builder.UseSetting("Supabase:AnonKey", "sb_publishable_test");
             builder.UseSetting("Supabase:ServiceRoleKey", "sb_secret_test");

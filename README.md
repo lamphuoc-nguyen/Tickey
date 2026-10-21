@@ -204,6 +204,10 @@ remove them: `dotnet user-secrets --project <project> remove "Supabase:Url"` (an
 - Payment gateway secrets (`Gateway:*`) once OQ-02 is decided.
 - Host the .NET API + Workers with a public HTTPS URL.
 
+## Cloudinary image storage
+
+Public event images and private KYC/report images can use Cloudinary through the existing upload API. Configure backend user-secrets with `backend/scripts/configure-cloudinary.ps1`; private images use authenticated delivery and permission-checked, short-lived access links. PDFs and legacy objects remain on Supabase. See [CLOUDINARY_SETUP.md](docs/CLOUDINARY_SETUP.md) for configuration, contracts and verification limits. No Cloudinary secret belongs in mobile/web env files.
+
 ## Importing the team's real data
 
 The separately requested hosted DEMO dataset has been imported: see [SUPABASE_DEMO_DATA.md](docs/SUPABASE_DEMO_DATA.md) for verified counts and limits. Its four events are now PUBLISHED and readable anonymously, with two featured on Home; see the handoff for immutable layout labels and unchanged account identities. Demo credentials are stored only in the ignored Windows DPAPI-protected import journal.
@@ -285,7 +289,7 @@ still decides what the caller may see or do. Endpoint code lives in `backend/src
 | Support                   | `GET/POST /api/reports`, `GET/POST /api/support-requests`, `POST /api/support-requests/{id}/messages`, `GET /api/refunds`, `POST /api/refunds/{id}/bank-info` (needs a recent OTP)                                                                                           |
 | Staff                     | `GET /api/me/staff-assignments` (not in the API list; used to pick a Session), `POST /api/devices`, `GET /api/sessions/{id}/manifest?deviceId=&since=`, `POST /api/check-in`, `/check-in/sync`, `/check-in/manual`, `GET /api/sessions/{id}/attendees?q=`, `/gate-analytics` |
 | POS                       | `POST /api/bookings` with `options: { bookingType: "POS", buyerName, buyerPhone, buyerEmail }`, then `/payment`                                                                                                                                                              |
-| Uploads                   | `POST /api/uploads` (multipart `file`, `purpose` = `REPORT_EVIDENCE` / `KYC` / `EVENT_ASSET`, `orgId` for the last two; JPEG, PNG, WebP or PDF up to 10 MB). Returns `{ bucket, path, public_url }`; pass `path` to the RPC that uses it                                     |
+| Uploads                   | `POST /api/uploads` (multipart `file`, `purpose` = `REPORT_EVIDENCE` / `KYC` / `EVENT_ASSET`, `orgId` for the last two; JPEG, PNG, WebP or PDF up to 10 MB). Returns `{ bucket, path, public_url }`; private RPCs use `path`, event covers use `public_url`; private access: `POST /api/uploads/access` (see Cloudinary guide)                                     |
 
 The old `/payments/*` routes still work for `@event/core`'s `HttpPaymentApi`.
 
