@@ -1,0 +1,10 @@
+# Vercel only builds apps/portal (+ packages/*); keep the upload small.
+backend
+docs
+TestResults
+apps/mobile/android
+**/bin
+**/obj
+**/dist
+**/.turbo
+**/.expo
