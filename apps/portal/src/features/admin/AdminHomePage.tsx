@@ -1,92 +1,119 @@
-import {
-  ArrowRight,
-  Clock,
-  FileText,
-  Search,
-  ShieldCheck,
-  Ticket,
-  Users,
-  Wallet,
-} from 'lucide-react';
-import { useState } from 'react';
+import { ArrowRight, Clock, FileText, Search, ShieldCheck, Ticket, Users, Wallet } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { formatDateTime } from '../../lib/api';
+import { useSession } from '../../lib/use-session';
+import { QueryNotice } from '../../components/common/QueryNotice';
+import {
+  APPROVAL_SUBJECT,
+  useAdminDisputes,
+  useAdminEvents,
+  useAdminKyc,
+  useApprovals,
+} from './data/admin-data';
+
+/** Số hiển thị trên thẻ KPI: số bản ghi khi đã tải, … khi đang tải, ! khi lỗi. */
+const countLabel = (query: { isPending: boolean; isError: boolean; data?: unknown[] }) => {
+  if (query.isPending) return '…';
+  if (query.isError) return '!';
+  return String((query.data ?? []).length);
+};
 
 export function AdminHomePage() {
   const navigate = useNavigate();
+  const session = useSession();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+
+  const kyc = useAdminKyc('SUBMITTED');
+  const events = useAdminEvents('PENDING_REVIEW');
+  const disputes = useAdminDisputes('OPEN');
+  const approvals = useApprovals();
+
+  const userId = session.session?.user.id;
+
+  /** Phiếu đang chờ và tài khoản hiện tại chưa biểu quyết. */
+  const myPendingApprovals = useMemo(
+    () => (approvals.data ?? []).filter((a) => !(a.votes ?? []).some((v) => v.voterId === userId)),
+    [approvals.data, userId],
+  );
 
   const stats = [
     {
       title: 'KYC chờ duyệt',
-      count: '6',
-      time: 'Cập nhật lúc 10:42',
+      count: countLabel(kyc),
+      time: 'Dữ liệu trực tiếp',
       icon: Wallet,
       color: '#D9422D',
       path: '/admin/kyc',
     },
     {
       title: 'Sự kiện chờ duyệt',
-      count: '4',
-      time: 'Cập nhật lúc 10:42',
+      count: countLabel(events),
+      time: 'Dữ liệu trực tiếp',
       icon: Ticket,
       color: '#D9422D',
       path: '/admin/events',
     },
     {
       title: 'Tranh chấp đang mở',
-      count: '3',
-      time: 'Cập nhật lúc 10:42',
+      count: countLabel(disputes),
+      time: 'Dữ liệu trực tiếp',
       icon: Users,
       color: '#D9422D',
       path: '/admin/reports',
     },
     {
       title: 'Phiếu chờ bạn',
-      count: '2',
-      time: 'Cập nhật lúc 10:42',
+      count: approvals.isPending ? '…' : approvals.isError ? '!' : String(myPendingApprovals.length),
+      time: 'Dữ liệu trực tiếp',
       icon: Clock,
       color: '#D9422D',
       path: '/admin/approvals',
     },
   ];
 
-  const chartData = [
-    { day: '01', value: 45 },
-    { day: '02', value: 68 },
-    { day: '03', value: 52 },
-    { day: '04', value: 85 },
-    { day: '05', value: 92 },
-    { day: '06', value: 80 },
-    { day: '07', value: 118, active: true },
+  const queueBars = [
+    { label: 'KYC', value: kyc.data?.length ?? 0, path: '/admin/kyc' },
+    { label: 'Sự kiện', value: events.data?.length ?? 0, path: '/admin/events' },
+    { label: 'Tranh chấp', value: disputes.data?.length ?? 0, path: '/admin/reports' },
+    { label: 'Duyệt kép', value: myPendingApprovals.length, path: '/admin/approvals' },
   ];
+  const maxQueue = Math.max(1, ...queueBars.map((q) => q.value));
 
   const pendingTasks = [
-    {
-      id: 'task-1',
-      type: 'KYC · Sóng Việt Events',
-      detail: 'Đã nộp giấy tờ GPKD & CCCD người đại diện',
+    ...(kyc.data ?? []).map((k) => ({
+      id: `kyc-${k.id}`,
+      type: `KYC · ${k.org?.name ?? k.orgId.slice(0, 8)}`,
+      detail: `Hồ sơ nộp ${formatDateTime(k.submittedAt)} · ${k.documents.length} tài liệu`,
       status: 'Chờ review',
       statusBadgeClass: 'badge badge-warning',
       path: '/admin/kyc',
-    },
-    {
-      id: 'task-2',
-      type: 'Payout · Ánh Trăng Events',
-      detail: 'Phiếu đầu đã duyệt (320.000.000đ) · Cần người duyệt thứ hai',
-      status: 'Cần phiếu thứ hai',
-      statusBadgeClass: 'badge badge-warning',
-      path: '/admin/approvals',
-    },
+    })),
+    ...myPendingApprovals.map((a) => {
+      const approveVotes = (a.votes ?? []).filter((v) => v.decision === 'APPROVE').length;
+      return {
+        id: `approval-${a.id}`,
+        type: `Duyệt kép · ${APPROVAL_SUBJECT[a.subjectType] ?? a.subjectType}`,
+        detail: `Đã có ${approveVotes}/${a.requiredVotes} phiếu duyệt · tạo ${formatDateTime(a.createdAt)}`,
+        status: 'Cần phiếu thứ hai',
+        statusBadgeClass: 'badge badge-warning',
+        path: '/admin/approvals',
+      };
+    }),
   ];
 
   const filteredTasks = pendingTasks.filter((t) => {
+    const needle = searchTerm.trim().toLowerCase();
     const matchesSearch =
-      t.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.detail.toLowerCase().includes(searchTerm.toLowerCase());
+      !needle || t.type.toLowerCase().includes(needle) || t.detail.toLowerCase().includes(needle);
     const matchesStatus = statusFilter === 'ALL' || t.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const approvalSubjects = [
+    ...new Set(myPendingApprovals.map((a) => APPROVAL_SUBJECT[a.subjectType] ?? a.subjectType)),
+  ];
 
   return (
     <div style={{ maxWidth: '1240px', margin: '0 auto' }}>
@@ -162,9 +189,7 @@ export function AdminHomePage() {
                   marginBottom: '16px',
                 }}
               >
-                <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--muted)' }}>
-                  {stat.title}
-                </span>
+                <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--muted)' }}>{stat.title}</span>
                 <Icon size={20} color={stat.color} />
               </div>
               <div>
@@ -187,7 +212,7 @@ export function AdminHomePage() {
         })}
       </div>
 
-      {/* Middle Row: Weekly Requests Chart & Two-Man Rule Card */}
+      {/* Middle Row: Queue Chart & Two-Man Rule Card */}
       <div
         style={{
           display: 'grid',
@@ -196,7 +221,7 @@ export function AdminHomePage() {
           marginBottom: '36px',
         }}
       >
-        {/* Weekly Chart */}
+        {/* Queue Chart */}
         <div
           style={{
             backgroundColor: 'var(--surface)',
@@ -218,114 +243,57 @@ export function AdminHomePage() {
                 margin: '0 0 4px',
               }}
             >
-              Yêu cầu được xử lý trong tuần
+              Hàng đợi đang mở
             </h3>
-            <span style={{ fontSize: '12px', color: 'var(--muted)' }}>01/10 - 07/10/2026</span>
+            <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Số hồ sơ theo từng khu vực xử lý</span>
           </div>
 
-          {/* Bar Chart Visualization */}
+          <QueryNotice
+            loading={kyc.isPending || events.isPending || disputes.isPending || approvals.isPending}
+            error={kyc.error ?? events.error ?? disputes.error ?? approvals.error}
+          />
+
           <div
             style={{
               marginTop: '32px',
               position: 'relative',
               height: '160px',
               display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
+              alignItems: 'flex-end',
+              justifyContent: 'space-around',
+              gap: '16px',
             }}
           >
-            {/* Horizontal Grid lines */}
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: '24px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                pointerEvents: 'none',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  borderBottom: '1px solid #F0ECE6',
-                }}
-              >
-                <span style={{ fontSize: '11px', color: '#9CA3AF', width: '24px' }}>120</span>
-                <div style={{ flex: 1 }} />
-              </div>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  borderBottom: '1px solid #F0ECE6',
-                }}
-              >
-                <span style={{ fontSize: '11px', color: '#9CA3AF', width: '24px' }}>80</span>
-                <div style={{ flex: 1 }} />
-              </div>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  borderBottom: '1px solid #F0ECE6',
-                }}
-              >
-                <span style={{ fontSize: '11px', color: '#9CA3AF', width: '24px' }}>40</span>
-                <div style={{ flex: 1 }} />
-              </div>
-            </div>
-
-            {/* Bars */}
-            <div
-              style={{
-                position: 'absolute',
-                left: '36px',
-                right: '12px',
-                bottom: 0,
-                height: '100%',
-                display: 'flex',
-                alignItems: 'flex-end',
-                justifyContent: 'space-between',
-              }}
-            >
-              {chartData.map((item) => {
-                const heightPercent = (item.value / 120) * 100;
-                return (
+            {queueBars.map((item) => {
+              const heightPercent = (item.value / maxQueue) * 100;
+              return (
+                <div
+                  key={item.label}
+                  onClick={() => navigate(item.path)}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '8px',
+                    flex: 1,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span style={{ fontSize: '12px', fontWeight: 700 }}>{item.value}</span>
                   <div
-                    key={item.day}
                     style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '8px',
-                      flex: 1,
+                      width: '38px',
+                      height: `${Math.max(4, heightPercent * 1.2)}px`,
+                      backgroundColor: 'var(--primary)',
+                      borderRadius: '4px 4px 0 0',
+                      transition: 'height 0.3s ease',
                     }}
-                  >
-                    <div
-                      style={{
-                        width: '38px',
-                        height: `${(heightPercent * 120) / 100}px`,
-                        backgroundColor: item.active ? 'var(--primary)' : '#FADBD5',
-                        borderRadius: '4px 4px 0 0',
-                        transition: 'height 0.3s ease',
-                      }}
-                      title={`Ngày ${item.day}: ${item.value} yêu cầu`}
-                    />
-                    <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 500 }}>
-                      {item.day}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+                    title={`${item.label}: ${item.value} hồ sơ`}
+                  />
+                  <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 500 }}>{item.label}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -374,7 +342,7 @@ export function AdminHomePage() {
                   color: '#FFFFFF',
                 }}
               >
-                02
+                {approvals.isPending ? '…' : String(myPendingApprovals.length).padStart(2, '0')}
               </div>
               <div style={{ fontSize: '14px', color: 'rgba(255, 255, 255, 0.85)', lineHeight: 1.4 }}>
                 phiếu cần
@@ -384,7 +352,7 @@ export function AdminHomePage() {
             </div>
 
             <p style={{ margin: 0, fontSize: '13px', color: 'rgba(255, 255, 255, 0.65)' }}>
-              Hủy suất diễn · Chi trả doanh thu
+              {approvalSubjects.length ? approvalSubjects.join(' · ') : 'Hủy suất diễn · Chi trả doanh thu'}
             </p>
           </div>
 
@@ -482,36 +450,44 @@ export function AdminHomePage() {
             </select>
           </div>
 
-          {/* Table */}
-          <table className="table" style={{ width: '100%', margin: 0 }}>
-            <thead>
-              <tr>
-                <th style={{ width: '35%' }}>Đối tượng</th>
-                <th style={{ width: '45%' }}>Chi tiết</th>
-                <th style={{ width: '20%' }}>Trạng thái</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTasks.map((task) => (
-                <tr
-                  key={task.id}
-                  onClick={() => navigate(task.path)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <FileText size={18} color="var(--primary)" />
-                      <strong style={{ color: 'var(--text)' }}>{task.type}</strong>
-                    </div>
-                  </td>
-                  <td style={{ color: 'var(--text)' }}>{task.detail}</td>
-                  <td>
-                    <span className={task.statusBadgeClass}>{task.status}</span>
-                  </td>
+          <QueryNotice
+            loading={kyc.isPending || approvals.isPending}
+            error={kyc.error ?? approvals.error}
+            onRetry={() => {
+              void kyc.refetch();
+              void approvals.refetch();
+            }}
+            empty={!filteredTasks.length}
+            emptyText="Không có hồ sơ nào cần bạn xử lý."
+          />
+
+          {!!filteredTasks.length && (
+            <table className="table" style={{ width: '100%', margin: 0 }}>
+              <thead>
+                <tr>
+                  <th style={{ width: '35%' }}>Đối tượng</th>
+                  <th style={{ width: '45%' }}>Chi tiết</th>
+                  <th style={{ width: '20%' }}>Trạng thái</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredTasks.map((task) => (
+                  <tr key={task.id} onClick={() => navigate(task.path)} style={{ cursor: 'pointer' }}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <FileText size={18} color="var(--primary)" />
+                        <strong style={{ color: 'var(--text)' }}>{task.type}</strong>
+                      </div>
+                    </td>
+                    <td style={{ color: 'var(--text)' }}>{task.detail}</td>
+                    <td>
+                      <span className={task.statusBadgeClass}>{task.status}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
 
           {/* Table Footer */}
           <div
@@ -522,7 +498,7 @@ export function AdminHomePage() {
               color: 'var(--muted)',
             }}
           >
-            {filteredTasks.length} bản ghi · Dữ liệu minh họa
+            {filteredTasks.length} bản ghi · Dữ liệu trực tiếp
           </div>
         </div>
       </div>
