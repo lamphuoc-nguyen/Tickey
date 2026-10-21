@@ -7,9 +7,9 @@ import { useSession } from './use-session';
 let http: HttpClient | undefined;
 const json = z.unknown();
 
-async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function call<T>(method: string, path: string, body?: unknown, form?: FormData): Promise<T> {
   http ??= new HttpClient(import.meta.env.VITE_API_URL, supabase);
-  const data = await http.request(path, json, { method, body, authenticated: true });
+  const data = await http.request(path, json, { method, body, form, authenticated: true });
   return mapDatabaseJson(data) as T;
 }
 
@@ -19,6 +19,14 @@ export const api = {
   post: <T>(path: string, body: unknown = {}) => call<T>('POST', path, body),
   put: <T>(path: string, body: unknown = {}) => call<T>('PUT', path, body),
   delete: <T>(path: string) => call<T>('DELETE', path),
+  /** POST /api/uploads: EVENT_ASSET and KYC go to the Org's folder. */
+  upload: (file: File, purpose: 'EVENT_ASSET' | 'KYC' | 'REPORT_EVIDENCE', orgId?: string | null) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('purpose', purpose);
+    if (orgId) form.append('orgId', orgId);
+    return call<{ path: string; publicUrl: string | null }>('POST', '/api/uploads', undefined, form);
+  },
 };
 
 /** The organization of the active ORG workspace (null for Admin / not signed in). */

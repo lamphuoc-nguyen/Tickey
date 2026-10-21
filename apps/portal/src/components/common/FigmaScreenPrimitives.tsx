@@ -18,7 +18,6 @@ export function FigmaPageHeader({
   screens,
   activeScreen,
   onSelectScreen,
-  
 }: {
   overline?: string;
   title: string;
@@ -412,42 +411,32 @@ export function FigmaRecordInfoCard({
   );
 }
 
-const SAMPLE_POSTERS = [
-  { label: 'Acoustic', url: '/assets/5468833387e5621c0a6d63465a517da248c8556d.jpg' },
-  { label: 'Concert', url: '/assets/2ba0a1dcc121100d3d8f109009a71fe5b0c24c83.jpg' },
-  { label: 'EDM Fest', url: '/assets/3f342ec49c80bf8bf7c5c9152109747e1638fd36.jpg' },
-  { label: 'Triển lãm', url: '/assets/548d1e4f2d839eceb38b120027ff7b991f6c8222.jpg' },
-];
-
 export function FigmaEventPreviewCard({
   title = 'Chưa đặt tên sự kiện',
   subtitle = 'Ban tổ chức',
   badge = 'Bản nháp',
   image,
   onImageChange,
+  onFile,
+  uploading = false,
 }: {
   title?: string;
   subtitle?: string;
   badge?: string;
   image?: string | null;
+  /** Called with '' when the poster is removed. */
   onImageChange?: (url: string) => void;
+  /** The picked / dropped image; the caller uploads it and passes the stored URL back as `image`. */
+  onFile?: (file: File) => void;
+  uploading?: boolean;
 }) {
   const [isDragging, setIsDragging] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const editable = !!onFile;
 
   const processFile = (f: File) => {
-    if (!f.type.startsWith('image/')) {
-      alert('Vui lòng chọn file hình ảnh (JPG, PNG, WebP...)');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      if (result) {
-        onImageChange?.(result);
-      }
-    };
-    reader.readAsDataURL(f);
+    if (!/^image\/(png|jpeg|webp)$/.test(f.type)) return;
+    onFile?.(f);
   };
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -474,7 +463,9 @@ export function FigmaEventPreviewCard({
         style={{ display: 'none' }}
         onChange={handleFile}
       />
-      {image ? (
+      {!image && !editable ? (
+        <div style={{ height: 160, borderRadius: 10, marginBottom: 12, background: '#FAF9F6' }} />
+      ) : image ? (
         <div style={{ position: 'relative', marginBottom: 12 }}>
           <img
             src={image}
@@ -492,7 +483,7 @@ export function FigmaEventPreviewCard({
               position: 'absolute',
               bottom: 8,
               right: 8,
-              display: 'flex',
+              display: editable ? 'flex' : 'none',
               gap: 6,
             }}
           >
@@ -563,45 +554,15 @@ export function FigmaEventPreviewCard({
             transition: 'all 0.15s ease',
           }}
         >
-          <UploadCloud size={24} style={{ color: isDragging ? 'var(--brand)' : 'var(--muted)', marginBottom: 6 }} />
+          <UploadCloud
+            size={24}
+            style={{ color: isDragging ? 'var(--brand)' : 'var(--muted)', marginBottom: 6 }}
+          />
           <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>
-            Tải lên ảnh poster sự kiện
+            {uploading ? 'Đang tải ảnh lên…' : 'Tải lên ảnh poster sự kiện'}
           </div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
             Nhấp hoặc kéo thả ảnh vào đây · JPG, PNG, WebP
-          </div>
-          <div
-            style={{
-              marginTop: 10,
-              display: 'flex',
-              gap: 4,
-              flexWrap: 'wrap',
-              justifyContent: 'center',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <span style={{ fontSize: 10.5, color: 'var(--muted)', width: '100%', marginBottom: 2 }}>
-              Hoặc chọn mẫu:
-            </span>
-            {SAMPLE_POSTERS.map((p) => (
-              <button
-                key={p.label}
-                type="button"
-                onClick={() => onImageChange?.(p.url)}
-                style={{
-                  fontSize: 10.5,
-                  padding: '2px 7px',
-                  borderRadius: 4,
-                  border: '1px solid var(--border)',
-                  background: '#FFFFFF',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                  color: 'var(--ink)',
-                }}
-              >
-                {p.label}
-              </button>
-            ))}
           </div>
         </div>
       )}

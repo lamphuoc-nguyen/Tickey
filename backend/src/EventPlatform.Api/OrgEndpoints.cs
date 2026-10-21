@@ -119,7 +119,7 @@ public static class OrgEndpoints
         api.MapGet("/organizations/{orgId:guid}/events", async (Guid orgId, string? status, int? limit, int? offset,
             HttpContext http, SupabaseRestClient db, CancellationToken ct) =>
             Results.Ok(await db.SelectAsync("events", Query(
-                Select("*, sessions(id, title, starts_at, ends_at, doors_open_at, status, sales_paused, layout_version_id, venue:venues(id, name, timezone))"),
+                Select("*, sessions(id, title, starts_at, ends_at, doors_open_at, sales_start_at, sales_end_at, max_tickets_per_account, status, sales_paused, sales_paused_reason, layout_version_id, venue:venues(id, name, timezone))"),
                 Eq("tenant_id", orgId), Status(status), "order=created_at.desc", Page(limit, offset)), http.Jwt(), ct)));
 
         api.MapGet("/organizations/{orgId:guid}/devices", async (Guid orgId, string? status, HttpContext http,
@@ -246,6 +246,27 @@ public static class OrgEndpoints
 
     private static void MapSeatsAndStaff(RouteGroupBuilder api)
     {
+        // Org view of a Session's ticket types: any visibility/status, with zones, quota, locked and sold.
+        // (GET /api/sessions/{id}/ticket-types is the customer view: public and on sale only.)
+        api.MapGet("/sessions/{id:guid}/ticket-types/manage", async (Guid id, HttpContext http, SupabaseRestClient db,
+            CancellationToken ct) =>
+            Results.Ok(await db.SelectAsync("ticket_types", Query(
+                Select("*, zones:ticket_type_zones(zone_id), inventory:ticket_type_inventory(quota, locked, sold)"),
+                Eq("session_id", id), "order=sort_order"), http.Jwt(), ct)));
+
+        // Every seat of the Session with its status and assigned ticket type (seat pricing / hold / block).
+        api.MapGet("/sessions/{id:guid}/seats", async (Guid id, HttpContext http, SupabaseRestClient db,
+            CancellationToken ct) =>
+            Results.Ok(await db.SelectAsync("session_seats", Query(
+                Select("seat_id, zone_id, ticket_type_id, status, hold_reason, seat:seats(seat_code, row_label, seat_number, x, y)"),
+                Eq("session_id", id), "limit=20000"), http.Jwt(), ct)));
+
+        // Standing zones of the Session: capacity, locked, sold and the Org's held count.
+        api.MapGet("/sessions/{id:guid}/zone-inventory", async (Guid id, HttpContext http, SupabaseRestClient db,
+            CancellationToken ct) =>
+            Results.Ok(await db.SelectAsync("session_zone_inventory", Query(
+                Select("zone_id, capacity, locked, sold, held"), Eq("session_id", id)), http.Jwt(), ct)));
+
         // Returns { updated, requested }.
         api.MapPut("/sessions/{id:guid}/seats/ticket-type", async (Guid id, AssignSeatsRequest body, HttpContext http,
             SupabaseRpcClient rpc, CancellationToken ct) =>
