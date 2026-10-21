@@ -6,7 +6,7 @@
   "build": {
     "base": {
       "node": "22.19.0",
-      "corepack": true
+      "pnpm": "12.9.1"
     },
     "development": {
       "extends": "base",
@@ -20,6 +20,10 @@
       "distribution": "internal",
       "environment": "preview",
       "android": { "buildType": "apk" }
+    },
+    "staff-demo": {
+      "extends": "preview",
+      "env": { "EXPO_PUBLIC_STAFF_DEMO": "true" }
     },
     "production": {
       "extends": "base",
