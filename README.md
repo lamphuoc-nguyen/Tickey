@@ -204,6 +204,12 @@ remove them: `dotnet user-secrets --project <project> remove "Supabase:Url"` (an
 - Payment gateway secrets (`Gateway:*`) once OQ-02 is decided.
 - Host the .NET API + Workers with a public HTTPS URL.
 
+## Importing the team's real data
+
+The separately requested hosted DEMO dataset has been imported: see [SUPABASE_DEMO_DATA.md](docs/SUPABASE_DEMO_DATA.md) for verified counts and limits. Its four events are now PUBLISHED and readable anonymously, with two featured on Home; see the handoff for immutable layout labels and unchanged account identities. Demo credentials are stored only in the ignored Windows DPAPI-protected import journal.
+
+See [SUPABASE_DATA_IMPORT.md](docs/SUPABASE_DATA_IMPORT.md) for the empty manifest, existing RPC contracts, account/MFA requirements and resume behavior. `pnpm data:plan --file supabase/imports/platform-data.example.json` validates offline; `pnpm data:test` runs isolated importer tests. `data:import` writes real data only with an explicit target confirmation. `data:bootstrap` generates reviewed SQL for reference records; it does not execute SQL. Do not run the local demo seed on the hosted production project. No team data has been imported by adding this tool.
+
 ## Building an Android APK (EAS)
 
 Builds run on Expo's servers (EAS Build). Profiles live in `apps/<app>/eas.json`:

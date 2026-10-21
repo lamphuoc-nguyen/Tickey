@@ -1,0 +1,328 @@
+{
+  "formatVersion": 1,
+  "datasetKind": "DEMO",
+  "projectRef": "ddourrslmudoqevqlvpv",
+  "notice": "Dữ liệu giả để kiểm thử Tickey. Không phải tổ chức, sự kiện, người tham dự hoặc giao dịch thật. Không gửi thư đến các địa chỉ demo.",
+  "accounts": [
+    {
+      "key": "owner-a",
+      "fullName": "DEMO · Chủ tổ chức Âm Sắc",
+      "email": "tickey-demo-owner-a@example.com",
+      "roles": ["OWNER"],
+      "organization": "am-sac"
+    },
+    {
+      "key": "owner-b",
+      "fullName": "DEMO · Chủ tổ chức Kết Nối",
+      "email": "tickey-demo-owner-b@example.com",
+      "roles": ["OWNER"],
+      "organization": "ket-noi"
+    },
+    {
+      "key": "staff-a",
+      "fullName": "DEMO · Nhân viên soát vé",
+      "email": "tickey-demo-staff-a@example.com",
+      "roles": ["SCANNER", "POS"],
+      "organization": "am-sac"
+    },
+    {
+      "key": "staff-b",
+      "fullName": "DEMO · Nhân viên sự kiện",
+      "email": "tickey-demo-staff-b@example.com",
+      "roles": ["SCANNER"],
+      "organization": "ket-noi"
+    },
+    {
+      "key": "customer-a",
+      "fullName": "DEMO · Khách hàng Một",
+      "email": "tickey-demo-customer-a@example.com",
+      "roles": []
+    },
+    {
+      "key": "customer-b",
+      "fullName": "DEMO · Khách hàng Hai",
+      "email": "tickey-demo-customer-b@example.com",
+      "roles": []
+    },
+    {
+      "key": "reviewer",
+      "fullName": "DEMO · Kiểm duyệt nền tảng",
+      "email": "tickey-demo-reviewer@example.com",
+      "roles": ["KYC_REVIEWER"],
+      "scope": "PLATFORM"
+    }
+  ],
+  "categories": [
+    { "slug": "demo-am-nhac", "name": "DEMO · Âm nhạc", "sort_order": 101 },
+    { "slug": "demo-san-khau", "name": "DEMO · Sân khấu", "sort_order": 102 },
+    { "slug": "demo-hoi-thao", "name": "DEMO · Hội thảo", "sort_order": 103 },
+    { "slug": "demo-the-thao", "name": "DEMO · Thể thao", "sort_order": 104 }
+  ],
+  "organizations": [
+    {
+      "key": "am-sac",
+      "actor": "owner-a",
+      "name": "DEMO · Trung tâm Âm Sắc",
+      "slug": "tickey-demo-am-sac",
+      "businessType": "COMPANY"
+    },
+    {
+      "key": "ket-noi",
+      "actor": "owner-b",
+      "name": "DEMO · Không gian Kết Nối",
+      "slug": "tickey-demo-ket-noi",
+      "businessType": "COMPANY"
+    }
+  ],
+  "venues": [
+    {
+      "key": "hoi-truong",
+      "organization": "am-sac",
+      "name": "DEMO · Hội trường Âm Sắc",
+      "venueType": "HALL",
+      "address": "Địa điểm mô phỏng, không có địa chỉ thực",
+      "city": "TP.HCM",
+      "timezone": "Asia/Ho_Chi_Minh",
+      "capacity": 160,
+      "zones": [
+        {
+          "code": "VIP",
+          "name": "DEMO · Khu ghế VIP",
+          "type": "seated",
+          "color": "#C9A227",
+          "rows": ["A", "B"],
+          "seatsPerRow": 10
+        },
+        {
+          "code": "STD",
+          "name": "DEMO · Khu ghế tiêu chuẩn",
+          "type": "seated",
+          "color": "#2E86DE",
+          "rows": ["C", "D", "E", "F"],
+          "seatsPerRow": 10
+        },
+        {
+          "code": "GA",
+          "name": "DEMO · Khu đứng phía sau",
+          "type": "standing",
+          "color": "#27AE60",
+          "capacity": 100
+        }
+      ],
+      "gates": [
+        { "code": "DEMO-G1", "name": "DEMO · Cổng ghế ngồi", "zones": ["VIP", "STD"] },
+        { "code": "DEMO-G2", "name": "DEMO · Cổng khu đứng", "zones": ["GA"] }
+      ]
+    },
+    {
+      "key": "khong-gian-mo",
+      "organization": "ket-noi",
+      "name": "DEMO · Không gian mở Kết Nối",
+      "venueType": "OTHER",
+      "address": "Địa điểm mô phỏng, không có địa chỉ thực",
+      "city": "Hà Nội",
+      "timezone": "Asia/Ho_Chi_Minh",
+      "capacity": 180,
+      "zones": [
+        {
+          "code": "GA-A",
+          "name": "DEMO · Khu đứng A",
+          "type": "standing",
+          "color": "#6750A4",
+          "capacity": 100
+        },
+        {
+          "code": "GA-B",
+          "name": "DEMO · Khu đứng B",
+          "type": "standing",
+          "color": "#00838F",
+          "capacity": 80
+        }
+      ],
+      "gates": [
+        { "code": "DEMO-GA", "name": "DEMO · Cổng A", "zones": ["GA-A"] },
+        { "code": "DEMO-GB", "name": "DEMO · Cổng B", "zones": ["GA-B"] }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "key": "dem-nhac",
+      "organization": "am-sac",
+      "venue": "hoi-truong",
+      "category": "demo-am-nhac",
+      "title": "DEMO · Đêm nhạc Thành phố lên đèn",
+      "slug": "tickey-demo-dem-nhac-thanh-pho",
+      "summary": "Dữ liệu giả để thử luồng chọn suất, ghế ngồi và khu đứng.",
+      "description": "Sự kiện DEMO của Tickey, không diễn ra ngoài đời. Không dùng vé hoặc thông tin tại đây để tham dự hay thanh toán thật.",
+      "ageLimit": 6,
+      "sessions": [
+        {
+          "key": "dem-1",
+          "title": "DEMO · Suất tối thứ nhất",
+          "daysAfterBase": 7,
+          "startHour": 19,
+          "durationHours": 2
+        },
+        {
+          "key": "dem-2",
+          "title": "DEMO · Suất tối thứ hai",
+          "daysAfterBase": 14,
+          "startHour": 19,
+          "durationHours": 2
+        }
+      ],
+      "ticketTypes": [
+        {
+          "name": "DEMO · VIP",
+          "kind": "PAID",
+          "priceAmount": 450000,
+          "quota": 20,
+          "maxPerOrder": 4,
+          "zones": ["VIP"]
+        },
+        {
+          "name": "DEMO · Tiêu chuẩn",
+          "kind": "PAID",
+          "priceAmount": 250000,
+          "quota": 40,
+          "maxPerOrder": 6,
+          "zones": ["STD"]
+        },
+        {
+          "name": "DEMO · Khu đứng",
+          "kind": "PAID",
+          "priceAmount": 120000,
+          "quota": 100,
+          "maxPerOrder": 6,
+          "zones": ["GA"]
+        }
+      ]
+    },
+    {
+      "key": "kich-noi",
+      "organization": "am-sac",
+      "venue": "hoi-truong",
+      "category": "demo-san-khau",
+      "title": "DEMO · Vở kịch Chuyến tàu cuối ngày",
+      "slug": "tickey-demo-kich-chuyen-tau",
+      "summary": "Dữ liệu giả cho màn chi tiết sự kiện và sơ đồ ghế.",
+      "description": "Chương trình mô phỏng phục vụ kiểm thử. Tên chương trình, đơn vị và địa điểm đều là dữ liệu DEMO.",
+      "ageLimit": 12,
+      "sessions": [
+        {
+          "key": "suat-chieu",
+          "title": "DEMO · Suất chiều",
+          "daysAfterBase": 10,
+          "startHour": 15,
+          "durationHours": 2
+        }
+      ],
+      "ticketTypes": [
+        {
+          "name": "DEMO · Ghế VIP",
+          "kind": "PAID",
+          "priceAmount": 300000,
+          "quota": 20,
+          "maxPerOrder": 4,
+          "zones": ["VIP"]
+        },
+        {
+          "name": "DEMO · Ghế thường",
+          "kind": "PAID",
+          "priceAmount": 180000,
+          "quota": 40,
+          "maxPerOrder": 6,
+          "zones": ["STD"]
+        }
+      ]
+    },
+    {
+      "key": "hoi-thao",
+      "organization": "ket-noi",
+      "venue": "khong-gian-mo",
+      "category": "demo-hoi-thao",
+      "title": "DEMO · Ngày hội công nghệ cộng đồng",
+      "slug": "tickey-demo-ngay-hoi-cong-nghe",
+      "summary": "Vé miễn phí, hai khu có mapping tồn kho riêng để kiểm thử.",
+      "description": "Sự kiện DEMO, không phải hội thảo có thật. Đặt vé miễn phí vẫn phải qua server; không có vé hoặc trạng thái thành công được tạo sẵn.",
+      "ageLimit": 0,
+      "sessions": [
+        {
+          "key": "suat-sang",
+          "title": "DEMO · Phiên sáng",
+          "daysAfterBase": 5,
+          "startHour": 9,
+          "durationHours": 3
+        }
+      ],
+      "ticketTypes": [
+        {
+          "name": "DEMO · Miễn phí khu A",
+          "kind": "FREE",
+          "priceAmount": 0,
+          "quota": 100,
+          "maxPerOrder": 2,
+          "zones": ["GA-A"]
+        },
+        {
+          "name": "DEMO · Miễn phí khu B",
+          "kind": "FREE",
+          "priceAmount": 0,
+          "quota": 80,
+          "maxPerOrder": 2,
+          "zones": ["GA-B"]
+        }
+      ]
+    },
+    {
+      "key": "the-thao",
+      "organization": "ket-noi",
+      "venue": "khong-gian-mo",
+      "category": "demo-the-thao",
+      "title": "DEMO · Ngày hội vận động cuối tuần",
+      "slug": "tickey-demo-ngay-hoi-van-dong",
+      "summary": "Dữ liệu giả để thử chọn nhiều khu đứng và bộ lọc danh mục.",
+      "description": "Sự kiện thể thao mô phỏng, không tổ chức thật. Không có kết quả thanh toán, check-in hoặc số liệu doanh thu tạo sẵn.",
+      "ageLimit": 6,
+      "sessions": [
+        {
+          "key": "suat-chieu",
+          "title": "DEMO · Phiên chiều",
+          "daysAfterBase": 12,
+          "startHour": 16,
+          "durationHours": 2
+        }
+      ],
+      "ticketTypes": [
+        {
+          "name": "DEMO · Khu A",
+          "kind": "PAID",
+          "priceAmount": 90000,
+          "quota": 100,
+          "maxPerOrder": 4,
+          "zones": ["GA-A"]
+        },
+        {
+          "name": "DEMO · Khu B",
+          "kind": "PAID",
+          "priceAmount": 60000,
+          "quota": 80,
+          "maxPerOrder": 4,
+          "zones": ["GA-B"]
+        }
+      ]
+    }
+  ],
+  "excluded": [
+    "bookings",
+    "payments",
+    "tickets",
+    "ticket_credentials",
+    "refunds",
+    "ledger_transactions",
+    "payouts",
+    "scan_logs"
+  ],
+  "publication": "Tạo qua RPC; kiểm duyệt và chuyển trạng thái bởi server. Không gán thẳng APPROVED/PUBLISHED/ON_SALE hoặc tạo bằng chứng KYC giả."
+}
