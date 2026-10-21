@@ -9,8 +9,10 @@ const errorBody = z.object({ message: z.string(), details: z.string().nullish() 
 export class HttpClient {
   private readonly baseUrl: string;
   private readonly auth: SupabaseClient;
-  constructor(apiUrl: string | undefined, auth: SupabaseClient) {
+  private readonly timeoutMs: number;
+  constructor(apiUrl: string | undefined, auth: SupabaseClient, timeoutMs = 20_000) {
     this.auth = auth;
+    this.timeoutMs = timeoutMs;
     if (!apiUrl) throw new Error('Thiếu EXPO_PUBLIC_API_URL. Xem apps/mobile/.env.example.');
     this.baseUrl = z.url().parse(apiUrl).replace(/\/$/, '');
   }
@@ -30,7 +32,13 @@ export class HttpClient {
     if (error && options.authenticated) throw authError(error);
     const token = error ? undefined : data.session?.access_token;
     if (options.authenticated && !token) throw new ApiError('UNAUTHENTICATED');
+    const controller = new AbortController();
+    const cancel = () => controller.abort();
+    if (options.signal?.aborted) throw options.signal.reason ?? new Error('Request cancelled');
+    options.signal?.addEventListener('abort', cancel, { once: true });
+    const timeout = setTimeout(cancel, this.timeoutMs);
     let response: Response;
+    let body: unknown;
     try {
       response = await fetch(`${this.baseUrl}${path}`, {
         method: options.method ?? 'GET',
@@ -39,17 +47,32 @@ export class HttpClient {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: options.form ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
-        signal: options.signal,
+        signal: controller.signal,
       });
+      body =
+        response.status === 204
+          ? null
+          : await response.json().catch((error: unknown) => {
+              if (controller.signal.aborted) throw error;
+              return null;
+            });
     } catch (error) {
       if (options.signal?.aborted) throw error;
-      throw new ApiError('NETWORK');
+      throw new ApiError('NETWORK', controller.signal.aborted ? { reason: 'REQUEST_TIMEOUT' } : {});
+    } finally {
+      clearTimeout(timeout);
+      options.signal?.removeEventListener('abort', cancel);
     }
-    const body: unknown = response.status === 204 ? null : await response.json().catch(() => null);
     if (!response.ok) {
+      // The API uses 403 for OTP_REQUIRED/MFA_REQUIRED as well as FORBIDDEN.
+      // Preserve the RPC code and details before applying generic HTTP fallbacks.
+      const parsed = errorBody.safeParse(body);
+      if (parsed.success) {
+        const failure = ApiError.fromPostgrest(parsed.data);
+        if (failure.code !== 'UNKNOWN') throw failure;
+      }
       if (response.status === 401) throw new ApiError('UNAUTHENTICATED');
       if (response.status === 403) throw new ApiError('FORBIDDEN');
-      const parsed = errorBody.safeParse(body);
       if (parsed.success) throw ApiError.fromPostgrest(parsed.data);
       throw new ApiError(response.status === 404 ? 'NOT_FOUND' : 'UNKNOWN', {
         status: response.status,

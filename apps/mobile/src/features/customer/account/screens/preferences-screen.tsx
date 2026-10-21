@@ -63,7 +63,11 @@ function Content() {
             disabled={busy}
             value={preferences[key] ?? false}
             trackColor={{ true: c.primary, false: c.gray }}
-            onValueChange={(value) => update({ values: { ...draft.values, [key]: value } })}
+            onValueChange={(value) => {
+              savePreferences.reset();
+              schedule.reset();
+              update({ values: { ...draft.values, [key]: value } });
+            }}
           />
         </View>
       ))}

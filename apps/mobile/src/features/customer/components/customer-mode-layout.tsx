@@ -4,6 +4,8 @@ import { Button, ErrorNotice, Heading, QueryState, Screen } from '@/components/u
 import { useMobileAccess } from '@/features/auth/hooks/use-mobile-access';
 import { MobileAccessNotice } from '@/features/auth/components/mobile-access-notice';
 import { needsCustomerWorkspace } from '../customer-mode';
+import { useConnection } from '../tickets/hooks/use-ticket';
+import { canReadOfflineSnapshots } from '../tickets/offline-access';
 
 /** Staff membership overrides CUSTOMER; a URL or prototype button cannot switch the account role. */
 export default function CustomerModeLayout() {
@@ -15,6 +17,16 @@ export default function CustomerModeLayout() {
   const session = auth.session;
   const segments = useSegments();
   const pathname = usePathname();
+  const online = useConnection();
+  const offlineSnapshots = canReadOfflineSnapshots({
+    pathname,
+    online,
+    session,
+    loading: auth.loading,
+    authError: auth.error,
+    membershipError: actions.workspaces.error,
+    workspaces: actions.workspaces.data,
+  });
   const active = segments[0] === '(customer)';
   const needsSwitch = access === 'customer' && needsCustomerWorkspace(session, segments[0], pathname);
   const membershipError = actions.workspaces.error;
@@ -29,6 +41,7 @@ export default function CustomerModeLayout() {
     attempted.current = identity;
     void activate(customer).catch(() => {});
   }, [needsSwitch, customer, busy, activate, session, membershipError]);
+  if (active && offlineSnapshots) return <Stack screenOptions={{ headerShown: false }} />;
   if (active && (access === 'staff' || access === 'revoked')) return <Redirect href="/staff" />;
   if (active && access !== 'customer' && access !== 'guest') return <MobileAccessNotice />;
   if (!needsSwitch) return <Stack screenOptions={{ headerShown: false }} />;

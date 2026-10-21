@@ -42,10 +42,10 @@ export function AuthGate({ children, kind = 'CUSTOMER' }: PropsWithChildren<{ ki
   if (auth.session.workspace.kind !== kind)
     return (
       <Screen>
-        <Heading>{kind === 'CUSTOMER' ? 'Chọn vai trò khách hàng' : 'Chọn vai trò nhân viên'}</Heading>
-        <Copy>Đổi vai trò trong cùng ứng dụng để tiếp tục.</Copy>
+        <Heading>Kiểm tra quyền truy cập</Heading>
+        <Copy>Tiếp tục đến khu vực được phân quyền cho tài khoản của bạn.</Copy>
         <Button onPress={() => router.push({ pathname: '/workspaces', params: { next } })}>
-          Chọn vai trò sử dụng
+          Tiếp tục với tài khoản
         </Button>
         {isStaffWorkspace(auth.session.workspace) && (
           <Button secondary onPress={() => router.replace('/staff')}>
@@ -59,7 +59,7 @@ export function AuthGate({ children, kind = 'CUSTOMER' }: PropsWithChildren<{ ki
       <Screen navigationEnabled={false}>
         <Heading>Chưa thể xác nhận quyền nhân viên</Heading>
         <Copy>Vui lòng chọn lại tổ chức hoặc liên hệ người quản lý để kiểm tra quyền truy cập.</Copy>
-        <Button onPress={() => router.replace('/workspaces')}>Chọn vai trò sử dụng</Button>
+        <Button onPress={() => router.replace('/workspaces')}>Kiểm tra tổ chức được phân quyền</Button>
       </Screen>
     );
   return children;

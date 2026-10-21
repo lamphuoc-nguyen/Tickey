@@ -96,6 +96,8 @@ Theo xác nhận sản phẩm mới, đổi role trong Figma chỉ phục vụ p
 
 ## Controls và trạng thái ngoài route riêng
 
+Rà soát 21/10/2026 giữ đủ 79 frame/route: Search thêm trạng thái card được chọn và filter khóa gọn; chọn ghế có panel lựa chọn, chặn thiếu mapping và lựa chọn ghế/khu đứng lẫn nhau; danh sách vé theo đơn chỉ tải khi CONFIRMED; phản ánh chọn vé thật và giữ draft; bank OTP thử lại không dùng lại mã đã tiêu thụ; offline snapshot có nhánh chỉ đọc khi mất mạng. Chi tiết API và kiểm tra tại [CUSTOMER_BACKEND_AUDIT.md](CUSTOMER_BACKEND_AUDIT.md). Android phiên này chạy Home/Search lỗi mạng và Staff guest guard; không nâng trạng thái kiểm chứng của các frame cần record thật. Lần thu gọn filter cuối chưa kiểm tra lại native do máy kiểm thử thiếu tài nguyên.
+
 | Thành phần/trạng thái | Code và quy tắc |
 | --- | --- |
 | Carousel Home / prototype 130:1885, 130:1892, 130:1899 | Slider với sự kiện server thật, đổi trang/indicator, không ảnh business mẫu. |

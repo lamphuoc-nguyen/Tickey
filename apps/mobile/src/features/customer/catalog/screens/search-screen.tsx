@@ -33,7 +33,7 @@ export default function SearchScreen() {
             selected && router.push({ pathname: '/events/[eventId]', params: { eventId: selected.id } })
           }
         >
-          Tiếp tục
+          {selected ? `Xem ${selected.title}` : 'Tiếp tục'}
         </ActionFooter>
       }
     >
@@ -67,13 +67,24 @@ export default function SearchScreen() {
         ))}
       </View>
       <QueryState error={categories.error} retry={() => void categories.refetch()} compact />
-      <View style={{ gap: 8 }}>
-        <Button disabled secondary disabledReason="Lọc theo tháng chưa được hỗ trợ." onPress={() => {}}>
-          Thời gian
-        </Button>
-        <Button disabled secondary disabledReason="Lọc theo địa điểm chưa được hỗ trợ." onPress={() => {}}>
-          Địa điểm
-        </Button>
+      <View style={[ui.row, { alignItems: 'flex-start', flexWrap: 'wrap' }]}>
+        {[
+          { label: 'Thời gian', reason: 'Lọc theo tháng chưa được hỗ trợ.' },
+          { label: 'Địa điểm', reason: 'Lọc theo địa điểm chưa được hỗ trợ.' },
+        ].map((filter) => (
+          <View key={filter.label} style={{ flex: 1, minWidth: 120, gap: 8 }}>
+            <Pressable
+              disabled
+              accessibilityRole="button"
+              accessibilityState={{ disabled: true }}
+              accessibilityHint={filter.reason}
+              style={{ minHeight: 48, padding: 12, borderRadius: 8, backgroundColor: c.blueTint }}
+            >
+              <Copy style={{ color: c.blue }}>{filter.label}</Copy>
+            </Pressable>
+            <Copy style={[ui.muted, { fontSize: 12, lineHeight: 19 }]}>{filter.reason}</Copy>
+          </View>
+        ))}
       </View>
       <QueryState
         loading={query.isPending}
@@ -83,7 +94,12 @@ export default function SearchScreen() {
         emptyText="Không tìm thấy sự kiện phù hợp."
       />
       {events.map((event) => (
-        <EventCard key={event.id} event={event} onSelect={() => update({ selectedId: event.id })} />
+        <EventCard
+          key={event.id}
+          event={event}
+          selected={event.id === draft.selectedId}
+          onSelect={() => update({ selectedId: event.id })}
+        />
       ))}
       {query.hasNextPage && (
         <Button busy={query.isFetchingNextPage} onPress={() => void query.fetchNextPage()} secondary>

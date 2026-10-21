@@ -8,8 +8,61 @@ import { HttpPaymentApi } from './payment-api';
 const auth = {
   auth: { getSession: vi.fn(async () => ({ data: { session: { access_token: 'test-jwt' } }, error: null })) },
 } as unknown as SupabaseClient;
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
 describe('REST boundary', () => {
+  it('ends an unresponsive request with a retryable timeout instead of loading forever', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url, options: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            options.signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+          }),
+      ),
+    );
+    const pending = new HttpClient('http://api.test', auth, 1000).request('/api/events', z.unknown());
+    const assertion = expect(pending).rejects.toMatchObject({
+      code: 'NETWORK',
+      details: { reason: 'REQUEST_TIMEOUT' },
+    });
+    await vi.advanceTimersByTimeAsync(1000);
+    await assertion;
+  });
+  it('preserves caller cancellation without converting it to a connectivity error', async () => {
+    const abort = new AbortController();
+    abort.abort(new Error('route changed'));
+    const fetcher = vi.fn();
+    vi.stubGlobal('fetch', fetcher);
+    await expect(
+      new HttpClient('http://api.test', auth).request('/api/events', z.unknown(), { signal: abort.signal }),
+    ).rejects.toThrow('route changed');
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it.each(['OTP_REQUIRED', 'MFA_REQUIRED', 'DEVICE_REVOKED'])(
+    'preserves %s and business details on HTTP 403',
+    async (code) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(
+          async () =>
+            new Response(
+              JSON.stringify({
+                message: code,
+                details: '{"reason":"recent verification required"}',
+              }),
+              { status: 403 },
+            ),
+        ),
+      );
+      await expect(
+        new HttpClient('http://api.test', auth).request('/api/refunds/id/bank-info', z.unknown()),
+      ).rejects.toMatchObject({ code, details: { reason: 'recent verification required' } });
+    },
+  );
   it('keeps empty results separate from permission and missing-resource errors', async () => {
     const client = new HttpClient('http://api.test', auth);
     vi.stubGlobal(
