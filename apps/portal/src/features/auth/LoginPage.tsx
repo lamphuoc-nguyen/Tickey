@@ -201,59 +201,82 @@ export function LoginPage() {
               </Link>
             </div>
 
-            {/* 1-click Quick access during dev/demo */}
-            <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', marginBottom: 8 }}>
-                Hoặc truy cập nhanh không cần mật khẩu:
+            {/* 1-click Quick access during local development only. */}
+            {import.meta.env.DEV && (
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', marginBottom: 8 }}>
+                  Hoặc truy cập nhanh không cần mật khẩu:
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{
+                      flex: 1,
+                      fontSize: 12.5,
+                      padding: '9px 10px',
+                      justifyContent: 'center',
+                      fontWeight: 600,
+                    }}
+                    onClick={() => navigate('/org')}
+                  >
+                    🏢 Ban tổ chức (Org)
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{
+                      flex: 1,
+                      fontSize: 12.5,
+                      padding: '9px 10px',
+                      justifyContent: 'center',
+                      fontWeight: 600,
+                    }}
+                    onClick={() => navigate('/admin')}
+                  >
+                    🛡️ Quản trị viên (Admin)
+                  </button>
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ flex: 1, fontSize: 12.5, padding: '9px 10px', justifyContent: 'center', fontWeight: 600 }}
-                  onClick={() => navigate('/org')}
-                >
-                  🏢 Ban tổ chức (Org)
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ flex: 1, fontSize: 12.5, padding: '9px 10px', justifyContent: 'center', fontWeight: 600 }}
-                  onClick={() => navigate('/admin')}
-                >
-                  🛡️ Quản trị viên (Admin)
-                </button>
-              </div>
-            </div>
+            )}
           </form>
 
-          {/* Quick local dev hint */}
-          <div
-            style={{
-              marginTop: '32px',
-              padding: '12px 14px',
-              borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--surface-alt)',
-              border: '1px dashed var(--border)',
-              fontSize: '12px',
-              color: 'var(--muted)',
-            }}
-          >
-            <strong>Tài khoản seed mẫu:</strong>
-            <br />
-            • <code>owner-a@dev.local</code> / <code>Dev@123456</code> (Owner Ánh Trăng)
-            <br />
-            • <code>admin-a@dev.local</code> / <code>Dev@123456</code> (Admin nền tảng)
-            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed var(--border)', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              <Link to="/mfa">2FA (w-mfa)</Link>
-              <span>•</span>
-              <Link to="/mfa-setup">Thiết lập 2FA (w-mfa-setup)</Link>
-              <span>•</span>
-              <Link to="/mfa-admin">2FA Admin (w-mfa-admin)</Link>
-              <span>•</span>
-              <Link to="/verify">Xác minh email (w-verify)</Link>
+          {/* Seed accounts (supabase/seed.sql): never shown on a deployed build. */}
+          {import.meta.env.DEV && (
+            <div
+              style={{
+                marginTop: '32px',
+                padding: '12px 14px',
+                borderRadius: 'var(--radius-md)',
+                backgroundColor: 'var(--surface-alt)',
+                border: '1px dashed var(--border)',
+                fontSize: '12px',
+                color: 'var(--muted)',
+              }}
+            >
+              <strong>Tài khoản seed mẫu:</strong>
+              <br />• <code>owner-a@dev.local</code> / <code>Dev@123456</code> (Owner Ánh Trăng)
+              <br />• <code>admin-a@dev.local</code> / <code>Dev@123456</code> (Admin nền tảng)
+              <div
+                style={{
+                  marginTop: '10px',
+                  paddingTop: '10px',
+                  borderTop: '1px dashed var(--border)',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                }}
+              >
+                <Link to="/mfa">2FA (w-mfa)</Link>
+                <span>•</span>
+                <Link to="/mfa-setup">Thiết lập 2FA (w-mfa-setup)</Link>
+                <span>•</span>
+                <Link to="/mfa-admin">2FA Admin (w-mfa-admin)</Link>
+                <span>•</span>
+                <Link to="/verify">Xác minh email (w-verify)</Link>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Footer */}

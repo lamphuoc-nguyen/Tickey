@@ -75,4 +75,6 @@ export const router = createBrowserRouter([
       { path: 'audit', element: <AdminAuditPage /> },
     ],
   },
+  // Unknown paths: back to sign-in (which forwards a signed-in user) instead of the router's error page.
+  { path: '*', element: <Navigate to="/login" replace /> },
 ]);
