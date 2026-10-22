@@ -337,15 +337,8 @@ export function PortalLayout({ children }: PortalLayoutProps) {
 
         {/* Bottom Sidebar Action Widget */}
         <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {isAdmin ? (
-            <button
-              onClick={() => navigate('/admin/kyc?screen=a-venue-verifications')}
-              className="btn btn-outline"
-              style={{ width: '100%', fontSize: '13px', padding: '10px' }}
-            >
-              Xác minh địa điểm
-            </button>
-          ) : (
+          {/* Venues need no Admin verification, so the Admin side has no widget here. */}
+          {!isAdmin && (
             <div
               onClick={() => navigate('/org/reports')}
               style={{

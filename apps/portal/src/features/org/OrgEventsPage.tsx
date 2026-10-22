@@ -89,8 +89,9 @@ export function OrgEventsPage() {
       (statusFilter === 'ALL' || e.status === statusFilter) &&
       e.title.toLowerCase().includes(search.trim().toLowerCase()),
   );
-  const canSubmit = event && ['DRAFT', 'CHANGES_REQUESTED', 'REJECTED'].includes(event.status);
-  const canEditEvent = event && !['CANCELLED', 'ENDED'].includes(event.status);
+  // Same states save_event / submit_event_for_review accept (a PUBLISHED event only edits summary, description, cover).
+  const canSubmit = event && ['DRAFT', 'CHANGES_REQUESTED'].includes(event.status);
+  const canEditEvent = event && ['DRAFT', 'CHANGES_REQUESTED', 'PUBLISHED'].includes(event.status);
 
   const screenMeta = EVENT_SCREENS.find((s) => s.id === activeScreen) || EVENT_SCREENS[0];
   const needEvent = activeScreen !== 'o-events' && !(activeScreen === 'o-event-edit' && !eventId);
