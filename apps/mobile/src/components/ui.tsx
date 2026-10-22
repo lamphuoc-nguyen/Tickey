@@ -351,6 +351,12 @@ export function errorMessage(error: unknown): string {
       return 'Hiện chưa thể gửi email đến địa chỉ này. Vui lòng liên hệ hỗ trợ.';
     if (error.details.reason === 'AUTH_SERVICE_ERROR')
       return 'Dịch vụ xác thực đang gặp lỗi. Vui lòng thử lại sau.';
+    if (
+      error.code === 'VALIDATION_FAILED' &&
+      Array.isArray(error.details.errors) &&
+      error.details.errors.some((e) => (e as { reason?: string }).reason === 'invalid ticket type')
+    )
+      return 'Hạng vé đã chọn chưa mở bán hoặc đã ngừng bán. Vui lòng tải lại và chọn hạng khác.';
     if (error.code === 'UNAUTHENTICATED' && error.details.reason === 'INVALID_CREDENTIALS')
       return 'Email hoặc mật khẩu chưa đúng.';
     const messages: Partial<Record<ApiError['code'], string>> = {

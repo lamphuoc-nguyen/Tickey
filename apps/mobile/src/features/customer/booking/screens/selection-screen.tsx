@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ApiError, formatMoney, type BookingItemInput } from '@event/core';
+import { ApiError, formatMoney, formatSessionTime, type BookingItemInput } from '@event/core';
 import { NativeSeatMap } from '@event/seat-map/native';
 import type { LayoutData, SeatState } from '@event/seat-map';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -32,7 +32,7 @@ import {
 import { useBookingDraft } from '../draft-store';
 import { useSelectionBooking } from '../hooks/use-selection-booking';
 import { FreeRegistrationFields } from '../components/free-registration-fields';
-import { selectedSeatItems, selectionLimit } from '../selection-rules';
+import { selectedSeatItems, selectionLimit, ticketTypeSaleState } from '../selection-rules';
 import { selectionMapHeight } from '../seat-map-viewport';
 
 const seatStatusLabels: Record<SeatState, string> = {
@@ -55,13 +55,21 @@ export default function SelectionScreen() {
   const booking = useSelectionBooking(sessionId, eventId);
   const [accessible, setAccessible] = useState(false);
   const [page, setPage] = useState(0);
+  // Ticket types open and close on their own schedule: re-check the sale windows every 30 seconds.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
   useEffect(() => {
     useBookingDraft.getState().chooseSession(sessionId, eventId);
   }, [sessionId, eventId]);
   const zone = layout.data?.zones.find((z) => z.id === draft.zoneId);
-  const activeTypes = (types.data ?? []).filter(
+  const listedTypes = (types.data ?? []).filter(
     (t) => t.kind !== 'COMP' && t.visibility === 'PUBLIC' && t.status === 'ACTIVE',
   );
+  const activeTypes = listedTypes.filter((t) => ticketTypeSaleState(t, now) === 'ON_SALE');
+  const upcomingTypes = listedTypes.filter((t) => ticketTypeSaleState(t, now) === 'NOT_STARTED');
   const selectedType = activeTypes.find((t) => t.id === draft.ticketTypeId);
   const seatsToType = useMemo(
     () =>
@@ -241,6 +249,13 @@ export default function SelectionScreen() {
         emptyText="Chưa có sơ đồ hoặc khu vé."
       />
       {!!booking.error && <ErrorNotice error={booking.error} />}
+      {upcomingTypes.length > 0 && (
+        <Notice warning>
+          {upcomingTypes
+            .map((t) => `Hạng ${t.name} mở bán từ ${formatSessionTime(t.saleStartAt!)}.`)
+            .join(' ')}
+        </Notice>
+      )}
       {freeUnavailable && (
         <>
           <ResultPanel title="Chưa thể đăng ký" description={errorMessage(booking.error)} kind="warning" />
