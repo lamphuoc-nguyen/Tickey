@@ -291,7 +291,7 @@ export function OrgOnboardingPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
                   <InfoRow label="Tên tổ chức" value={org.data.name} />
                   <InfoRow label="Slug" value={org.data.slug} />
-                  <InfoRow label="Loại hình" value={org.data.businessType} />
+                  <InfoRow label="Loại hình" value={BUSINESS_TYPES[org.data.businessType] ?? org.data.businessType} />
                   <InfoRow label="Mã số thuế" value={org.data.taxCode || '—'} />
                   <InfoRow label="Email liên hệ" value={org.data.contactEmail || '—'} />
                   <InfoRow label="Số điện thoại" value={org.data.contactPhone || '—'} />
@@ -488,7 +488,7 @@ export function OrgOnboardingPage() {
                   </div>
                   <div style={titleStyle}>Hồ sơ KYC đã được Admin phê duyệt thành công!</div>
                   <div style={descStyle}>
-                    Tổ chức {org.data?.name} đã được kích hoạt đầy đủ quyền tạo sự kiện, xuất vé và quyết toán.
+                    {org.data?.name} đã được kích hoạt đầy đủ quyền tạo sự kiện, xuất vé và quyết toán.
                   </div>
                   <span className="badge badge-success" style={{ marginBottom: 18 }}>
                     Đã xác minh (KYC Approved)
@@ -559,7 +559,7 @@ export function OrgOnboardingPage() {
                   </div>
                   <div style={titleStyle}>Hồ sơ KYC đang chờ xét duyệt</div>
                   <div style={descStyle}>
-                    Tổ chức {org.data?.name} đang được Admin đối soát hồ sơ pháp lý. Bạn sẽ nhận thông báo ngay khi hoàn tất.
+                    {org.data?.name} đang được Admin đối soát hồ sơ pháp lý. Bạn sẽ nhận thông báo ngay khi hoàn tất.
                   </div>
                   <span className="badge badge-warning" style={{ marginBottom: 18 }}>
                     {latest ? `${KYC_STATUS[latest.status]?.label ?? latest.status} · gửi ${formatDateTime(latest.submittedAt)}` : 'Chưa gửi hồ sơ'}
