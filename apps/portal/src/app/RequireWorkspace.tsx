@@ -1,11 +1,12 @@
 import type { WorkspaceKind } from '@event/core';
 import type { ReactNode } from 'react';
-import { Navigate } from 'react-router';
+import { Navigate, useLocation } from 'react-router';
 import { useSession } from '../lib/use-session';
 
 // Route guard by active workspace. In dev mode without active Supabase, allows UI preview.
 export function RequireWorkspace({ kind, children }: { kind: WorkspaceKind; children: ReactNode }) {
   const { loading, session, workspace } = useSession();
+  const { pathname } = useLocation();
 
   if (loading) {
     return (
@@ -30,9 +31,10 @@ export function RequireWorkspace({ kind, children }: { kind: WorkspaceKind; chil
     return <Navigate to="/login" replace />;
   }
 
-  // If there's a session and user has a different workspace kind, guide to /workspaces
-  // In dev mode, allow switching between /org and /admin for inspection
-  if (session && workspace.kind !== kind && workspace.kind !== 'CUSTOMER' && !import.meta.env.DEV) {
+  // A signed-in user without an Org (CUSTOMER workspace) may only reach onboarding, where step 1 creates one.
+  // Everything else needs the matching workspace; dev builds may still switch freely for inspection.
+  const creatingOrg = kind === 'ORG' && workspace.kind === 'CUSTOMER' && pathname.startsWith('/org/onboarding');
+  if (workspace.kind !== kind && !creatingOrg && !import.meta.env.DEV) {
     return <Navigate to="/workspaces" replace />;
   }
 
