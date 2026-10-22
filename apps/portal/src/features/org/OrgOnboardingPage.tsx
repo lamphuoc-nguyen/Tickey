@@ -65,7 +65,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 /** Step 1 without an Org workspace: create a DRAFT Org (caller becomes OWNER) and switch to it. */
-function CreateOrgForm({ onCreated }: { onCreated: () => void }) {
+function CreateOrgForm({ onCreated, onNeedsMfa }: { onCreated: () => void; onNeedsMfa: () => void }) {
   const navigate = useNavigate();
   const create = useCreateOrganization();
   const [name, setName] = useState('');
@@ -90,7 +90,10 @@ function CreateOrgForm({ onCreated }: { onCreated: () => void }) {
         style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
         onSubmit={(e) => {
           e.preventDefault();
-          create.mutate({ name: name.trim(), slug: finalSlug, businessType }, { onSuccess: onCreated });
+          create.mutate(
+            { name: name.trim(), slug: finalSlug, businessType },
+            { onSuccess: ({ needsMfa }) => (needsMfa ? onNeedsMfa() : onCreated()) },
+          );
         }}
       >
         <div>
@@ -254,6 +257,10 @@ export function OrgOnboardingPage() {
           onCreated={() => {
             showToast('Đã tạo tổ chức. Tiếp tục nộp hồ sơ xác minh.', 'success');
             setScreen('o-kyc');
+          }}
+          onNeedsMfa={() => {
+            showToast('Đã tạo tổ chức. Chủ tổ chức cần bật 2FA trước khi vào workspace.', 'success');
+            navigate('/mfa-setup');
           }}
         />
       )}
