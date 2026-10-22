@@ -236,7 +236,7 @@ export function useRequestOrgStatusChange() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: ({ id, action, reason }: { id: string; action: string; reason: string }) =>
-      api.post<{ approval_id: string }>(`/api/admin/organizations/${id}/status-change`, { action, reason }),
+      api.post<{ approvalId: string }>(`/api/admin/organizations/${id}/status-change`, { action, reason }),
     onSuccess: () => client.invalidateQueries({ queryKey: ['admin', 'approvals'] }),
   });
 }
@@ -285,12 +285,18 @@ export function useApproval(id: string | null) {
   });
 }
 
-/** Biểu quyết một approval (vote_approval). Trả về tiến độ { status, approve_votes, required }. */
+/** Link ký tạm thời tới một tệp KYC riêng tư (kyc-private), chỉ KYC_REVIEWER / OWNER đọc được. */
+export async function kycDocumentUrl(path: string): Promise<string> {
+  const access = await api.post<{ url: string; expiresAt: string }>('/api/uploads/access', { purpose: 'KYC', path });
+  return access.url;
+}
+
+/** Biểu quyết một approval (vote_approval). Trả về tiến độ { status, approveVotes, required } (camelCase via mapDatabaseJson). */
 export function useVoteApproval() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: ({ id, decision, note }: { id: string; decision: 'APPROVE' | 'REJECT'; note?: string | null }) =>
-      api.post<{ status: string; approve_votes: number; required: number }>(
+      api.post<{ status: string; approveVotes: number; required: number }>(
         `/api/admin/approvals/${id}/votes`,
         { decision, note: note ?? null },
       ),
@@ -358,7 +364,7 @@ export function useResolveDispute() {
       scope?: 'REPORTERS' | 'ALL_TICKETS';
       note?: string | null;
     }) =>
-      api.post<{ refunds_created: number }>(`/api/admin/disputes/${id}/resolve`, {
+      api.post<{ refundsCreated: number }>(`/api/admin/disputes/${id}/resolve`, {
         resolution,
         refundPercentBp: refundPercentBp ?? null,
         scope: scope ?? 'REPORTERS',
@@ -568,7 +574,7 @@ export function useCreateManualRefund() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (body: { bookingId: string; amount: number; note: string; ticketIds?: string[] | null }) =>
-      api.post<{ refund_id?: string; approval_id?: string; status: string }>('/api/admin/refunds', {
+      api.post<{ refundId?: string; approvalId?: string; status: string }>('/api/admin/refunds', {
         bookingId: body.bookingId,
         amount: body.amount,
         note: body.note,
@@ -650,7 +656,7 @@ export function useProposePayout() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (orgId: string) =>
-      api.post<{ payout_id: string; approval_id: string; amount: number }>('/api/admin/payouts', { orgId }),
+      api.post<{ payoutId: string; approvalId: string; amount: number }>('/api/admin/payouts', { orgId }),
     onSuccess: () => client.invalidateQueries({ queryKey: ['admin', 'payouts'] }),
   });
 }

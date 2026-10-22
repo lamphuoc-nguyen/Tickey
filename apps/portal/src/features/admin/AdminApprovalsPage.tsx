@@ -100,8 +100,8 @@ export function AdminApprovalsPage() {
           const done = result.status === 'APPROVED' || result.status === 'REJECTED';
           showToast(
             done
-              ? `Phiếu đã ${result.status === 'APPROVED' ? 'thông qua' : 'bị bác bỏ'} (${result.approve_votes}/${result.required}).`
-              : `Đã ghi phiếu bầu (${result.approve_votes}/${result.required}).`,
+              ? `Phiếu đã ${result.status === 'APPROVED' ? 'thông qua' : 'bị bác bỏ'} (${result.approveVotes}/${result.required}).`
+              : `Đã ghi phiếu bầu (${result.approveVotes}/${result.required}).`,
             result.status === 'REJECTED' ? 'warning' : 'success',
           );
           setVoteNote('');

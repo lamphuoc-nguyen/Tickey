@@ -16,6 +16,7 @@ import {
 import {
   ADMIN_KYC_STATUS,
   ADMIN_ORG_STATUS,
+  kycDocumentUrl,
   useAdminKyc,
   useAdminOrgs,
   useRequestOrgStatusChange,
@@ -181,7 +182,7 @@ export function AdminKycPage() {
                     {filteredKyc.map((s) => (
                       <tr key={s.id}>
                         <td style={{ fontWeight: 700 }}>{s.org?.name ?? s.orgId}</td>
-                        <td>{(s.legalInfo?.legal_name as string | undefined) ?? '—'}</td>
+                        <td>{(s.legalInfo?.legalName as string | undefined) ?? '—'}</td>
                         <td>{s.documents.length} tệp</td>
                         <td>{formatDateTime(s.submittedAt)}</td>
                         <td>
@@ -236,7 +237,7 @@ export function AdminKycPage() {
                 items={[
                   {
                     label: 'Pháp nhân',
-                    value: (selectedKyc.legalInfo?.legal_name as string | undefined) ?? selectedKyc.org?.name ?? '—',
+                    value: (selectedKyc.legalInfo?.legalName as string | undefined) ?? selectedKyc.org?.name ?? '—',
                   },
                   { label: 'Trạng thái hồ sơ', value: ADMIN_KYC_STATUS[selectedKyc.status]?.label ?? selectedKyc.status },
                   { label: 'Ngày nộp', value: formatDateTime(selectedKyc.submittedAt) },
@@ -264,9 +265,28 @@ export function AdminKycPage() {
                       <div style={{ fontSize: 13, fontWeight: 700 }}>{KYC_DOC_TYPES[doc.docType] ?? doc.docType}</div>
                       <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{doc.storagePath}</div>
                     </div>
-                    <span style={{ fontSize: 11.5, color: 'var(--muted)', alignSelf: 'center' }}>
-                      Kho bảo mật KYC
-                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      style={{ alignSelf: 'center' }}
+                      onClick={() => {
+                        // Open the tab synchronously so the popup blocker allows it, then point it at the signed link.
+                        const tab = window.open('', '_blank');
+                        if (tab) tab.opener = null;
+                        kycDocumentUrl(doc.storagePath).then(
+                          (url) => {
+                            if (tab) tab.location.href = url;
+                            else window.location.assign(url);
+                          },
+                          () => {
+                            tab?.close();
+                            showToast('Không mở được tệp. Tệp có thể chưa có trong kho lưu trữ.', 'danger');
+                          },
+                        );
+                      }}
+                    >
+                      Xem tệp
+                    </button>
                   </div>
                 ))}
                 <FigmaInfoAlert tone="info">

@@ -515,8 +515,8 @@ export function AdminPayoutsPage() {
                       },
                       {
                         onSuccess: (result) => {
-                          if (result.refund_id) {
-                            setSelectedRefundId(result.refund_id);
+                          if (result.refundId) {
+                            setSelectedRefundId(result.refundId);
                             showToast('Đã tạo lệnh hoàn tiền thủ công.', 'success');
                             setScreen('a-refund-detail');
                           } else {
