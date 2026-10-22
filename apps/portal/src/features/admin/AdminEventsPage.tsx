@@ -27,11 +27,10 @@ const ADMIN_EVENT_SCREENS: FigmaScreenOption[] = [
   { id: 'a-event-note', label: 'Từ chối / yêu cầu chỉnh sửa' },
 ];
 
-/** Statuses an Admin can filter the event queue by. */
+/** Statuses an Admin can filter the event queue by. Approval publishes directly, so there is no APPROVED. */
 const EVENT_FILTERS = [
   { value: 'PENDING_REVIEW', label: 'Chờ duyệt' },
   { value: 'CHANGES_REQUESTED', label: 'Đã yêu cầu chỉnh sửa' },
-  { value: 'APPROVED', label: 'Đã duyệt' },
   { value: 'PUBLISHED', label: 'Đã phát hành' },
   { value: 'REJECTED', label: 'Bị từ chối' },
 ];
