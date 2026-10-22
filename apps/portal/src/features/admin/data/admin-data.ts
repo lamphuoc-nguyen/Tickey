@@ -56,7 +56,25 @@ export interface AdminEvent {
   createdAt: string;
   updatedAt: string;
   org: Pick<AdminOrg, 'id' | 'name' | 'slug'> | null;
-  sessions: { id: string; title: string | null; startsAt: string; endsAt: string; status: string }[];
+  sessions: AdminEventSession[];
+}
+
+export interface AdminEventSession {
+  id: string;
+  title: string | null;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+  ticketTypes: {
+    id: string;
+    name: string;
+    kind: 'PAID' | 'FREE' | 'COMP';
+    priceAmount: number;
+    quota: number;
+    visibility: 'PUBLIC' | 'HIDDEN';
+    status: 'ACTIVE' | 'INACTIVE';
+    sortOrder: number;
+  }[];
 }
 
 export interface ApprovalVote {

@@ -73,14 +73,25 @@ export function OrgVenuesPage() {
   const { showToast } = useToast();
   const orgId = useOrgId();
 
+  // The screen and the selected venue / layout version live in the URL so reloads and Back keep them.
   const activeScreen = searchParams.get('screen') || 'o-venues';
-  const setScreen = (screen: string) => setSearchParams({ screen });
+  const venueId = searchParams.get('venue');
+  const versionId = searchParams.get('version');
+  const go = (screen: string, ids: { venue?: string | null; version?: string | null } = {}) => {
+    const next: Record<string, string> = { screen };
+    const v = ids.venue === undefined ? venueId : ids.venue;
+    const ver = ids.version === undefined ? versionId : ids.version;
+    if (v) next.venue = v;
+    if (ver) next.version = ver;
+    setSearchParams(next);
+  };
+  const setScreen = (screen: string) => go(screen);
 
   const venues = useOrgVenueList(orgId);
   const saveVenue = useSaveVenue(orgId);
   const [search, setSearch] = useState('');
-  const [venueId, setVenueId] = useState<string | null>(null);
   const [form, setForm] = useState<VenueInput>(EMPTY_VENUE);
+  const [formVenueId, setFormVenueId] = useState<string | null>(null);
 
   const venue = useVenue(venueId);
   const createLayout = useCreateLayout(venueId);
@@ -88,7 +99,6 @@ export function OrgVenuesPage() {
   const saveDraft = useSaveLayoutDraft();
   const publish = usePublishLayout(venueId);
   const [layoutName, setLayoutName] = useState('');
-  const [versionId, setVersionId] = useState<string | null>(null);
   const version = useLayoutVersion(versionId);
   const [draftZones, setDraftZones] = useState<{ versionId: string; zones: EditorZone[] } | null>(null);
   const [serverErrors, setServerErrors] = useState<string[]>([]);
@@ -110,8 +120,8 @@ export function OrgVenuesPage() {
       setForm((f) => ({ ...f, [key]: key === 'capacity' ? Number(e.target.value) : e.target.value })),
   });
 
-  const openVenue = (v: VenueDetail, screen: string) => {
-    setVenueId(v.id);
+  const fillForm = (v: VenueDetail) => {
+    setFormVenueId(v.id);
     setForm({
       name: v.name,
       venueType: v.venueType,
@@ -123,7 +133,13 @@ export function OrgVenuesPage() {
       capacity: v.capacity,
       description: v.description ?? '',
     });
-    setScreen(screen);
+  };
+  // A reload on o-venue-edit has the venue id but no form yet: fill it once the venue loads.
+  if (activeScreen === 'o-venue-edit' && venue.data && formVenueId !== venue.data.id) fillForm(venue.data);
+
+  const openVenue = (v: VenueDetail, screen: string) => {
+    fillForm(v);
+    go(screen, { venue: v.id, version: null });
   };
 
   const submitVenue = (status?: 'ACTIVE' | 'ARCHIVED') => {
@@ -140,8 +156,8 @@ export function OrgVenuesPage() {
             status === 'ARCHIVED' ? `Đã lưu trữ ${form.name}.` : `Đã lưu địa điểm ${form.name}.`,
             'success',
           );
-          setVenueId(id);
-          setScreen(status === 'ARCHIVED' ? 'o-venues' : 'o-layouts');
+          setFormVenueId(id);
+          go(status === 'ARCHIVED' ? 'o-venues' : 'o-layouts', { venue: id, version: null });
         },
         onError: (error) => showToast(errorMessage(error), 'danger'),
       },
@@ -149,9 +165,8 @@ export function OrgVenuesPage() {
   };
 
   const openVersion = (id: string) => {
-    setVersionId(id);
     setServerErrors([]);
-    setScreen('o-layout-editor');
+    go('o-layout-editor', { version: id });
   };
 
   const addLayout = () => {
@@ -299,9 +314,9 @@ export function OrgVenuesPage() {
               type="button"
               className="btn btn-primary"
               onClick={() => {
-                setVenueId(null);
+                setFormVenueId(null);
                 setForm(EMPTY_VENUE);
-                setScreen('o-venue-create');
+                go('o-venue-create', { venue: null, version: null });
               }}
             >
               + Thêm địa điểm

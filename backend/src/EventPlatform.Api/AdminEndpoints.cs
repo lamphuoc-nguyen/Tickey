@@ -89,11 +89,12 @@ public static class AdminEndpoints
             return Results.NoContent();
         });
 
-        // Default: events waiting for review.
+        // Default: events waiting for review. Ticket types ride along so the reviewer sees prices and quotas.
         admin.MapGet("/events", async (string? status, int? limit, int? offset, HttpContext http, SupabaseRestClient db,
             CancellationToken ct) =>
             Results.Ok(await db.SelectAsync("events", Query(
-                Select("*, org:organizations(id, name, slug), sessions(id, title, starts_at, ends_at, status)"),
+                Select("*, org:organizations(id, name, slug), sessions(id, title, starts_at, ends_at, status, " +
+                    "ticket_types(id, name, kind, price_amount, quota, visibility, status, sort_order))"),
                 Eq("status", string.IsNullOrWhiteSpace(status) ? "PENDING_REVIEW" : status.Trim().ToUpperInvariant()),
                 "order=updated_at", Page(limit, offset)), http.Jwt(), ct)));
 
