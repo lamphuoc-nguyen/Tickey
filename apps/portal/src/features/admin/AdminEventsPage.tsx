@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Calendar, Search } from 'lucide-react';
-import { errorMessage, formatDateTime } from '../../lib/api';
+import { errorMessage, formatDateTime, formatVnd } from '../../lib/api';
 import { useToast } from '../../components/common/ToastProvider';
 import { QueryNotice } from '../../components/common/QueryNotice';
+import { ConfirmButton } from '../../components/common/ConfirmButton';
 import {
   FigmaPageHeader,
   FigmaNavyContextBanner,
@@ -19,7 +20,7 @@ import {
   useReviewEvent,
   type AdminEvent,
 } from './data/admin-data';
-import { SESSION_STATUS } from '../org/data/event-data';
+import { SESSION_STATUS, TICKET_KIND } from '../org/data/event-data';
 
 const ADMIN_EVENT_SCREENS: FigmaScreenOption[] = [
   { id: 'a-events', label: 'Kiểm duyệt sự kiện' },
@@ -44,12 +45,21 @@ export function AdminEventsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { showToast } = useToast();
 
+  // The screen, status filter and selected event live in the URL so reloads and Back keep the review open.
   const activeScreen = searchParams.get('screen') || 'a-events';
-  const setScreen = (screen: string) => setSearchParams({ screen });
+  const statusFilter = searchParams.get('status') || 'PENDING_REVIEW';
+  const selectedEventId = searchParams.get('event');
+  const go = (screen: string, ids: { status?: string; event?: string | null } = {}) => {
+    const next: Record<string, string> = { screen };
+    const status = ids.status ?? statusFilter;
+    const event = ids.event === undefined ? selectedEventId : ids.event;
+    if (status !== 'PENDING_REVIEW') next.status = status;
+    if (event) next.event = event;
+    setSearchParams(next);
+  };
+  const setScreen = (screen: string) => go(screen);
 
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('PENDING_REVIEW');
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [noteDecision, setNoteDecision] = useState<'CHANGES_REQUESTED' | 'REJECTED'>('CHANGES_REQUESTED');
 
@@ -79,7 +89,7 @@ export function AdminEventsPage() {
           const label = ADMIN_EVENT_STATUS[decision]?.label ?? decision;
           showToast(`Đã cập nhật sự kiện "${selectedEvent.title}": ${label}.`, 'success');
           setNote('');
-          setScreen('a-events');
+          go('a-events', { event: null });
         },
         onError: (error) => showToast(errorMessage(error), 'danger'),
       },
@@ -133,7 +143,7 @@ export function AdminEventsPage() {
                 className="form-input"
                 style={{ width: 210 }}
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => go('a-events', { status: e.target.value, event: null })}
               >
                 {EVENT_FILTERS.map((f) => (
                   <option key={f.value} value={f.value}>
@@ -192,10 +202,7 @@ export function AdminEventsPage() {
                         <td>
                           <button
                             type="button"
-                            onClick={() => {
-                              setSelectedEventId(e.id);
-                              setScreen('a-event-review');
-                            }}
+                            onClick={() => go('a-event-review', { event: e.id })}
                             style={{
                               background: 'none',
                               border: 'none',
@@ -250,7 +257,7 @@ export function AdminEventsPage() {
 
               <div className="card" style={{ padding: 22, marginBottom: 14 }}>
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, marginBottom: 12 }}>
-                  Suất diễn
+                  Suất diễn & hạng vé
                 </div>
                 {selectedEvent.sessions.length === 0 && (
                   <div style={{ fontSize: 13, color: 'var(--muted)' }}>Sự kiện chưa có suất diễn nào.</div>
@@ -259,38 +266,76 @@ export function AdminEventsPage() {
                   <div
                     key={s.id}
                     style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      gap: 12,
                       padding: '10px 14px',
                       border: '1px solid var(--border)',
                       borderRadius: 10,
                       marginBottom: 8,
                     }}
                   >
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 700 }}>{s.title || selectedEvent.title}</div>
-                      <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-                        {formatDateTime(s.startsAt)} — {formatDateTime(s.endsAt)}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700 }}>{s.title || selectedEvent.title}</div>
+                        <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                          {formatDateTime(s.startsAt)} — {formatDateTime(s.endsAt)}
+                        </div>
                       </div>
+                      <span className="badge badge-info" style={{ alignSelf: 'center' }}>
+                        {SESSION_STATUS[s.status] ?? s.status}
+                      </span>
                     </div>
-                    <span className="badge badge-info" style={{ alignSelf: 'center' }}>
-                      {SESSION_STATUS[s.status] ?? s.status}
-                    </span>
+                    {s.ticketTypes.length === 0 ? (
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>
+                        Suất diễn chưa có hạng vé nào.
+                      </div>
+                    ) : (
+                      <div className="table-wrap" style={{ marginTop: 10 }}>
+                        <table className="table">
+                          <thead>
+                            <tr>
+                              <th>HẠNG VÉ</th>
+                              <th>LOẠI</th>
+                              <th>GIÁ</th>
+                              <th>QUOTA</th>
+                              <th>HIỂN THỊ</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {[...s.ticketTypes]
+                              .sort((a, b) => a.sortOrder - b.sortOrder)
+                              .map((t) => (
+                                <tr key={t.id}>
+                                  <td style={{ fontWeight: 700 }}>
+                                    {t.name}
+                                    {t.status === 'INACTIVE' && (
+                                      <span className="badge badge-warning" style={{ marginLeft: 8 }}>
+                                        Ngừng bán
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td>{TICKET_KIND[t.kind] ?? t.kind}</td>
+                                  <td>{formatVnd(t.priceAmount)}</td>
+                                  <td>{t.quota.toLocaleString('vi-VN')}</td>
+                                  <td>{t.visibility === 'PUBLIC' ? 'Công khai' : 'Ẩn'}</td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
 
               {selectedEvent.status === 'PENDING_REVIEW' ? (
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    disabled={reviewEvent.isPending}
-                    onClick={() => runReview('APPROVED')}
+                  <ConfirmButton
+                    pending={reviewEvent.isPending}
+                    message={`Phê duyệt và mở bán "${selectedEvent.title}"?`}
+                    confirmLabel="Xác nhận phê duyệt"
+                    onConfirm={() => runReview('APPROVED')}
                   >
                     Phê duyệt mở bán
-                  </button>
+                  </ConfirmButton>
                   <button
                     type="button"
                     className="btn btn-secondary"
@@ -359,14 +404,19 @@ export function AdminEventsPage() {
                   />
                 </div>
                 <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    disabled={reviewEvent.isPending || !note.trim()}
-                    onClick={() => runReview(noteDecision, note.trim())}
+                  <ConfirmButton
+                    disabled={!note.trim()}
+                    pending={reviewEvent.isPending}
+                    message={
+                      noteDecision === 'REJECTED'
+                        ? `Từ chối mở bán "${selectedEvent.title}"?`
+                        : `Gửi yêu cầu chỉnh sửa cho "${selectedEvent.title}"?`
+                    }
+                    confirmLabel={noteDecision === 'REJECTED' ? 'Từ chối' : 'Gửi'}
+                    onConfirm={() => runReview(noteDecision, note.trim())}
                   >
                     {noteDecision === 'REJECTED' ? 'Xác nhận từ chối' : 'Gửi yêu cầu chỉnh sửa'}
-                  </button>
+                  </ConfirmButton>
                   <button type="button" className="btn btn-secondary" onClick={() => setScreen('a-event-review')}>
                     Quay lại
                   </button>

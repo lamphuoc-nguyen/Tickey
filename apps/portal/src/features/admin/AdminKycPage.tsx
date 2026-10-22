@@ -4,6 +4,7 @@ import { Building2, Search } from 'lucide-react';
 import { errorMessage, formatDateTime } from '../../lib/api';
 import { useToast } from '../../components/common/ToastProvider';
 import { QueryNotice } from '../../components/common/QueryNotice';
+import { ConfirmButton } from '../../components/common/ConfirmButton';
 import { KYC_DOC_TYPES } from '../org/data/org-data';
 import {
   FigmaPageHeader,
@@ -52,11 +53,20 @@ export function AdminKycPage() {
   // "tab=venues" is a legacy alias with no backing queue: it lands on the Org list.
   const tabParam = searchParams.get('tab');
   const activeScreen = searchParams.get('screen') || (tabParam === 'venues' ? 'a-orgs' : 'a-kyc');
-  const setScreen = (screen: string) => setSearchParams({ screen });
+  // The selected submission / Org lives in the URL so reloads and Back keep the review open.
+  const selectedKycId = searchParams.get('kyc');
+  const selectedOrgId = searchParams.get('org');
+  const go = (screen: string, ids: { kyc?: string | null; org?: string | null } = {}) => {
+    const next: Record<string, string> = { screen };
+    const kycId = ids.kyc === undefined ? selectedKycId : ids.kyc;
+    const orgId = ids.org === undefined ? selectedOrgId : ids.org;
+    if (kycId) next.kyc = kycId;
+    if (orgId) next.org = orgId;
+    setSearchParams(next);
+  };
+  const setScreen = (screen: string) => go(screen);
 
   const [search, setSearch] = useState('');
-  const [selectedKycId, setSelectedKycId] = useState<string | null>(null);
-  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
 
   const [infoNote, setInfoNote] = useState('Vui lòng bổ sung bản scan GPKD trang 2 có dấu mộc rõ nét.');
   const [rejectReason, setRejectReason] = useState('');
@@ -93,7 +103,7 @@ export function AdminKycPage() {
         onSuccess: () => {
           const label = ADMIN_KYC_STATUS[decision]?.label ?? decision;
           showToast(`Đã cập nhật hồ sơ KYC của ${selectedKyc.org?.name ?? 'tổ chức'}: ${label}.`, 'success');
-          setScreen('a-kyc');
+          go('a-kyc', { kyc: null });
         },
         onError: (error) => showToast(errorMessage(error), 'danger'),
       },
@@ -191,10 +201,7 @@ export function AdminKycPage() {
                         <td>
                           <button
                             type="button"
-                            onClick={() => {
-                              setSelectedKycId(s.id);
-                              setScreen('a-kyc-review');
-                            }}
+                            onClick={() => go('a-kyc-review', { kyc: s.id })}
                             style={{
                               background: 'none',
                               border: 'none',
@@ -295,14 +302,14 @@ export function AdminKycPage() {
               </div>
               {selectedKyc.status === 'SUBMITTED' ? (
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    disabled={reviewKyc.isPending}
-                    onClick={() => runReview('APPROVED')}
+                  <ConfirmButton
+                    pending={reviewKyc.isPending}
+                    message={`Phê duyệt KYC cho ${selectedKyc.org?.name ?? 'tổ chức'}?`}
+                    confirmLabel="Xác nhận phê duyệt"
+                    onConfirm={() => runReview('APPROVED')}
                   >
                     Phê duyệt KYC
-                  </button>
+                  </ConfirmButton>
                   <button type="button" className="btn btn-secondary" onClick={() => setScreen('a-kyc-info')}>
                     Yêu cầu bổ sung
                   </button>
@@ -340,14 +347,15 @@ export function AdminKycPage() {
                   <input className="form-input" value={infoNote} onChange={(e) => setInfoNote(e.target.value)} />
                 </div>
                 <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    disabled={reviewKyc.isPending || !infoNote.trim()}
-                    onClick={() => runReview('NEEDS_INFO', infoNote.trim())}
+                  <ConfirmButton
+                    disabled={!infoNote.trim()}
+                    pending={reviewKyc.isPending}
+                    message={`Gửi yêu cầu bổ sung cho ${selectedKyc.org?.name ?? 'tổ chức'}?`}
+                    confirmLabel="Gửi"
+                    onConfirm={() => runReview('NEEDS_INFO', infoNote.trim())}
                   >
                     Gửi yêu cầu bổ sung
-                  </button>
+                  </ConfirmButton>
                   <button type="button" className="btn btn-secondary" onClick={() => setScreen('a-kyc-review')}>
                     Quay lại
                   </button>
@@ -383,14 +391,15 @@ export function AdminKycPage() {
                   />
                 </div>
                 <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    disabled={reviewKyc.isPending || !rejectReason.trim()}
-                    onClick={() => runReview('REJECTED', rejectReason.trim())}
+                  <ConfirmButton
+                    disabled={!rejectReason.trim()}
+                    pending={reviewKyc.isPending}
+                    message={`Từ chối hồ sơ KYC của ${selectedKyc.org?.name ?? 'tổ chức'}?`}
+                    confirmLabel="Từ chối"
+                    onConfirm={() => runReview('REJECTED', rejectReason.trim())}
                   >
                     Xác nhận từ chối
-                  </button>
+                  </ConfirmButton>
                   <button type="button" className="btn btn-secondary" onClick={() => setScreen('a-kyc-review')}>
                     Hủy
                   </button>
@@ -470,10 +479,7 @@ export function AdminKycPage() {
                         <td>
                           <button
                             type="button"
-                            onClick={() => {
-                              setSelectedOrgId(o.id);
-                              setScreen('a-org-status');
-                            }}
+                            onClick={() => go('a-org-status', { org: o.id })}
                             style={{
                               background: 'none',
                               border: 'none',

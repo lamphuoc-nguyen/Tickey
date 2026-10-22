@@ -531,7 +531,7 @@ public class ApiEndpointTests
     }
 
     [Fact]
-    public async Task Admin_events_queue_embeds_the_org_and_sessions()
+    public async Task Admin_events_queue_embeds_the_org_sessions_and_ticket_types()
     {
         var (client, handler) = Create((_, _) => (HttpStatusCode.OK, "[]"), UserJwt);
 
@@ -542,7 +542,9 @@ public class ApiEndpointTests
         Assert.Equal("/rest/v1/events", request.RequestUri!.AbsolutePath);
         var query = Uri.UnescapeDataString(request.RequestUri.Query);
         Assert.Contains("org:organizations(id,name,slug)", query);
-        Assert.Contains("sessions(id,title,starts_at,ends_at,status)", query);
+        Assert.Contains(
+            "sessions(id,title,starts_at,ends_at,status,ticket_types(id,name,kind,price_amount,quota,visibility,status,sort_order))",
+            query);
         Assert.Contains("status=eq.CHANGES_REQUESTED", query);
         Assert.Contains("order=updated_at", query);
         Assert.Equal(UserJwt, request.Headers.Authorization!.Parameter);
