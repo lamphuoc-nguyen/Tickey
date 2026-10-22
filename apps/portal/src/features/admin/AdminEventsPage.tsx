@@ -19,6 +19,7 @@ import {
   useReviewEvent,
   type AdminEvent,
 } from './data/admin-data';
+import { SESSION_STATUS } from '../org/data/event-data';
 
 const ADMIN_EVENT_SCREENS: FigmaScreenOption[] = [
   { id: 'a-events', label: 'Kiểm duyệt sự kiện' },
@@ -275,7 +276,7 @@ export function AdminEventsPage() {
                       </div>
                     </div>
                     <span className="badge badge-info" style={{ alignSelf: 'center' }}>
-                      {s.status}
+                      {SESSION_STATUS[s.status] ?? s.status}
                     </span>
                   </div>
                 ))}

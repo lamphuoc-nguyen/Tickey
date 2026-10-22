@@ -116,7 +116,7 @@ export function AdminReportsPage() {
       {
         onSuccess: (result) => {
           showToast(
-            `Đã ban hành phán quyết (${DISPUTE_RESOLUTION[resolution] ?? resolution}), tạo ${result.refunds_created} yêu cầu hoàn tiền.`,
+            `Đã ban hành phán quyết (${DISPUTE_RESOLUTION[resolution] ?? resolution}), tạo ${result.refundsCreated} yêu cầu hoàn tiền.`,
             'success',
           );
           setNote('');
