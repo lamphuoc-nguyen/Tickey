@@ -66,7 +66,7 @@ export function TickeyLogo({ size = 'md', variant = 'light', showText = true }: 
             letterSpacing: '-0.02em',
           }}
         >
-          tickey
+          Tickey
         </span>
       )}
     </div>

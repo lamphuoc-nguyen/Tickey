@@ -1,3 +1,4 @@
+import { ApiError } from '@event/core';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/api';
 import { repositories } from '../../../lib/repositories';
@@ -192,14 +193,21 @@ export function orgSlug(name: string): string {
 /**
  * Creates a DRAFT Org with the caller as OWNER, then makes it the active workspace (token refresh), so the
  * onboarding screens load it. The cache is cleared because every org query was keyed on the old workspace.
+ * An OWNER needs 2FA (aal2) to enter the workspace: the Org then exists but stays inactive (`needsMfa`), and
+ * the caller finishes 2FA, after which the workspace picker lists it.
  */
 export function useCreateOrganization() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: async (input: { name: string; slug: string; businessType: string }) => {
       const created = await api.post<{ id: string }>('/api/organizations', input);
-      await repositories.workspace.setActiveWorkspace('ORG', created.id);
-      return created;
+      try {
+        await repositories.workspace.setActiveWorkspace('ORG', created.id);
+      } catch (error) {
+        if (error instanceof ApiError && error.code === 'MFA_REQUIRED') return { ...created, needsMfa: true };
+        throw error;
+      }
+      return { ...created, needsMfa: false };
     },
     onSuccess: () => client.clear(),
   });
