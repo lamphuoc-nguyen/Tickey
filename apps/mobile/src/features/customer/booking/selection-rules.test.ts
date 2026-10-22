@@ -1,5 +1,20 @@
 import { describe, it, expect } from 'vitest';
-import { selectedSeatItems, selectionLimit } from './selection-rules';
+import { selectedSeatItems, selectionLimit, ticketTypeSaleState } from './selection-rules';
+describe('ticket type sale window', () => {
+  const now = Date.parse('2026-10-22T06:20:00Z');
+  it('is on sale without a window or inside it', () => {
+    expect(ticketTypeSaleState({ saleStartAt: null, saleEndAt: null }, now)).toBe('ON_SALE');
+    expect(
+      ticketTypeSaleState({ saleStartAt: '2026-10-22T06:00:00+00:00', saleEndAt: '2026-10-25T00:00:00+00:00' }, now),
+    ).toBe('ON_SALE');
+  });
+  it('is not on sale before the start or from the end', () => {
+    expect(ticketTypeSaleState({ saleStartAt: '2026-10-22T11:10:00+00:00', saleEndAt: null }, now)).toBe(
+      'NOT_STARTED',
+    );
+    expect(ticketTypeSaleState({ saleStartAt: null, saleEndAt: '2026-10-22T06:20:00Z' }, now)).toBe('ENDED');
+  });
+});
 describe('selection limits from catalog', () => {
   it('keeps selected seats across seated zones and reports missing prices', () => {
     expect(

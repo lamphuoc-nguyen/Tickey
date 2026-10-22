@@ -11,6 +11,16 @@ export function selectedSeatItems(selected: readonly string[], seatTypes: Readon
   return { items, missing };
 }
 
+/** create_booking rejects a ticket type outside its own sale window, even while the Session is on sale. */
+export function ticketTypeSaleState(
+  type: { saleStartAt: string | null; saleEndAt: string | null },
+  now: number,
+): 'ON_SALE' | 'NOT_STARTED' | 'ENDED' {
+  if (type.saleStartAt && now < Date.parse(type.saleStartAt)) return 'NOT_STARTED';
+  if (type.saleEndAt && now >= Date.parse(type.saleEndAt)) return 'ENDED';
+  return 'ON_SALE';
+}
+
 export function selectionLimit(
   items: BookingItemInput[],
   types: readonly { id: string; maxPerOrder: number }[],
