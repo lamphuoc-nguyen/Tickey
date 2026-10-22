@@ -1,12 +1,15 @@
 import { readActiveWorkspace, type ActiveWorkspace } from '@event/core';
 import type { Session } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
+import { isMfaPending } from './mfa';
 import { supabase } from './supabase';
 
 export interface SessionState {
   loading: boolean;
   session: Session | null;
   workspace: ActiveWorkspace;
+  /** Signed in with the password only, while the user has a verified TOTP factor: the code is still owed. */
+  mfaPending: boolean;
 }
 
 /** Current Supabase session and the active_workspace carried by its JWT. */
@@ -15,6 +18,7 @@ export function useSession(): SessionState {
     loading: true,
     session: null,
     workspace: readActiveWorkspace(null),
+    mfaPending: false,
   });
 
   useEffect(() => {
@@ -27,6 +31,7 @@ export function useSession(): SessionState {
           loading: false,
           session,
           workspace: readActiveWorkspace(session?.access_token),
+          mfaPending: isMfaPending(session),
         });
       }
     };
