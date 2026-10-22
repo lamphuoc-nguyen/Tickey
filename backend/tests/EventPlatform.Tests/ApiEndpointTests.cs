@@ -1081,8 +1081,8 @@ public class ApiEndpointTests
             identityNumber = "079200012345",
             documents = new[]
             {
-                new { docType = "BUSINESS_REGISTRATION", storagePath = $"{orgId}/gpkd.pdf" },
-                new { docType = "IDENTITY_CARD", storagePath = $"{orgId}/cccd.pdf" },
+                new { docType = "BUSINESS_LICENSE", storagePath = $"{orgId}/gpkd.pdf" },
+                new { docType = "ID_CARD_FRONT", storagePath = $"{orgId}/cccd.pdf" },
             },
         }, Ct);
 
@@ -1097,7 +1097,7 @@ public class ApiEndpointTests
             root.GetProperty("p_legal_info").GetProperty("legal_name").GetString());
         var documents = root.GetProperty("p_documents");
         Assert.Equal(2, documents.GetArrayLength());
-        Assert.Equal("BUSINESS_REGISTRATION", documents[0].GetProperty("doc_type").GetString());
+        Assert.Equal("BUSINESS_LICENSE", documents[0].GetProperty("doc_type").GetString());
         Assert.Equal($"{orgId}/gpkd.pdf", documents[0].GetProperty("storage_path").GetString());
         Assert.Equal(UserJwt, request.Headers.Authorization!.Parameter);
         Assert.Equal("33333333-3333-3333-3333-333333333333",

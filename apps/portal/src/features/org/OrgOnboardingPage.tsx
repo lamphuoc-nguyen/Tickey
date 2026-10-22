@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ApiError } from '@event/core';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Clock, AlertTriangle, XCircle, Building2, ShieldOff, Upload } from 'lucide-react';
 import { api, errorMessage, formatDateTime, useOrgId } from '../../lib/api';
@@ -11,10 +12,13 @@ import {
   type FigmaScreenOption,
 } from '../../components/common/FigmaScreenPrimitives';
 import {
+  BUSINESS_TYPES,
   KYC_DOC_TYPES,
   KYC_REQUIRED_DOC_TYPES,
   KYC_STATUS,
   ORG_STATUS,
+  orgSlug,
+  useCreateOrganization,
   useOrgKyc,
   useOrganization,
   useSubmitKyc,
@@ -38,8 +42,12 @@ interface DocSlot {
   error: string | null;
 }
 
+/** Same limits as POST /api/uploads, checked first so the user gets a specific message. */
+const UPLOAD_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+const UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
+
 const emptySlots = (): DocSlot[] =>
-  ['BUSINESS_REGISTRATION', 'IDENTITY_CARD', 'OTHER'].map((docType) => ({
+  ['BUSINESS_LICENSE', 'ID_CARD_FRONT', 'ID_CARD_BACK', 'OTHER'].map((docType) => ({
     docType,
     file: null,
     uploading: false,
@@ -56,6 +64,90 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** Step 1 without an Org workspace: create a DRAFT Org (caller becomes OWNER) and switch to it. */
+function CreateOrgForm({ onCreated }: { onCreated: () => void }) {
+  const navigate = useNavigate();
+  const create = useCreateOrganization();
+  const [name, setName] = useState('');
+  const [slug, setSlug] = useState('');
+  const [slugEdited, setSlugEdited] = useState(false);
+  const [businessType, setBusinessType] = useState('COMPANY');
+
+  const finalSlug = slugEdited ? slug : orgSlug(name);
+  const slugValid = /^[a-z0-9-]{3,60}$/.test(finalSlug);
+  const error = create.error;
+  const slugTaken = error instanceof ApiError && error.details.field === 'p_slug' && error.details.reason === 'taken';
+
+  return (
+    <div className="card" style={{ padding: 22 }}>
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 6 }}>
+        Đăng ký tổ chức mới
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16 }}>
+        Bạn sẽ là Chủ tổ chức. Sau khi tạo, tiếp tục nộp hồ sơ xác minh để được duyệt bán vé.
+      </div>
+      <form
+        style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          create.mutate({ name: name.trim(), slug: finalSlug, businessType }, { onSuccess: onCreated });
+        }}
+      >
+        <div>
+          <label className="form-label">Tên tổ chức</label>
+          <input
+            className="form-input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Ví dụ: Công ty Âm Sắc"
+            required
+          />
+        </div>
+        <div>
+          <label className="form-label">Đường dẫn (slug)</label>
+          <input
+            className="form-input"
+            value={finalSlug}
+            onChange={(e) => {
+              setSlugEdited(true);
+              setSlug(e.target.value.toLowerCase());
+            }}
+            placeholder="cong-ty-am-sac"
+          />
+          <div style={{ fontSize: 12, color: slugTaken || (finalSlug && !slugValid) ? '#B42318' : 'var(--muted)', marginTop: 6 }}>
+            {slugTaken
+              ? 'Đường dẫn này đã có tổ chức khác dùng. Hãy chọn đường dẫn khác.'
+              : '3–60 ký tự: chữ thường không dấu, số và dấu gạch ngang.'}
+          </div>
+        </div>
+        <div>
+          <label className="form-label">Loại hình</label>
+          <select className="form-input" value={businessType} onChange={(e) => setBusinessType(e.target.value)}>
+            {Object.entries(BUSINESS_TYPES).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+        {error && !slugTaken && <div style={{ fontSize: 12, color: '#B42318' }}>{errorMessage(error)}</div>}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={create.isPending || !name.trim() || !slugValid}
+          >
+            {create.isPending ? 'Đang tạo…' : 'Tạo tổ chức'}
+          </button>
+          <button type="button" className="btn btn-secondary" onClick={() => navigate('/workspaces')}>
+            Chọn workspace khác
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export function OrgOnboardingPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -63,7 +155,9 @@ export function OrgOnboardingPage() {
   const { showToast } = useToast();
 
   const activeScreen = searchParams.get('screen') || 'o-create';
-  const setScreen = (screen: string) => setSearchParams({ screen });
+  // Screens render only for an Org workspace; the header still shows which step was asked for.
+  const screen = orgId ? activeScreen : null;
+  const setScreen = (next: string) => setSearchParams({ screen: next });
 
   const org = useOrganization(orgId);
   const kyc = useOrgKyc(orgId);
@@ -82,9 +176,20 @@ export function OrgOnboardingPage() {
 
   const pickFile = async (docType: string, file: File) => {
     if (!orgId) return;
+    const invalid = !UPLOAD_TYPES.includes(file.type)
+      ? 'Chỉ nhận tệp PDF, JPG, PNG hoặc WEBP.'
+      : file.size === 0 || file.size > UPLOAD_MAX_BYTES
+        ? 'Tệp phải lớn hơn 0 và không quá 10 MB.'
+        : null;
+    // A new pick replaces the old upload, so a failed retry never leaves the previous path behind.
     setSlots((prev) =>
-      prev.map((s) => (s.docType === docType ? { ...s, file, uploading: true, error: null } : s)),
+      prev.map((s) =>
+        s.docType === docType
+          ? { ...s, file, storagePath: null, uploading: !invalid, error: invalid }
+          : s,
+      ),
     );
+    if (invalid) return;
     try {
       const uploaded = await api.upload(file, 'KYC', orgId);
       setSlots((prev) =>
@@ -143,12 +248,22 @@ export function OrgOnboardingPage() {
         onSelectScreen={setScreen}
       />
 
+      {/* Without an Org workspace the org queries stay disabled (pending forever): offer to create one instead. */}
+      {!orgId && (
+        <CreateOrgForm
+          onCreated={() => {
+            showToast('Đã tạo tổ chức. Tiếp tục nộp hồ sơ xác minh.', 'success');
+            setScreen('o-kyc');
+          }}
+        />
+      )}
+
       {org.isError && (
         <QueryNotice loading={false} error={org.error} onRetry={() => org.refetch()} />
       )}
 
       {/* 1. o-create — org info recorded at creation, read-only here. */}
-      {activeScreen === 'o-create' && !org.isError && (
+      {screen === 'o-create' && !org.isError && (
         <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 18, alignItems: 'start' }}>
           <div className="card" style={{ padding: 22 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -206,7 +321,7 @@ export function OrgOnboardingPage() {
       )}
 
       {/* 2. o-kyc — upload documents and submit the dossier. */}
-      {activeScreen === 'o-kyc' && (
+      {screen === 'o-kyc' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1.65fr 1fr', gap: 18, alignItems: 'start' }}>
           <div className="card" style={{ padding: 22 }}>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}>
@@ -226,7 +341,7 @@ export function OrgOnboardingPage() {
                 >
                   <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>
                     {KYC_DOC_TYPES[slot.docType]}
-                    {slot.docType !== 'OTHER' && (
+                    {KYC_REQUIRED_DOC_TYPES.includes(slot.docType) && (
                       <span style={{ color: 'var(--brand)', marginLeft: 4 }}>*</span>
                     )}
                   </div>
@@ -312,7 +427,7 @@ export function OrgOnboardingPage() {
               </div>
               {requiredMissing && (
                 <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                  Cần tải lên Giấy phép đăng ký kinh doanh và CCCD/Hộ chiếu người đại diện.
+                  Cần tải lên Giấy phép đăng ký kinh doanh và mặt trước CCCD/Hộ chiếu người đại diện.
                 </div>
               )}
             </div>
@@ -338,7 +453,7 @@ export function OrgOnboardingPage() {
       )}
 
       {/* 3. o-kyc-pending — status of the latest submission. */}
-      {activeScreen === 'o-kyc-pending' && (
+      {screen === 'o-kyc-pending' && (
         <div
           className="card"
           style={{
@@ -457,7 +572,7 @@ export function OrgOnboardingPage() {
       )}
 
       {/* 4. o-kyc-info — resubmit when the Admin asked for more information. */}
-      {activeScreen === 'o-kyc-info' && (
+      {screen === 'o-kyc-info' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 18, alignItems: 'start' }}>
           <div className="card" style={{ padding: 22 }}>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 14 }}>
@@ -523,7 +638,7 @@ export function OrgOnboardingPage() {
       )}
 
       {/* 5. o-org-rejected — rejected dossier with a resubmit path. */}
-      {activeScreen === 'o-org-rejected' && (
+      {screen === 'o-org-rejected' && (
         <div
           className="card"
           style={{
@@ -556,7 +671,7 @@ export function OrgOnboardingPage() {
       )}
 
       {/* Submitted-document history, when there is one. */}
-      {(activeScreen === 'o-kyc-pending' || activeScreen === 'o-org-rejected') && submissions.length > 0 && (
+      {(screen === 'o-kyc-pending' || screen === 'o-org-rejected') && submissions.length > 0 && (
         <div className="card" style={{ padding: 22, marginTop: 18 }}>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 14 }}>
             Lịch sử hồ sơ đã nộp
@@ -594,7 +709,7 @@ export function OrgOnboardingPage() {
         </div>
       )}
 
-      {slots.some((s) => s.storagePath) && activeScreen === 'o-kyc' && (
+      {slots.some((s) => s.storagePath) && screen === 'o-kyc' && (
         <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 12 }}>
           <Upload size={13} style={{ verticalAlign: '-2px', marginRight: 4 }} />
           Tài liệu được tải lên kho bảo mật của tổ chức trước khi gửi xét duyệt.

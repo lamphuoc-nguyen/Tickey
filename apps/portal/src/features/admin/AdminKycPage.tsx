@@ -4,6 +4,7 @@ import { Building2, Search } from 'lucide-react';
 import { errorMessage, formatDateTime } from '../../lib/api';
 import { useToast } from '../../components/common/ToastProvider';
 import { QueryNotice } from '../../components/common/QueryNotice';
+import { KYC_DOC_TYPES } from '../org/data/org-data';
 import {
   FigmaPageHeader,
   FigmaNavyContextBanner,
@@ -260,7 +261,7 @@ export function AdminKycPage() {
                     }}
                   >
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700 }}>{doc.docType}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700 }}>{KYC_DOC_TYPES[doc.docType] ?? doc.docType}</div>
                       <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{doc.storagePath}</div>
                     </div>
                     <span style={{ fontSize: 11.5, color: 'var(--muted)', alignSelf: 'center' }}>

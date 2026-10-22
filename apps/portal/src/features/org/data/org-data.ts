@@ -1,5 +1,6 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/api';
+import { repositories } from '../../../lib/repositories';
 
 // Org portal data from /api (database JSON, camelCase). Writes go through the RPC-backed endpoints only.
 
@@ -176,6 +177,40 @@ export function useOrganization(orgId: string | null) {
   });
 }
 
+/** Organization slug from its name: ASCII lower-case words joined by '-' (organizations.slug check). */
+export function orgSlug(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/đ/gi, 'd')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+}
+
+/**
+ * Creates a DRAFT Org with the caller as OWNER, then makes it the active workspace (token refresh), so the
+ * onboarding screens load it. The cache is cleared because every org query was keyed on the old workspace.
+ */
+export function useCreateOrganization() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { name: string; slug: string; businessType: string }) => {
+      const created = await api.post<{ id: string }>('/api/organizations', input);
+      await repositories.workspace.setActiveWorkspace('ORG', created.id);
+      return created;
+    },
+    onSuccess: () => client.clear(),
+  });
+}
+
+export const BUSINESS_TYPES: Record<string, string> = {
+  COMPANY: 'Doanh nghiệp',
+  HOUSEHOLD: 'Hộ kinh doanh',
+  INDIVIDUAL: 'Cá nhân',
+};
+
 /** Statuses of the Org record relevant to the KYC (onboarding) flow. */
 export const ORG_STATUS: Record<string, { label: string; badge: string }> = {
   DRAFT: { label: 'Bản nháp', badge: 'badge-info' },
@@ -194,14 +229,16 @@ export const KYC_STATUS: Record<string, { label: string; badge: string }> = {
   REJECTED: { label: 'Bị từ chối', badge: 'badge-danger' },
 };
 
-/** Document types accepted by submit_kyc (kyc_documents.doc_type). */
+/** Document types accepted by submit_kyc (the kyc_documents.doc_type check constraint). */
 export const KYC_DOC_TYPES: Record<string, string> = {
-  BUSINESS_REGISTRATION: 'Giấy phép đăng ký kinh doanh',
-  IDENTITY_CARD: 'CCCD/Hộ chiếu người đại diện',
+  BUSINESS_LICENSE: 'Giấy phép đăng ký kinh doanh',
+  ID_CARD_FRONT: 'CCCD/Hộ chiếu người đại diện (mặt trước)',
+  ID_CARD_BACK: 'CCCD người đại diện (mặt sau)',
+  BANK_PROOF: 'Xác nhận tài khoản ngân hàng',
   OTHER: 'Tài liệu bổ sung',
 };
 
-export const KYC_REQUIRED_DOC_TYPES = ['BUSINESS_REGISTRATION', 'IDENTITY_CARD'] as const;
+export const KYC_REQUIRED_DOC_TYPES: readonly string[] = ['BUSINESS_LICENSE', 'ID_CARD_FRONT'];
 
 /** The Org's KYC submissions, newest first, each with its documents. */
 export function useOrgKyc(orgId: string | null) {
