@@ -100,8 +100,8 @@ Lệnh đã chạy và kết quả; test mới thêm (nếu có).
 
 - Project Supabase hosted `ddourrslmudoqevqlvpv` là **PRODUCTION**. Không chạy `supabase db reset`,
   `supabase test db`, `supabase db push`, `seed.sql`, `smoke_e2e.sql`, `concurrency_ac01.sh`, hay `pnpm data:import`
-  lên nó. Chỉ dùng stack local (`supabase start`). Chú ý `appsettings.Development.json` đang trỏ tới hosted: luôn đặt
-  user-secrets `Supabase:Url` về `http://127.0.0.1:54321` trước khi chạy backend.
+  lên nó. Chỉ dùng stack local (`supabase start`). `appsettings.Development.json` trỏ `http://127.0.0.1:54321`, nhưng
+  user-secrets `Supabase:Url` ghi đè nó: kiểm `dotnet user-secrets list` trước khi chạy backend.
 - Không ghi secret (`service_role`/`sb_secret_…`, `Qr:SigningKey`, Cloudinary secret, mật khẩu) vào file được
   track, `EXPO_PUBLIC_*`, `VITE_*`, log hay bug report. Không đọc/sao chép `.env.local` vào nơi khác.
 - Không sửa `supabase/migrations/20261001000000_init_database.sql` hay migration đã có; thay đổi schema = migration

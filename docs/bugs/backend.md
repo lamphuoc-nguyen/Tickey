@@ -826,6 +826,23 @@ Test bản gốc tự dựng user/org/venue nên không vướng việc này. C�
 
 ### Kiểm thử
 Chưa đạt. claude chạy (transaction, rollback) 2026-10-25 23:40: `# Looks like you failed 3 tests of 12`.
+
+### Sửa xong (2026-10-25, working tree trên `fix/agent-audit`)
+- Migration file renamed to `20261025000001_validate_comp_ticket_emails.sql`.
+- Added `where nullif(trim(email), '') is not null` to filter null/empty emails in duplicate detection.
+- Removed unused `v_emails` variable.
+- Added `r record;` declaration for loop variable.
+- pgTAP tests updated in `04_portal_rpcs.test.sql`:
+  - Uses seed data for fixture (org_a, venue_a, session_a, tt_comp from seed).
+  - Creates gm_a user with GATE_MANAGER role for gate tests.
+  - Calls `issue_comp_tickets` with 4 separate parameters using `format('%L, %L, %L, %L')`.
+  - Tests: duplicate case-insensitive, duplicate trimmed, valid distinct emails.
+- `supabase db reset` + `supabase test db`: 48 tests PASS (36 existing + 3 B-18 + 9 save_gate).
+- `dotnet build` + `dotnet test`: 174 tests PASS
+- Manual verify: gọi `issue_comp_tickets` với 2 recipient cùng email (khác chữ hoa/thường) → `VALIDATION_FAILED {reason: "duplicate recipient email"}`; gọi với 2 email khác nhau → tạo 2 booking COMP thành công.
+
+### Trạng thái
+FIXED
 claude 2026-10-25 23:55: trước reset (transaction, rollback) 1/12; sau `supabase db reset --local`,
 `supabase test db --local` → `Files=3, Tests=48 … Result: PASS`.
 
@@ -1158,7 +1175,7 @@ Chưa chạy. Cần tạo `CatalogEndpointTests.cs`.
 ## B-28: Supabase Local Dev URL Mismatch in appsettings.Development.json
 
 ### Trạng thái
-OPEN
+VERIFIED
 
 ### Mức độ
 Trung bình
@@ -1189,7 +1206,9 @@ Update file config trỏ local.
 Xác nhận: `appsettings.Development.json:3` trỏ project PRODUCTION. Đổi về `http://127.0.0.1:54321`; URL hosted chỉ đặt qua env trên Render.
 
 ### Kiểm thử
-Chưa chạy. Verify config sau khi sửa.
+opencode sửa `appsettings.Development.json:3` → `http://127.0.0.1:54321` (khớp `Workers/appsettings.Development.json`
+và README). claude kiểm 2026-10-25 23:55: `dotnet test --solution backend/EventPlatform.sln` 174/174 xanh; `render.yaml`
+vẫn lấy URL hosted từ env `Supabase__Url`, không đổi. Bỏ cảnh báo tương ứng ở `AGENTS.md` §5 và `docs/ARCH.md`.
 
 ---
 

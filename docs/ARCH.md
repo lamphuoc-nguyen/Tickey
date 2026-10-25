@@ -202,8 +202,6 @@ Tham số (`public.app_settings`): `booking.lock_minutes` = 10 (T_LOCK), `paymen
 - `PayoutWorker`, `ReconciliationJob`, `NotificationsWorker` chưa có. Cổng thanh toán thật chưa chọn
   (`UnconfiguredPaymentGateway` ném lỗi khi không bật TEST).
 - API chưa tự validate JWT (để PostgREST kiểm); xem `Bearer.cs`.
-- `backend/src/EventPlatform.Api/appsettings.Development.json` đang trỏ `Supabase:Url` tới **project hosted
-  PRODUCTION**, trong khi README nói dev mặc định là `127.0.0.1:54321`. Muốn chạy local phải ghi đè bằng user-secrets.
 - `apps/portal/vite.config.ts` proxy `/api` tới API trên Render khi không đặt `VITE_API_URL`.
 
 ## 5. Cách chạy
