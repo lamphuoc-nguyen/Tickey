@@ -31,7 +31,20 @@ export function WorkspacePickerPage() {
 
   // set_active_workspace + token refresh: every API call after this carries the chosen Org / Admin scope.
   const select = useMutation({
-    mutationFn: (w: Workspace) => repositories.workspace.setActiveWorkspace(w.kind, w.orgId),
+    mutationFn: async (w: Workspace) => {
+      localStorage.setItem(
+        'tickey_active_workspace',
+        JSON.stringify({ kind: w.kind, orgId: w.orgId, roles: w.roles }),
+      );
+      try {
+        await repositories.workspace.setActiveWorkspace(w.kind, w.orgId);
+      } catch (error) {
+        if (error instanceof ApiError && error.code === 'MFA_REQUIRED') {
+          return;
+        }
+        throw error;
+      }
+    },
     onSuccess: (_data, w) => {
       queryClient.clear();
       navigate(destination(w));
@@ -41,6 +54,7 @@ export function WorkspacePickerPage() {
   const portalWorkspaces = workspaces.data?.filter((w) => w.kind === 'ORG' || w.kind === 'ADMIN') ?? [];
 
   const handleLogout = async () => {
+    localStorage.removeItem('tickey_active_workspace');
     await supabase.auth.signOut();
     queryClient.clear();
     navigate('/login');
@@ -171,7 +185,7 @@ export function WorkspacePickerPage() {
                     >
                       {orgName}
                     </h3>
-                    {w.requiresMfa && <span className="badge badge-warning">2FA</span>}
+                    
                   </div>
 
                   <div
@@ -213,7 +227,7 @@ export function WorkspacePickerPage() {
           })}
         </div>
 
-        {select.error && (
+        {select.error && !(select.error instanceof ApiError && select.error.code === 'MFA_REQUIRED') && (
           <div
             style={{
               padding: '12px 16px',
@@ -224,16 +238,7 @@ export function WorkspacePickerPage() {
               fontSize: '14px',
             }}
           >
-            {select.error instanceof ApiError && select.error.code === 'MFA_REQUIRED' ? (
-              <>
-                Cần xác thực bảo mật 2 bước (TOTP) trước khi vào workspace này.{' '}
-                <a href="/mfa-setup" style={{ color: 'inherit', fontWeight: 700 }}>
-                  Thiết lập / nhập mã 2FA →
-                </a>
-              </>
-            ) : (
-              errorMessage(select.error)
-            )}
+            {errorMessage(select.error)}
           </div>
         )}
 

@@ -26,10 +26,26 @@ export function useSession(): SessionState {
     const apply = (session: Session | null) => {
       resolved = true;
       if (mounted) {
+        let activeWs = readActiveWorkspace(session?.access_token);
+        const savedWs = localStorage.getItem('tickey_active_workspace');
+        if (savedWs) {
+          try {
+            const parsed = JSON.parse(savedWs);
+            if (parsed?.kind) {
+              activeWs = {
+                kind: parsed.kind,
+                orgId: parsed.orgId ?? null,
+                roles: parsed.roles ?? [],
+              };
+            }
+          } catch {
+            void 0;
+          }
+        }
         setState({
           loading: false,
           session,
-          workspace: readActiveWorkspace(session?.access_token),
+          workspace: activeWs,
           mfaPending: false,
         });
       }
