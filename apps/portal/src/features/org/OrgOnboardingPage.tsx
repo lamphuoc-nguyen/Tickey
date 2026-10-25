@@ -704,7 +704,7 @@ export function OrgOnboardingPage() {
                       Gửi {formatDateTime(submission.submittedAt)}
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                      {submission.documents.length} tài liệu
+                      {submission.documents?.length ?? 0} tài liệu
                       {submission.reviewedAt ? ` · xét duyệt ${formatDateTime(submission.reviewedAt)}` : ''}
                     </div>
                   </div>

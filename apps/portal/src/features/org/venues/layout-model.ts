@@ -12,22 +12,17 @@ export interface EditorZone {
   capacity: number;
 }
 
+export type VenueTemplateType = 'stadium' | 'theater' | 'cinema' | 'standing';
+
 export const SPACING = 30;
 const ZONE_GAP = 60;
 const ZONE_COLORS = ['#E2553B', '#2F6FEB', '#1B7956', '#946018', '#7C3AED', '#0E7490'];
 
-export const LAYOUT_TEMPLATES: { id: string; label: string; zones: EditorZone[] }[] = [
-  {
-    id: 'theater',
-    label: 'Nhà hát',
-    zones: [
-      { id: 'A', name: 'Khu A', type: 'seated', rows: 8, seatsPerRow: 10, capacity: 0 },
-      { id: 'B', name: 'Khu B', type: 'seated', rows: 6, seatsPerRow: 12, capacity: 0 },
-    ],
-  },
+export const LAYOUT_TEMPLATES: { id: VenueTemplateType; label: string; desc: string; zones: EditorZone[] }[] = [
   {
     id: 'stadium',
     label: 'Sân vận động',
+    desc: 'Khán đài, tầng và từng khu ghế.',
     zones: ['A', 'B', 'C', 'D'].map((code) => ({
       id: code,
       name: `Khán đài ${code}`,
@@ -38,16 +33,52 @@ export const LAYOUT_TEMPLATES: { id: string; label: string; zones: EditorZone[] 
     })),
   },
   {
+    id: 'theater',
+    label: 'Nhà hát',
+    desc: 'Sân khấu, khu ghế và hàng ghế.',
+    zones: [
+      { id: 'A', name: 'Khu A', type: 'seated', rows: 8, seatsPerRow: 10, capacity: 0 },
+      { id: 'B', name: 'Khu B', type: 'seated', rows: 6, seatsPerRow: 12, capacity: 0 },
+    ],
+  },
+  {
     id: 'cinema',
     label: 'Rạp phim',
+    desc: 'Màn chiếu, phòng chiếu và lối đi.',
     zones: [{ id: 'P1', name: 'Phòng chiếu 01', type: 'seated', rows: 7, seatsPerRow: 12, capacity: 0 }],
   },
   {
     id: 'standing',
     label: 'Không có ghế',
+    desc: 'Khu vực mở/sức chứa, không đánh số ghế.',
     zones: [{ id: 'GA', name: 'Khu đứng', type: 'standing', rows: 0, seatsPerRow: 0, capacity: 200 }],
   },
 ];
+
+export function detectTemplateType(zones: EditorZone[]): VenueTemplateType {
+  if (!zones || zones.length === 0) return 'stadium';
+  if (zones.every((z) => z.type === 'standing')) return 'standing';
+  const hasStadiumName = zones.some((z) => z.name.toLowerCase().includes('khán đài'));
+  const hasStadiumIds = zones.length === 4 && ['A', 'B', 'C', 'D'].every((id) => zones.some((z) => z.id === id));
+  if (hasStadiumName || hasStadiumIds) return 'stadium';
+  if (
+    zones.length === 1 &&
+    (zones[0].name.toLowerCase().includes('phòng') ||
+      zones[0].name.toLowerCase().includes('chiếu') ||
+      zones[0].id.startsWith('P'))
+  ) {
+    return 'cinema';
+  }
+  if (zones.length >= 2 && zones.every((z) => z.type === 'seated')) {
+    return 'theater';
+  }
+  return zones[0]?.type === 'standing' ? 'standing' : 'theater';
+}
+
+export function createTemplateZones(type: VenueTemplateType): EditorZone[] {
+  const found = LAYOUT_TEMPLATES.find((t) => t.id === type);
+  return found ? found.zones.map((z) => ({ ...z })) : [];
+}
 
 /** A, B, …, Z, AA, AB … */
 export function rowLabel(index: number): string {

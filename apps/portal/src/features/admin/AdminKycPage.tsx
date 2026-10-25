@@ -193,7 +193,7 @@ export function AdminKycPage() {
                       <tr key={s.id}>
                         <td style={{ fontWeight: 700 }}>{s.org?.name ?? s.orgId}</td>
                         <td>{(s.legalInfo?.legalName as string | undefined) ?? '—'}</td>
-                        <td>{s.documents.length} tệp</td>
+                        <td>{s.documents?.length ?? 0} tệp</td>
                         <td>{formatDateTime(s.submittedAt)}</td>
                         <td>
                           <StatusBadge map={ADMIN_KYC_STATUS} status={s.status} />
@@ -248,14 +248,14 @@ export function AdminKycPage() {
                   },
                   { label: 'Trạng thái hồ sơ', value: ADMIN_KYC_STATUS[selectedKyc.status]?.label ?? selectedKyc.status },
                   { label: 'Ngày nộp', value: formatDateTime(selectedKyc.submittedAt) },
-                  { label: 'Tài liệu đính kèm', value: `${selectedKyc.documents.length} tệp` },
+                  { label: 'Tài liệu đính kèm', value: `${selectedKyc.documents?.length ?? 0} tệp` },
                 ]}
               />
               <div className="card" style={{ padding: 22, marginBottom: 14 }}>
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, marginBottom: 12 }}>
                   Tài liệu xác minh
                 </div>
-                {selectedKyc.documents.map((doc) => (
+                {(selectedKyc.documents ?? []).map((doc) => (
                   <div
                     key={doc.id}
                     style={{

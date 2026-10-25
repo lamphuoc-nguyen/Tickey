@@ -21,6 +21,7 @@ import {
   useSubmitEvent,
   useTicketTypes,
 } from './data/event-data';
+import { EventCreationWizard } from './events/EventCreationWizard';
 import { EventForm } from './events/EventForm';
 import { SeatManager } from './events/SeatManager';
 import { SessionForm } from './events/SessionForm';
@@ -28,6 +29,7 @@ import { TicketTypeForm } from './events/TicketTypeForm';
 
 const EVENT_SCREENS: FigmaScreenOption[] = [
   { id: 'o-events', label: 'Danh sách sự kiện' },
+  { id: 'o-event-wizard', label: 'Tạo sự kiện mới (Wizard)' },
   { id: 'o-event-edit', label: 'Thông tin sự kiện' },
   { id: 'o-event-detail', label: 'Chi tiết sự kiện' },
   { id: 'o-session-edit', label: 'Cấu hình suất diễn' },
@@ -94,7 +96,10 @@ export function OrgEventsPage() {
   const canEditEvent = event && ['DRAFT', 'CHANGES_REQUESTED', 'PUBLISHED'].includes(event.status);
 
   const screenMeta = EVENT_SCREENS.find((s) => s.id === activeScreen) || EVENT_SCREENS[0];
-  const needEvent = activeScreen !== 'o-events' && !(activeScreen === 'o-event-edit' && !eventId);
+  const needEvent =
+    activeScreen !== 'o-events' &&
+    activeScreen !== 'o-event-wizard' &&
+    !(activeScreen === 'o-event-edit' && !eventId);
   const needSession =
     ['o-session-detail', 'o-ticket-edit', 'o-seat-pricing', 'o-seat-status'].includes(activeScreen) ||
     (activeScreen === 'o-cancel' && !!sessionId);
@@ -196,7 +201,7 @@ export function OrgEventsPage() {
             <button
               type="button"
               className="btn btn-primary"
-              onClick={() => go('o-event-edit', { event: null, session: null, ticket: null })}
+              onClick={() => go('o-event-wizard', { event: null, session: null, ticket: null })}
             >
               + Tạo sự kiện
             </button>
@@ -256,13 +261,27 @@ export function OrgEventsPage() {
         </div>
       )}
 
+      {/* o-event-wizard */}
+      {activeScreen === 'o-event-wizard' && (
+        <EventCreationWizard
+          onComplete={(id) => go('o-event-detail', { event: id, session: null, ticket: null })}
+          onCancel={() => go('o-events')}
+        />
+      )}
+
       {/* o-event-edit */}
-      {activeScreen === 'o-event-edit' && (!eventId || event) && (
+      {activeScreen === 'o-event-edit' && !eventId && (
+        <EventCreationWizard
+          onComplete={(id) => go('o-event-detail', { event: id, session: null, ticket: null })}
+          onCancel={() => go('o-events')}
+        />
+      )}
+      {activeScreen === 'o-event-edit' && !!eventId && !!event && (
         <EventForm
-          key={event?.id ?? 'new'}
+          key={event.id}
           event={event}
           onSaved={(id) => go('o-event-detail', { event: id })}
-          onCancel={() => go(event ? 'o-event-detail' : 'o-events')}
+          onCancel={() => go('o-event-detail')}
         />
       )}
 

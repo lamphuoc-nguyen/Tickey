@@ -63,6 +63,7 @@ export function SeatManager({
   const grid = useMemo(() => {
     const byZone = new Map<string, Map<string, SessionSeat[]>>();
     for (const seat of seats.data ?? []) {
+      if (!seat?.seat?.rowLabel) continue;
       const rows = byZone.get(seat.zoneId) ?? new Map<string, SessionSeat[]>();
       rows.set(seat.seat.rowLabel, [...(rows.get(seat.seat.rowLabel) ?? []), seat]);
       byZone.set(seat.zoneId, rows);
@@ -71,7 +72,7 @@ export function SeatManager({
       for (const [row, list] of rows)
         rows.set(
           row,
-          list.sort((a, b) => a.seat.x - b.seat.x),
+          list.sort((a, b) => (a.seat?.x ?? 0) - (b.seat?.x ?? 0)),
         );
     return byZone;
   }, [seats.data]);
@@ -157,7 +158,7 @@ export function SeatManager({
                   <button
                     key={seat.seatId}
                     type="button"
-                    title={`${seat.seat.seatCode} · ${STATUS_LABELS[seat.status]}${seat.holdReason ? ` · ${seat.holdReason}` : ''}`}
+                    title={`${seat.seat?.seatCode ?? ''} · ${STATUS_LABELS[seat.status]}${seat.holdReason ? ` · ${seat.holdReason}` : ''}`}
                     onClick={() => toggle([seat.seatId])}
                     style={{
                       width: 20,
@@ -170,7 +171,7 @@ export function SeatManager({
                       border: selected.includes(seat.seatId) ? '2px solid #111827' : '1px solid transparent',
                     }}
                   >
-                    {seat.seat.seatNumber}
+                    {seat.seat?.seatNumber ?? ''}
                   </button>
                 ))}
               </div>

@@ -25,13 +25,21 @@ import {
   type VenueInput,
 } from './data/venue-data';
 import { LayoutEditor } from './venues/LayoutEditor';
-import { definitionErrors, fromDefinition, toDefinition, type EditorZone } from './venues/layout-model';
+import { LayoutTypePicker } from './venues/LayoutTypePicker';
+import {
+  createTemplateZones,
+  definitionErrors,
+  fromDefinition,
+  toDefinition,
+  type EditorZone,
+} from './venues/layout-model';
 
 const VENUE_SCREENS: FigmaScreenOption[] = [
   { id: 'o-venues', label: 'Địa điểm của tổ chức' },
   { id: 'o-venue-create', label: 'Thêm địa điểm mới' },
   { id: 'o-venue-edit', label: 'Thông tin địa điểm' },
   { id: 'o-layouts', label: 'Sơ đồ địa điểm' },
+  { id: 'o-layout-type', label: 'Chọn loại hình địa điểm' },
   { id: 'o-layout-editor', label: 'Chỉnh sửa sơ đồ ghế' },
   { id: 'o-layout-published', label: 'Phát hành sơ đồ thành công' },
 ];
@@ -178,6 +186,7 @@ export function OrgVenuesPage() {
       onSuccess: ({ layoutVersionId }) => {
         setLayoutName('');
         openVersion(layoutVersionId);
+        go('o-layout-type', { version: layoutVersionId });
       },
       onError: (error) => showToast(errorMessage(error), 'danger'),
     });
@@ -539,9 +548,32 @@ export function OrgVenuesPage() {
         </div>
       )}
 
+      {/* o-layout-type */}
+      {activeScreen === 'o-layout-type' && (
+        <LayoutTypePicker
+          onSelect={(type) => {
+            const templateZones = createTemplateZones(type);
+            setZones(templateZones);
+            if (versionId) {
+              saveDraft.mutate(
+                { id: versionId, definition: toDefinition(templateZones) },
+                {
+                  onSuccess: () => {
+                    setScreen('o-layout-editor');
+                  },
+                },
+              );
+            } else {
+              setScreen('o-layout-editor');
+            }
+          }}
+          onBack={() => setScreen('o-layouts')}
+        />
+      )}
+
       {/* o-layout-editor */}
       {activeScreen === 'o-layout-editor' && (
-        <div className="card" style={{ padding: 22 }}>
+        <div>
           <div
             style={{
               display: 'flex',
@@ -577,39 +609,23 @@ export function OrgVenuesPage() {
                   </FigmaInfoAlert>
                 </div>
               )}
-              <LayoutEditor zones={zones} onChange={setZones} readOnly={!isDraft} />
-              {!!(serverErrors.length || (isDraft && localErrors.length)) && (
-                <div style={{ marginTop: 14 }}>
-                  <FigmaInfoAlert tone="danger">
-                    {(serverErrors.length ? serverErrors : localErrors).map((e) => (
-                      <div key={e}>• {e}</div>
-                    ))}
-                  </FigmaInfoAlert>
-                </div>
-              )}
+              <LayoutEditor
+                zones={zones}
+                onChange={setZones}
+                readOnly={!isDraft}
+                venueName={venue.data?.name ?? 'Địa điểm'}
+                venueCapacity={capacity}
+                onSaveDraft={isDraft ? () => saveCurrentDraft() : undefined}
+                onPublish={isDraft ? publishCurrent : undefined}
+                isSavingDraft={saveDraft.isPending}
+                isPublishing={publish.isPending}
+                localErrors={isDraft ? localErrors : []}
+                serverErrors={serverErrors}
+                onOpenTypePicker={() => setScreen('o-layout-type')}
+              />
               <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
-                {isDraft && (
-                  <>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      disabled={saveDraft.isPending}
-                      onClick={() => saveCurrentDraft()}
-                    >
-                      {saveDraft.isPending ? 'Đang lưu…' : 'Lưu bản nháp'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      disabled={saveDraft.isPending || publish.isPending || localErrors.length > 0}
-                      onClick={publishCurrent}
-                    >
-                      {publish.isPending ? 'Đang phát hành…' : 'Kiểm tra & phát hành'}
-                    </button>
-                  </>
-                )}
                 <button type="button" className="btn btn-secondary" onClick={() => setScreen('o-layouts')}>
-                  Danh sách sơ đồ
+                  ← Danh sách sơ đồ
                 </button>
               </div>
             </>

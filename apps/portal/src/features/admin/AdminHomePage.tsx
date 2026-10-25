@@ -85,7 +85,7 @@ export function AdminHomePage() {
     ...(kyc.data ?? []).map((k) => ({
       id: `kyc-${k.id}`,
       type: `KYC · ${k.org?.name ?? k.orgId.slice(0, 8)}`,
-      detail: `Hồ sơ nộp ${formatDateTime(k.submittedAt)} · ${k.documents.length} tài liệu`,
+      detail: `Hồ sơ nộp ${formatDateTime(k.submittedAt)} · ${k.documents?.length ?? 0} tài liệu`,
       status: 'Chờ review',
       statusBadgeClass: 'badge badge-warning',
       path: '/admin/kyc',
