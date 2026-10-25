@@ -745,8 +745,37 @@ sẵn có vì lỗi nằm trong khối fixture:
 7. Ghi chú đầu file nhắc "migration 20261021*"; thêm tên migration B-18 sau khi đổi tên.
 Chạy `supabase db reset --local` rồi `supabase test db --local`, dán kết quả vào "Kiểm thử".
 
+### Review bản nháp lần 2 (claude, 2026-10-25 23:40)
+Chạy migration + `04_portal_rpcs.test.sql` trên DB local trong một transaction rồi rollback: **9/12**, 9 test
+`save_gate` xanh lại, 3 test B-18 đỏ.
+
+Migration (`20261025100000_validate_comp_ticket_emails.sql`):
+- Mục 1 đã sửa (`r record;`), migration áp dụng được. Phần còn lại của thân hàm giống hệt bản gốc
+  (`init_database.sql:4728`), quyền giữ nguyên.
+- Mục 2 **chưa sửa**: `issue_comp_tickets(session, tt_comp, '[{"name":"x"},{"name":"y"}]', ...)` →
+  `VALIDATION_FAILED {"emails": [null], "reason": "duplicate recipient email"}`. Thêm
+  `where nullif(trim(email), '') is not null` vào truy vấn đếm trùng.
+- Mục 3, 4 **chưa sửa**: `v_emails` vẫn còn; file vẫn tên `20261025100000_*`.
+- Ca trùng thật đúng contract: `[{"email":"A@x.com"},{"email":" a@x.com "}]` →
+  `{"emails": ["a@x.com"], "reason": "duplicate recipient email"}`.
+
+pgTAP (`04_portal_rpcs.test.sql`):
+1. Mục 4 lần trước **chưa sửa**, đây là nguyên nhân 3 test đỏ:
+   `caught: 42883: function public.issue_comp_tickets(unknown) does not exist` (test 10, 11, 12). Gọi bốn tham số
+   `format('select public.issue_comp_tickets(%L, %L, %L::jsonb, %L)', session, tt, recipients, key)`.
+2. Fixture mới lấy user/org/venue/session từ `seed.sql` (UUID `a0000000-…`, `slug = 'org-a'`). Không làm vậy: test
+   phải tự dựng dữ liệu như bản gốc và `02_core_flows.test.sql:24`, để không vỡ khi seed đổi và vẫn chạy được trên DB
+   không seed. Khôi phục phần fixture `save_gate` về bản đã commit (`git show HEAD:supabase/tests/database/04_portal_rpcs.test.sql`),
+   dựng thêm layout/event/session/ticket type COMP theo `pg_temp.setup_catalog` (`02_core_flows.test.sql:47-75`).
+3. Test 1 đổi đầu vào từ `' g1 '` sang `'TEST'` nên không còn kiểm "mã viết hoa, bỏ khoảng trắng" như mô tả (đổi vì seed
+   đã có cổng `G1`, `seed.sql:150`). Khi bỏ phụ thuộc seed (mục 2) thì trả lại `' g1 '` / `'G1|Cổng chính|ACTIVE'` và
+   các tên `Cổng chính A`; không sửa test sẵn có để né fixture.
+4. Mục 5, 6, 7 lần trước chưa làm: kiểm `details ->> 'reason'`, số booking `COMP` (0 sau ca trùng, 2 sau ca hợp lệ),
+   ca recipient thiếu email không bị báo trùng, ghi chú đầu file nhắc tên migration.
+5. Cuối file thiếu newline.
+
 ### Kiểm thử
-Chưa chạy. Cần test pgTAP verify duplicate emails in comp tickets rejected.
+Chưa đạt. claude chạy (transaction, rollback) 2026-10-25 23:40: `# Looks like you failed 3 tests of 12`.
 
 ---
 
