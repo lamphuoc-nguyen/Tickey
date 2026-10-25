@@ -235,7 +235,7 @@ compatibility`; `vite preview` hiển thị 4 agent của `registry.json` (claud
 ## F-05: CLI `@event/agent-manager` không chạy: Node không tìm thấy `../registry/agent-registry.js`
 
 ### Trạng thái
-OPEN
+VERIFIED
 
 ### Phía
 shared (`packages/agent-manager`)
@@ -273,8 +273,22 @@ Chọn một: đổi import trong cây CLI sang `.ts` + `allowImportingTsExtensi
 `noEmit: false`), hoặc chạy CLI qua công cụ đã có trong repo (không thêm dependency). Cần thống nhất trước khi sửa vì
 F-04 hướng dẫn dashboard trỏ người dùng sang CLI.
 
+### Sửa (claude, 2026-10-25)
+- Chọn `.ts` specifier + `rewriteRelativeImportExtensions` (TS ≥ 5.7, giữ `noEmit: false`), không thêm dependency.
+  Chỉ đổi các file chỉ chạy trong Node (`src/cli/*.ts`, `src/registry/agent-registry.ts`); cây import của entry trình
+  duyệt (`index.ts` → schemas, `registry-query`, `utils/id`) giữ `.js`, nên dashboard không cần đổi tsconfig.
+- Node strip type nhưng không biết tên nào là type: `import { AgentConfig }` lỗi lúc chạy. Bật `verbatimModuleSyntax`
+  + `erasableSyntaxOnly` ở `packages/agent-manager/tsconfig.json` để typecheck bắt lỗi này; sửa 7 import thành `type`
+  (`agent-registry.ts`, `registry-query.ts`).
+- Lỗi thứ hai lộ ra sau khi CLI chạy được: thư mục gốc mặc định là `process.cwd()`, mà pnpm chạy script trong
+  `packages/agent-manager`, nên `agent:list` báo "No agents found". Mặc định nay là repo root
+  (`resolve(import.meta.dirname, '../../../..')`); `--root` vẫn ghi đè. README ghi cách gọi từ repo root.
+
 ### Kiểm thử
-Chưa sửa.
+claude 2026-10-25: `pnpm --filter @event/agent-manager typecheck` xanh, `test` 17/17. `agent:list` → 4 agent;
+`agent:validate` → "All configs valid." (4); `agent:validate --file agents/coding/code-reviewer-v1.0.0.json` hợp lệ;
+`agent:list --format json` đúng; `register-agent.ts --help` chạy (không chạy lệnh ghi). `turbo run lint typecheck test`:
+15/16, chỉ đỏ `@event/agent-dashboard#typecheck` TS2305 (F-04, chờ antigravity).
 
 ---
 

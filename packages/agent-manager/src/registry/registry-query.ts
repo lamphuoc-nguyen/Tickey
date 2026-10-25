@@ -1,4 +1,4 @@
-import { AgentRegistryEntry } from '../schemas/agent-config.js';
+import type { AgentRegistryEntry } from '../schemas/agent-config.js';
 
 /**
  * Options for filtering registry entries

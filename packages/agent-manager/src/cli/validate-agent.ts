@@ -1,10 +1,10 @@
-import { createAgentRegistryManager } from '../registry/agent-registry.js';
-import { validateAgentConfig, safeValidateAgentConfig } from '../schemas/agent-config.js';
+import { createAgentRegistryManager } from '../registry/agent-registry.ts';
+import { validateAgentConfig, safeValidateAgentConfig } from '../schemas/agent-config.ts';
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
-import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
+// Default to the repo root (src/cli -> packages/agent-manager -> repo), since pnpm runs scripts in the package dir.
+const DEFAULT_ROOT = resolve(import.meta.dirname, '../../../..');
 
 interface CLIOptions {
   projectRoot?: string;
@@ -31,7 +31,7 @@ async function main() {
   const args = process.argv.slice(2);
   const options = parseArgs(args);
 
-  const projectRoot = options.projectRoot || process.cwd();
+  const projectRoot = options.projectRoot ? resolve(options.projectRoot) : DEFAULT_ROOT;
   const manager = createAgentRegistryManager(projectRoot);
 
   let hasErrors = false;

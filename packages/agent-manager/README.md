@@ -78,6 +78,11 @@ Create a JSON file in `agents/<category>/<name>-v<version>.json`:
 
 ### 2. Register Agents
 
+The scripts live in this package: run them here, or from the repo root as
+`pnpm --filter @event/agent-manager agent:<cmd> ...`. The project root defaults to the repo root (override with
+`--root <dir>`), and `--file` is relative to that root. The CLI runs on Node's built-in type stripping (Node ≥ 22.18), so files it imports use `.ts` specifiers and
+`import type` for types.
+
 ```bash
 # Register all discovered agents
 pnpm agent:register --all

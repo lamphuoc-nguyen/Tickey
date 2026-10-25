@@ -1,25 +1,25 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
 import { join, relative, dirname, resolve } from 'path';
 import {
-  AgentConfig,
+  type AgentConfig,
   AgentConfigSchema,
-  AgentRegistry,
-  AgentRegistryEntry,
+  type AgentRegistry,
+  type AgentRegistryEntry,
   AgentRegistrySchema,
-  AgentDirectoryConfig,
+  type AgentDirectoryConfig,
   AgentDirectoryConfigSchema,
   validateAgentConfig,
   validateAgentRegistry,
   safeValidateAgentConfig,
   safeValidateAgentRegistry,
-  ModelConfig,
+  type ModelConfig,
   DEFAULT_MODEL_CONFIG,
   DEFAULT_MEMORY_CONFIG,
   DEFAULT_PERSONA_CONFIG,
   DEFAULT_AGENT_DIRECTORY_CONFIG,
-} from '../schemas/agent-config.js';
-import { generateUUID } from '../utils/id.js';
-import { AgentListOptions, filterAgents, toPosixPath } from './registry-query.js';
+} from '../schemas/agent-config.ts';
+import { generateUUID } from '../utils/id.ts';
+import { type AgentListOptions, filterAgents, toPosixPath } from './registry-query.ts';
 
 /**
  * Default configuration for the agent directory manager
