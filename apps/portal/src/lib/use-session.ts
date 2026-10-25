@@ -1,7 +1,6 @@
 import { readActiveWorkspace, type ActiveWorkspace } from '@event/core';
 import type { Session } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
-import { isMfaPending } from './mfa';
 import { supabase } from './supabase';
 
 export interface SessionState {
@@ -31,7 +30,7 @@ export function useSession(): SessionState {
           loading: false,
           session,
           workspace: readActiveWorkspace(session?.access_token),
-          mfaPending: isMfaPending(session),
+          mfaPending: false,
         });
       }
     };

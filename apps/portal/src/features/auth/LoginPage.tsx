@@ -30,13 +30,7 @@ export function LoginPage() {
         );
         return;
       }
-      // A user with 2FA must enter the TOTP code before any Owner / Finance / Admin workspace.
-      const { data: level } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      navigate(
-        !import.meta.env.DEV && level?.nextLevel === 'aal2' && level.currentLevel !== 'aal2'
-          ? '/mfa'
-          : '/workspaces',
-      );
+      navigate('/workspaces');
     } catch {
       setError('Không thể kết nối máy chủ. Kiểm tra mạng và thử lại.');
     } finally {

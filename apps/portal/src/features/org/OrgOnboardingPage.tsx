@@ -259,8 +259,8 @@ export function OrgOnboardingPage() {
             setScreen('o-kyc');
           }}
           onNeedsMfa={() => {
-            showToast('Đã tạo tổ chức. Chủ tổ chức cần bật 2FA trước khi vào workspace.', 'success');
-            navigate('/mfa-setup');
+            showToast('Đã tạo tổ chức. Tiếp tục nộp hồ sơ xác minh.', 'success');
+            setScreen('o-kyc');
           }}
         />
       )}
