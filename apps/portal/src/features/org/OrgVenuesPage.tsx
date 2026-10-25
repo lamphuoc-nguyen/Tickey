@@ -1,7 +1,7 @@
 import { ApiError } from '@event/core';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { CheckCircle2, Search } from 'lucide-react';
+import { CheckCircle2, Search, LayoutGrid, Sparkles } from 'lucide-react';
 import { useToast } from '../../components/common/ToastProvider';
 import { QueryNotice } from '../../components/common/QueryNotice';
 import {
@@ -10,7 +10,7 @@ import {
   FigmaRecordInfoCard,
   type FigmaScreenOption,
 } from '../../components/common/FigmaScreenPrimitives';
-import { errorMessage, formatDateTime, useOrgId } from '../../lib/api';
+import { api, errorMessage, formatDateTime, useOrgId } from '../../lib/api';
 import {
   VENUE_TYPES,
   useCreateLayout,
@@ -32,7 +32,32 @@ import {
   fromDefinition,
   toDefinition,
   type EditorZone,
+  type VenueTemplateType,
 } from './venues/layout-model';
+
+const TEMPLATE_OPTIONS: { id: VenueTemplateType; label: string; desc: string; icon: string }[] = [
+  { id: 'stadium', label: 'Sân vận động', desc: '4 Khán đài A, B, C, D quanh sân', icon: '🏟️' },
+  { id: 'theater', label: 'Nhà hát / Khán phòng', desc: 'Sân khấu trung tâm + Khán phòng', icon: '🎭' },
+  { id: 'cinema', label: 'Rạp chiếu phim', desc: 'Màn chiếu cong + Phòng chiếu', icon: '🎬' },
+  { id: 'standing', label: 'Khuôn viên đứng', desc: 'Khu vực mở (GA), không chia ghế', icon: '🎪' },
+];
+
+function defaultTemplateForVenue(venueType: string): VenueTemplateType {
+  switch (venueType) {
+    case 'STADIUM':
+      return 'stadium';
+    case 'THEATER':
+    case 'HALL':
+      return 'theater';
+    case 'CINEMA':
+      return 'cinema';
+    case 'OUTDOOR':
+    case 'CLUB':
+      return 'standing';
+    default:
+      return 'theater';
+  }
+}
 
 const VENUE_SCREENS: FigmaScreenOption[] = [
   { id: 'o-venues', label: 'Địa điểm của tổ chức' },
@@ -106,7 +131,9 @@ export function OrgVenuesPage() {
   const newVersion = useNewLayoutVersion(venueId);
   const saveDraft = useSaveLayoutDraft();
   const publish = usePublishLayout(venueId);
-  const [layoutName, setLayoutName] = useState('');
+  const [layoutName, setLayoutName] = useState('Sơ đồ chính');
+  const [selectedTemplate, setSelectedTemplate] = useState<VenueTemplateType>('theater');
+  const [isSubmittingUnified, setIsSubmittingUnified] = useState(false);
   const version = useLayoutVersion(versionId);
   const [draftZones, setDraftZones] = useState<{ versionId: string; zones: EditorZone[] } | null>(null);
   const [serverErrors, setServerErrors] = useState<string[]>([]);
@@ -177,20 +204,65 @@ export function OrgVenuesPage() {
     go('o-layout-editor', { version: id });
   };
 
-  const addLayout = () => {
-    if (!layoutName.trim()) {
-      showToast('Đặt tên cho sơ đồ, ví dụ "Sơ đồ chính".', 'warning');
+  const submitVenueAndLayout = async () => {
+    if (!form.name.trim() || !form.addressLine.trim() || !form.city.trim() || form.capacity < 1) {
+      showToast('Nhập tên, địa chỉ, thành phố và sức chứa của địa điểm.', 'warning');
       return;
     }
-    createLayout.mutate(layoutName.trim(), {
-      onSuccess: ({ layoutVersionId }) => {
-        setLayoutName('');
-        openVersion(layoutVersionId);
-        go('o-layout-type', { version: layoutVersionId });
-      },
-      onError: (error) => showToast(errorMessage(error), 'danger'),
-    });
+    setIsSubmittingUnified(true);
+    try {
+      const editing = activeScreen === 'o-venue-edit' ? venueId : null;
+      const venueRes = await saveVenue.mutateAsync({ ...form, id: editing ?? undefined, status: 'ACTIVE' });
+      const targetVenueId = venueRes.id;
+      setFormVenueId(targetVenueId);
+
+      const lName = layoutName.trim() || 'Sơ đồ chính';
+      const layoutRes = await api.post<{ layoutId: string; layoutVersionId: string }>(
+        `/api/venues/${targetVenueId}/layouts`,
+        { name: lName },
+      );
+      const newVersionId = layoutRes.layoutVersionId;
+
+      const templateZones = createTemplateZones(selectedTemplate);
+      await api.put(`/api/layout-versions/${newVersionId}/draft`, {
+        definition: toDefinition(templateZones),
+      });
+
+      setDraftZones({ versionId: newVersionId, zones: templateZones });
+      showToast(`Đã tạo địa điểm "${form.name}" và "${lName}" thành công!`, 'success');
+      go('o-layout-editor', { venue: targetVenueId, version: newVersionId });
+    } catch (error) {
+      showToast(errorMessage(error), 'danger');
+    } finally {
+      setIsSubmittingUnified(false);
+    }
   };
+
+  const addLayoutWithTemplate = async (template: VenueTemplateType = selectedTemplate) => {
+    if (!venueId) return;
+    const lName = layoutName.trim() || 'Sơ đồ chính';
+    setIsSubmittingUnified(true);
+    try {
+      const layoutRes = await api.post<{ layoutId: string; layoutVersionId: string }>(
+        `/api/venues/${venueId}/layouts`,
+        { name: lName },
+      );
+      const newVersionId = layoutRes.layoutVersionId;
+      const templateZones = createTemplateZones(template);
+      await api.put(`/api/layout-versions/${newVersionId}/draft`, {
+        definition: toDefinition(templateZones),
+      });
+      setDraftZones({ versionId: newVersionId, zones: templateZones });
+      showToast(`Đã tạo "${lName}" thành công!`, 'success');
+      go('o-layout-editor', { venue: venueId, version: newVersionId });
+    } catch (error) {
+      showToast(errorMessage(error), 'danger');
+    } finally {
+      setIsSubmittingUnified(false);
+    }
+  };
+
+  void addLayoutWithTemplate;
 
   const editPublished = (layoutId: string) =>
     newVersion.mutate(layoutId, {
@@ -240,7 +312,15 @@ export function OrgVenuesPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
           <label className="form-label">Loại hình</label>
-          <select className="form-select" {...field('venueType')}>
+          <select
+            className="form-select"
+            value={form.venueType}
+            onChange={(e) => {
+              const val = e.target.value;
+              setForm((f) => ({ ...f, venueType: val }));
+              setSelectedTemplate(defaultTemplateForVenue(val));
+            }}
+          >
             {Object.entries(VENUE_TYPES).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
@@ -325,6 +405,8 @@ export function OrgVenuesPage() {
               onClick={() => {
                 setFormVenueId(null);
                 setForm(EMPTY_VENUE);
+                setLayoutName('Sơ đồ chính');
+                setSelectedTemplate('theater');
                 go('o-venue-create', { venue: null, version: null });
               }}
             >
@@ -391,45 +473,154 @@ export function OrgVenuesPage() {
       {/* o-venue-create / o-venue-edit */}
       {(activeScreen === 'o-venue-create' || activeScreen === 'o-venue-edit') && (
         <div style={{ display: 'grid', gridTemplateColumns: '1.85fr 1fr', gap: 18, alignItems: 'start' }}>
-          <div className="card" style={{ padding: 22 }}>
-            <div
-              style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, marginBottom: 16 }}
-            >
-              {activeScreen === 'o-venue-edit' ? `Thông tin · ${form.name}` : 'Thêm địa điểm mới'}
-            </div>
-            {venueForm}
-            <div style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={saveVenue.isPending}
-                onClick={() => submitVenue('ACTIVE')}
+          <div className="card" style={{ padding: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+              <div
+                style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700 }}
               >
-                {saveVenue.isPending
-                  ? 'Đang lưu…'
-                  : activeScreen === 'o-venue-edit'
-                    ? 'Lưu thay đổi'
-                    : 'Tạo địa điểm'}
-              </button>
-              {activeScreen === 'o-venue-edit' && (
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  disabled={saveVenue.isPending}
-                  onClick={() => submitVenue('ARCHIVED')}
-                >
-                  Lưu trữ địa điểm
-                </button>
+                {activeScreen === 'o-venue-edit' ? `Thông tin · ${form.name}` : 'Thêm địa điểm & Thiết lập sơ đồ'}
+              </div>
+              {activeScreen === 'o-venue-create' && (
+                <span className="badge badge-info" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <Sparkles size={12} /> Tạo chung 1 luồng
+                </span>
+              )}
+            </div>
+
+            {/* Bước 1: Thông tin cơ bản */}
+            <div style={{ marginBottom: 22 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ display: 'inline-flex', width: 22, height: 22, borderRadius: 11, background: 'var(--primary)', color: '#fff', fontSize: 12, alignItems: 'center', justifyContent: 'center' }}>1</span>
+                Thông tin địa điểm
+              </div>
+              {venueForm}
+            </div>
+
+            {/* Bước 2: Sơ đồ khởi tạo ngay cùng địa điểm */}
+            {activeScreen === 'o-venue-create' && (
+              <div style={{ marginBottom: 24, padding: 18, background: '#F9FAFB', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ display: 'inline-flex', width: 22, height: 22, borderRadius: 11, background: 'var(--primary)', color: '#fff', fontSize: 12, alignItems: 'center', justifyContent: 'center' }}>2</span>
+                  Khởi tạo sơ đồ khu vực & ghế ngồi
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 14 }}>
+                  Sơ đồ sẽ được tạo và gán sẵn mẫu bố cục để bạn vào vẽ và điều chỉnh ngay lập tức.
+                </div>
+
+                <div style={{ marginBottom: 14 }}>
+                  <label className="form-label">Tên sơ đồ</label>
+                  <input
+                    className="form-input"
+                    style={{ background: '#fff' }}
+                    placeholder="Ví dụ: Sơ đồ chính"
+                    value={layoutName}
+                    onChange={(e) => setLayoutName(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ marginBottom: 8, display: 'block' }}>Chọn mẫu bố cục</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                    {TEMPLATE_OPTIONS.map((tmpl) => {
+                      const active = selectedTemplate === tmpl.id;
+                      return (
+                        <div
+                          key={tmpl.id}
+                          onClick={() => setSelectedTemplate(tmpl.id)}
+                          style={{
+                            padding: '12px 14px',
+                            borderRadius: 'var(--radius-md)',
+                            border: active ? '2px solid var(--primary)' : '1px solid var(--border)',
+                            background: active ? 'rgba(217, 66, 45, 0.04)' : '#fff',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 12,
+                          }}
+                        >
+                          <span style={{ fontSize: 24 }}>{tmpl.icon}</span>
+                          <div>
+                            <div style={{ fontSize: 13.5, fontWeight: active ? 700 : 600, color: active ? 'var(--primary)' : 'var(--text)' }}>
+                              {tmpl.label}
+                            </div>
+                            <div style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.3 }}>
+                              {tmpl.desc}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+              {activeScreen === 'o-venue-create' ? (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={isSubmittingUnified || saveVenue.isPending}
+                    onClick={submitVenueAndLayout}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px' }}
+                  >
+                    <Sparkles size={16} />
+                    {isSubmittingUnified ? 'Đang tạo & thiết lập sơ đồ…' : 'Tạo địa điểm & Vẽ sơ đồ ngay →'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    disabled={isSubmittingUnified || saveVenue.isPending}
+                    onClick={() => submitVenue('ACTIVE')}
+                  >
+                    Chỉ lưu địa điểm
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={saveVenue.isPending}
+                    onClick={() => submitVenue('ACTIVE')}
+                  >
+                    {saveVenue.isPending ? 'Đang lưu…' : 'Lưu thay đổi'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={saveVenue.isPending}
+                    onClick={() => submitVenue('ARCHIVED')}
+                  >
+                    Lưu trữ địa điểm
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => go('o-layouts', { venue: venueId })}
+                  >
+                    Xem danh sách sơ đồ →
+                  </button>
+                </>
               )}
               <button type="button" className="btn btn-secondary" onClick={() => setScreen('o-venues')}>
                 Quay lại
               </button>
             </div>
           </div>
-          <FigmaRecordInfoCard
-            title="Sức chứa là giới hạn cứng"
-            description="Tổng ghế và chỗ đứng của sơ đồ không được vượt sức chứa địa điểm khi phát hành."
-          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <FigmaRecordInfoCard
+              title="Luồng tạo đồng bộ 1 chạm"
+              description="Hệ thống sẽ tự động tạo địa điểm, nạp mẫu sơ đồ tương ứng và mở ngay trình vẽ sơ đồ để bạn làm việc mà không cần các bước trung gian."
+            />
+            <FigmaRecordInfoCard
+              title="Sức chứa là giới hạn cứng"
+              description="Tổng ghế và chỗ đứng của sơ đồ không được vượt sức chứa địa điểm khi phát hành."
+            />
+          </div>
         </div>
       )}
 
@@ -443,6 +634,7 @@ export function OrgVenuesPage() {
                 borderBottom: '1px solid var(--border)',
                 display: 'flex',
                 justifyContent: 'space-between',
+                alignItems: 'center',
               }}
             >
               <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700 }}>
@@ -455,11 +647,32 @@ export function OrgVenuesPage() {
             <QueryNotice
               loading={venue.isLoading}
               error={venue.error}
-              empty={!venueId || (venue.isSuccess && !venue.data.layouts?.length)}
-              emptyText={
-                venueId ? 'Địa điểm chưa có sơ đồ. Tạo sơ đồ bên phải.' : 'Chọn một địa điểm trong danh sách.'
-              }
+              empty={!venueId}
+              emptyText="Chọn một địa điểm trong danh sách."
             />
+            {venue.isSuccess && !venue.data.layouts?.length && (
+              <div style={{ padding: '40px 24px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(217, 66, 45, 0.08)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+                  <LayoutGrid size={24} />
+                </div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 16.5, fontWeight: 700, marginBottom: 6 }}>
+                  Địa điểm chưa có sơ đồ
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 440, marginBottom: 20, lineHeight: 1.5 }}>
+                  Khởi tạo nhanh sơ đồ chính kèm mẫu bố cục tương ứng ({venue.data?.name}) để bắt đầu phân bố ghế và khu vực.
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={isSubmittingUnified}
+                  onClick={() => addLayoutWithTemplate(defaultTemplateForVenue(venue.data?.venueType ?? ''))}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 22px' }}
+                >
+                  <Sparkles size={16} />
+                  {isSubmittingUnified ? 'Đang tạo…' : '⚡ Tạo sơ đồ chính & Bắt đầu vẽ ngay →'}
+                </button>
+              </div>
+            )}
             {(venue.data?.layouts ?? []).map((layout) => {
               const versions = [...layout.versions].sort((a, b) => b.versionNo - a.versionNo);
               const draft = versions.find((v) => v.status === 'DRAFT');
@@ -525,20 +738,47 @@ export function OrgVenuesPage() {
             >
               Tạo sơ đồ mới
             </div>
-            <input
-              className="form-input"
-              placeholder="Tên sơ đồ, ví dụ: Sơ đồ chính"
-              value={layoutName}
-              onChange={(e) => setLayoutName(e.target.value)}
-            />
+            <div style={{ marginBottom: 12 }}>
+              <label className="form-label">Tên sơ đồ</label>
+              <input
+                className="form-input"
+                placeholder="Ví dụ: Sơ đồ chính"
+                value={layoutName}
+                onChange={(e) => setLayoutName(e.target.value)}
+              />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label className="form-label" style={{ marginBottom: 6, display: 'block' }}>Mẫu bố cục</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                {TEMPLATE_OPTIONS.map((tmpl) => (
+                  <button
+                    key={tmpl.id}
+                    type="button"
+                    onClick={() => setSelectedTemplate(tmpl.id)}
+                    style={{
+                      padding: '8px 10px',
+                      fontSize: 12.5,
+                      borderRadius: 'var(--radius-sm)',
+                      border: selectedTemplate === tmpl.id ? '1.5px solid var(--primary)' : '1px solid var(--border)',
+                      background: selectedTemplate === tmpl.id ? 'rgba(217, 66, 45, 0.05)' : '#fff',
+                      color: selectedTemplate === tmpl.id ? 'var(--primary)' : 'var(--text)',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                  >
+                    {tmpl.icon} {tmpl.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <button
               type="button"
               className="btn btn-primary"
-              style={{ marginTop: 12, width: '100%' }}
-              disabled={!venueId || createLayout.isPending}
-              onClick={addLayout}
+              style={{ width: '100%' }}
+              disabled={!venueId || isSubmittingUnified || createLayout.isPending}
+              onClick={() => addLayoutWithTemplate(selectedTemplate)}
             >
-              {createLayout.isPending ? 'Đang tạo…' : 'Tạo và vẽ sơ đồ'}
+              {isSubmittingUnified || createLayout.isPending ? 'Đang tạo…' : 'Tạo và vẽ sơ đồ ngay →'}
             </button>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 12, lineHeight: 1.5 }}>
               Sơ đồ đã phát hành không sửa được: suất diễn đang dùng nó giữ nguyên ghế. Muốn đổi, tạo phiên
