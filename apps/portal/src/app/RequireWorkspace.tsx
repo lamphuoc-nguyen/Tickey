@@ -32,7 +32,7 @@ export function RequireWorkspace({ kind, children }: { kind: WorkspaceKind; chil
   }
 
   // Password alone is not enough for a user with 2FA: Back from the TOTP screen must not reopen the portal.
-  if (mfaPending) {
+  if (mfaPending && !import.meta.env.DEV) {
     return <Navigate to="/mfa" replace />;
   }
 

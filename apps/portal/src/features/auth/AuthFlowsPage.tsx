@@ -311,6 +311,26 @@ export function AuthFlowsPage({ defaultScreen }: { defaultScreen?: AuthFlowScree
               {busy ? 'Đang xác minh…' : 'Xác nhận'}
             </button>
 
+            {import.meta.env.DEV && (
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{
+                  width: '100%',
+                  borderColor: '#3B82F6',
+                  color: '#2563EB',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                }}
+                onClick={() => navigate('/workspaces')}
+              >
+                ⚡ Bỏ qua 2FA (Chế độ Dev) → Vào thẳng Workspace
+              </button>
+            )}
+
             <div style={{ fontSize: '12px', color: 'var(--muted)' }}>
               Mất ứng dụng xác thực? Liên hệ quản trị nền tảng để gỡ 2FA cũ, rồi thiết lập lại.
             </div>
