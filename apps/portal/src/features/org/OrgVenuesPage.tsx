@@ -1,7 +1,7 @@
 import { ApiError } from '@event/core';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { CheckCircle2, Search, LayoutGrid, Sparkles } from 'lucide-react';
+import { CheckCircle2, Search, LayoutGrid, Sparkles, Trash2, RotateCcw } from 'lucide-react';
 import { useToast } from '../../components/common/ToastProvider';
 import { QueryNotice } from '../../components/common/QueryNotice';
 import {
@@ -124,6 +124,8 @@ export function OrgVenuesPage() {
   const saveVenue = useSaveVenue(orgId);
   const [search, setSearch] = useState('');
   const [form, setForm] = useState<VenueInput>(EMPTY_VENUE);
+  const [venueToDelete, setVenueToDelete] = useState<VenueDetail | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'ARCHIVED'>('ACTIVE');
   const [formVenueId, setFormVenueId] = useState<string | null>(null);
 
   const venue = useVenue(venueId);
@@ -146,7 +148,45 @@ export function OrgVenuesPage() {
   const capacity = venue.data?.capacity ?? 0;
   const localErrors = isDraft ? definitionErrors(zones, capacity) : [];
 
-  const shownVenues = (venues.data ?? []).filter((v) =>
+  const handleDeleteVenue = (v: VenueDetail) => {
+    saveVenue.mutate(
+      { id: v.id, status: 'ARCHIVED' },
+      {
+        onSuccess: () => {
+          showToast(`Đã xóa địa điểm "${v.name}".`, 'success');
+          setVenueToDelete(null);
+          if (activeScreen === 'o-venue-edit') {
+            go('o-venues', { venue: null, version: null });
+          }
+        },
+        onError: (err) => showToast(errorMessage(err), 'danger'),
+      },
+    );
+  };
+
+  const handleRestoreVenue = (v: VenueDetail) => {
+    saveVenue.mutate(
+      { id: v.id, status: 'ACTIVE' },
+      {
+        onSuccess: () => {
+          showToast(`Đã khôi phục hoạt động cho địa điểm "${v.name}".`, 'success');
+        },
+        onError: (err) => showToast(errorMessage(err), 'danger'),
+      },
+    );
+  };
+
+  const allVenues = venues.data ?? [];
+  const activeCount = allVenues.filter((v) => v.status === 'ACTIVE').length;
+  const archivedCount = allVenues.filter((v) => v.status === 'ARCHIVED').length;
+
+  const filteredVenues = allVenues.filter((v) => {
+    if (statusFilter === 'ACTIVE' && v.status !== 'ACTIVE') return false;
+    if (statusFilter === 'ARCHIVED' && v.status !== 'ARCHIVED') return false;
+    return true;
+  });
+
+  const shownVenues = filteredVenues.filter((v) =>
     `${v.name} ${v.city} ${v.addressLine}`.toLowerCase().includes(search.trim().toLowerCase()),
   );
   const field = <K extends keyof VenueInput>(key: K) => ({
@@ -380,25 +420,83 @@ export function OrgVenuesPage() {
               flexWrap: 'wrap',
             }}
           >
-            <div style={{ position: 'relative', width: 320 }}>
-              <Search
-                size={15}
-                style={{
-                  position: 'absolute',
-                  left: 12,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--muted)',
-                }}
-              />
-              <input
-                className="form-input"
-                style={{ paddingLeft: 34 }}
-                placeholder="Tìm theo tên, địa chỉ..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative', width: 300 }}>
+                <Search
+                  size={15}
+                  style={{
+                    position: 'absolute',
+                    left: 12,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--muted)',
+                  }}
+                />
+                <input
+                  className="form-input"
+                  style={{ paddingLeft: 34 }}
+                  placeholder="Tìm theo tên, địa chỉ..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+
+              {/* Status Filter Tabs */}
+              <div style={{ display: 'flex', gap: 6, background: '#F3F4F6', padding: 4, borderRadius: 'var(--radius-md)' }}>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('ACTIVE')}
+                  style={{
+                    border: 'none',
+                    padding: '6px 12px',
+                    fontSize: 12.5,
+                    fontWeight: statusFilter === 'ACTIVE' ? 700 : 500,
+                    borderRadius: 'var(--radius-sm)',
+                    background: statusFilter === 'ACTIVE' ? '#fff' : 'transparent',
+                    color: statusFilter === 'ACTIVE' ? 'var(--text)' : 'var(--muted)',
+                    boxShadow: statusFilter === 'ACTIVE' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Đang dùng ({activeCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('ALL')}
+                  style={{
+                    border: 'none',
+                    padding: '6px 12px',
+                    fontSize: 12.5,
+                    fontWeight: statusFilter === 'ALL' ? 700 : 500,
+                    borderRadius: 'var(--radius-sm)',
+                    background: statusFilter === 'ALL' ? '#fff' : 'transparent',
+                    color: statusFilter === 'ALL' ? 'var(--text)' : 'var(--muted)',
+                    boxShadow: statusFilter === 'ALL' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Tất cả ({allVenues.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('ARCHIVED')}
+                  style={{
+                    border: 'none',
+                    padding: '6px 12px',
+                    fontSize: 12.5,
+                    fontWeight: statusFilter === 'ARCHIVED' ? 700 : 500,
+                    borderRadius: 'var(--radius-sm)',
+                    background: statusFilter === 'ARCHIVED' ? '#fff' : 'transparent',
+                    color: statusFilter === 'ARCHIVED' ? 'var(--text)' : 'var(--muted)',
+                    boxShadow: statusFilter === 'ARCHIVED' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Đã xóa / Lưu trữ ({archivedCount})
+                </button>
+              </div>
             </div>
+
             <button
               type="button"
               className="btn btn-primary"
@@ -448,7 +546,7 @@ export function OrgVenuesPage() {
                             {v.status === 'ACTIVE' ? 'Đang dùng' : 'Đã lưu trữ'}
                           </span>
                         </td>
-                        <td style={{ display: 'flex', gap: 12 }}>
+                        <td style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                           <button type="button" style={linkButton} onClick={() => openVenue(v, 'o-layouts')}>
                             Sơ đồ →
                           </button>
@@ -459,6 +557,23 @@ export function OrgVenuesPage() {
                           >
                             Sửa
                           </button>
+                          {v.status === 'ACTIVE' ? (
+                            <button
+                              type="button"
+                              style={{ ...linkButton, color: '#DC2626' }}
+                              onClick={() => setVenueToDelete(v)}
+                            >
+                              Xóa
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              style={{ ...linkButton, color: '#16A34A', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                              onClick={() => handleRestoreVenue(v)}
+                            >
+                              <RotateCcw size={12} /> Khôi phục
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -589,14 +704,27 @@ export function OrgVenuesPage() {
                   >
                     {saveVenue.isPending ? 'Đang lưu…' : 'Lưu thay đổi'}
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    disabled={saveVenue.isPending}
-                    onClick={() => submitVenue('ARCHIVED')}
-                  >
-                    Lưu trữ địa điểm
-                  </button>
+                  {venue.data?.status === 'ARCHIVED' ? (
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      style={{ color: '#16A34A', borderColor: '#16A34A', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                      disabled={saveVenue.isPending}
+                      onClick={() => venue.data && handleRestoreVenue(venue.data)}
+                    >
+                      <RotateCcw size={14} /> Khôi phục hoạt động
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      style={{ color: '#DC2626', borderColor: '#DC2626', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                      disabled={saveVenue.isPending}
+                      onClick={() => venue.data && setVenueToDelete(venue.data)}
+                    >
+                      <Trash2 size={14} /> Xóa địa điểm
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="btn btn-outline"
@@ -912,6 +1040,84 @@ export function OrgVenuesPage() {
           <button type="button" className="btn btn-primary" onClick={() => setScreen('o-layouts')}>
             Danh sách sơ đồ
           </button>
+        </div>
+      )}
+      {/* Modal xác nhận xóa địa điểm */}
+      {venueToDelete && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.45)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            backdropFilter: 'blur(3px)',
+          }}
+          onClick={() => !saveVenue.isPending && setVenueToDelete(null)}
+        >
+          <div
+            className="card"
+            style={{
+              width: '100%',
+              maxWidth: 440,
+              padding: 24,
+              margin: 16,
+              boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+              <div
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: '50%',
+                  backgroundColor: '#FEE2E2',
+                  color: '#DC2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <Trash2 size={22} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--text)' }}>
+                  Xác nhận xóa địa điểm
+                </h3>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>
+                  Địa điểm sẽ chuyển sang trạng thái lưu trữ
+                </p>
+              </div>
+            </div>
+
+            <p style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.5, margin: '16px 0' }}>
+              Bạn có chắc chắn muốn xóa địa điểm <strong>"{venueToDelete.name}"</strong>? Sau khi xóa, địa điểm sẽ không thể chọn khi tạo sự kiện và suất diễn mới.
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={saveVenue.isPending}
+                onClick={() => setVenueToDelete(null)}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ backgroundColor: '#DC2626', borderColor: '#DC2626' }}
+                disabled={saveVenue.isPending}
+                onClick={() => handleDeleteVenue(venueToDelete)}
+              >
+                {saveVenue.isPending ? 'Đang xóa…' : 'Xác nhận xóa'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
