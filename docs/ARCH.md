@@ -69,6 +69,7 @@ event-platform/
 - **Contract lỗi**: `{ message: "<MÃ>", details: "<json>" }`. API map mã → HTTP status trong `Postgrest.StatusFor`
   (`UNAUTHENTICATED` 401; `FORBIDDEN`/`MFA_REQUIRED`/`OTP_REQUIRED`/`DEVICE_REVOKED` 403; `NOT_FOUND` 404;
   `INVALID_STATE`/`SESSION_NOT_ON_SALE`/`SEAT_CONFLICT`/`SOLD_OUT`/`LIMIT_EXCEEDED`/`BOOKING_EXPIRED`/`IMMUTABLE_ROW` 409).
+  `RATE_LIMITED` 429 do middleware rate limit của API sinh ra (chỉ `/api/auth/*`), không phải mã RPC.
   Frontend parse bằng `ApiError.fromPostgrest` và rẽ nhánh theo `message`, không theo status.
 - **Định dạng JSON**: request camelCase; response là JSON của DB (snake_case). Portal đổi sang camelCase bằng
   `mapDatabaseJson`.

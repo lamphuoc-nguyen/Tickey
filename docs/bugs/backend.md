@@ -535,6 +535,26 @@ Cấu hình rate limiting trong `Program.cs` cho group `/api/auth`.
 ### Ghi chú claude
 Xác nhận không có rate limiting trong `Program.cs`. Thêm: `/api/auth/*` chỉ relay tới Supabase Auth, nên giới hạn theo IP của GoTrue áp lên **IP của server API** — mọi người dùng chung một hạn mức, kẻ tấn công không bị giới hạn riêng. Dùng `Microsoft.AspNetCore.RateLimiting` (có sẵn trong shared framework, không thêm package) theo IP client, nhớ `ForwardedHeaders` trên Render.
 
+### Contract đã chốt (claude, 2026-10-25)
+- Phạm vi: **chỉ** group `/api/auth` (`RequireRateLimiting("auth")`). Không đặt `GlobalLimiter`.
+- Khoá phân vùng: IP client sau `UseForwardedHeaders` (`XForwardedFor`, `ForwardLimit = 1`, xoá `KnownNetworks`/`KnownProxies`
+  vì IP proxy của Render không cố định; chỉ lấy giá trị phải nhất do proxy Render thêm vào). `UseForwardedHeaders` chạy
+  trước `UseRateLimiter`.
+- Hạn mức: fixed window 10 request/phút/IP, `QueueLimit = 0` (từ chối ngay, không xếp hàng).
+- Từ chối: HTTP 429, header `Retry-After: <giây>`, body `{ "message": "RATE_LIMITED", "details": "{\"retry_after_seconds\":N}" }`
+  (đặt trong `OnRejected`). `@event/core` đã có mã `RATE_LIMITED` (`packages/core/src/errors.ts`).
+- Giới hạn cấu hình được (`RateLimit:Auth:PermitLimit`, `RateLimit:Auth:WindowSeconds`) để test đặt hạn mức nhỏ.
+
+### Review bản nháp (claude, 2026-10-25, working tree trên `6b860ab`)
+Chưa đạt, cần sửa trước khi bàn giao:
+1. `Program.cs` đặt `options.GlobalLimiter` 10 request/phút/IP cho **mọi** endpoint → app poll `get_booking` 3s một lần,
+   duyệt catalog… sẽ bị chặn sau 10 request. Bỏ `GlobalLimiter`.
+2. `QueueLimit = 20` khiến request bị treo tới hết cửa sổ thay vì nhận 429. Đặt `0`.
+3. Thiếu `ForwardedHeaders`: trên Render `RemoteIpAddress` là IP proxy → mọi người dùng chung một hạn mức.
+4. Thiếu `OnRejected` → body rỗng, không theo contract `{ message, details }`.
+5. Policy lặp lại hai lần; bỏ comment thừa `// Already has rate limiting applied…` ở `Program.cs`.
+6. Chưa có xUnit: vượt hạn mức → 429 + body `RATE_LIMITED`; endpoint ngoài `/api/auth` không bị giới hạn.
+
 ### Kiểm thử
 Chưa chạy. Cần test xUnit verify rate limiting enforced on auth endpoints.
 
@@ -572,6 +592,11 @@ Trong `ServiceCollectionExtensions.cs`, validate config và throw startup except
 
 ### Ghi chú claude
 Đúng nhưng chưa ảnh hưởng (đang dùng `TEST`). Fail-fast lúc khởi động khi `Payments:Gateway` không được hỗ trợ.
+
+### Review bản nháp (claude, 2026-10-25)
+Hướng sửa trong `ServiceCollectionExtensions.cs` đúng (`render.yaml:28` đặt `TEST` nên production không bị ảnh hưởng).
+Còn thiếu: xUnit cho `AddEventPlatformCore` với `Payments:Gateway=VNPAY` → `InvalidOperationException`, và khi không cấu
+hình → `UnconfiguredPaymentGateway`. Bỏ dòng trắng có khoảng trắng thừa (`+        `). Chưa `FIXED` khi chưa có test.
 
 ### Kiểm thử
 Chưa chạy. Cần test xUnit verify startup fails with clear message when gateway not configured.

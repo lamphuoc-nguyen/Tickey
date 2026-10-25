@@ -115,6 +115,20 @@ describe('REST boundary', () => {
       new HttpClient('http://api.test', auth).request('/api/bookings', z.unknown()),
     ).rejects.toEqual(new SeatConflictError(['A5'], { seat_ids: ['A5'] }));
   });
+  it('maps the API rate limit (429) to RATE_LIMITED with the retry delay', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ message: 'RATE_LIMITED', details: '{"retry_after_seconds":60}' }), {
+            status: 429,
+          }),
+      ),
+    );
+    await expect(
+      new HttpClient('http://api.test', auth).request('/api/auth/login', z.unknown()),
+    ).rejects.toEqual(new ApiError('RATE_LIMITED', { retry_after_seconds: 60 }));
+  });
   it('keeps an unanswered live request as NETWORK, never returns fixtures', async () => {
     vi.stubGlobal(
       'fetch',
