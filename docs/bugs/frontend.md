@@ -82,6 +82,50 @@ Chưa chạy. Vitest cho `resolveApiUrl` khi thiếu env.
 
 ---
 
+## F-03: Agent Dashboard Lint Fails (Missing ESLint Config)
+
+### Trạng thái
+OPEN
+
+### Mức độ
+Thấp
+
+### Giao cho
+antigravity
+
+### Luồng
+khác
+
+### Người phát hiện
+claude
+
+### Tái hiện
+1. Ở thư mục gốc chạy `pnpm lint` (hoặc `pnpm --filter @event/agent-dashboard lint`).
+
+### Kỳ vọng / Thực tế
+- Kỳ vọng: lint chạy và xanh như portal/mobile.
+- Thực tế: `ESLint couldn't find an eslint.config.* file.`, exit 2. `turbo run lint` của cả repo đỏ, nên
+  `pnpm lint && pnpm typecheck && pnpm test` (AGENTS.md §6) không bao giờ qua.
+
+### Bằng chứng
+`apps/agent-dashboard/package.json:10` (`"lint": "eslint ."`), thư mục `apps/agent-dashboard/` không có
+`eslint.config.*`. Các devDependency cần thiết (`@eslint/js`, `globals`, `typescript-eslint`,
+`eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`) đã có ở `apps/agent-dashboard/package.json:24-34`.
+Baseline ngày 2026-10-25 trên `e0a713a`: `turbo run lint typecheck test --continue` → 15/16 xanh, chỉ
+`@event/agent-dashboard#lint` đỏ.
+
+### Nguyên nhân
+Tạo app nhưng thiếu file cấu hình flat config cho ESLint 10.
+
+### Đề xuất sửa
+Thêm `apps/agent-dashboard/eslint.config.js` theo mẫu `apps/portal/eslint.config.js` (ignore `dist`). Không thêm
+dependency. Nếu lint báo lỗi trong `src/`, sửa luôn trong cùng mục này.
+
+### Kiểm thử
+Chưa chạy. `pnpm --filter @event/agent-dashboard lint`, `typecheck`, `build`.
+
+---
+
 ## Summary by Severity
 
 | Severity | Count | Bugs |
@@ -89,4 +133,4 @@ Chưa chạy. Vitest cho `resolveApiUrl` khi thiếu env.
 | Nghiêm trọng (Critical) | 0 | — |
 | Cao (High) | 0 | — |
 | Trung bình (Medium) | 0 | — |
-| Thấp (Low) | 2 | F-01, F-02 |
+| Thấp (Low) | 3 | F-01, F-02, F-03 |
