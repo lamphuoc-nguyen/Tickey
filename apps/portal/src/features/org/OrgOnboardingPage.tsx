@@ -157,9 +157,10 @@ export function OrgOnboardingPage() {
   const orgId = useOrgId();
   const { showToast } = useToast();
 
+  const isCreating = searchParams.get('create') === 'true';
   const activeScreen = searchParams.get('screen') || 'o-create';
-  // Screens render only for an Org workspace; the header still shows which step was asked for.
-  const screen = orgId ? activeScreen : null;
+  // Screens render only for an active Org workspace unless creating a new one
+  const screen = (orgId && !isCreating) ? activeScreen : null;
   const setScreen = (next: string) => setSearchParams({ screen: next });
 
   const org = useOrganization(orgId);
@@ -251,16 +252,16 @@ export function OrgOnboardingPage() {
         onSelectScreen={setScreen}
       />
 
-      {/* Without an Org workspace the org queries stay disabled (pending forever): offer to create one instead. */}
-      {!orgId && (
+      {/* Without an Org workspace or when explicitly registering a new org: show creation form. */}
+      {(!orgId || isCreating) && (
         <CreateOrgForm
           onCreated={() => {
             showToast('Đã tạo tổ chức. Tiếp tục nộp hồ sơ xác minh.', 'success');
-            setScreen('o-kyc');
+            window.location.href = '/org/onboarding?screen=o-kyc';
           }}
           onNeedsMfa={() => {
             showToast('Đã tạo tổ chức. Tiếp tục nộp hồ sơ xác minh.', 'success');
-            setScreen('o-kyc');
+            window.location.href = '/org/onboarding?screen=o-kyc';
           }}
         />
       )}
@@ -308,6 +309,16 @@ export function OrgOnboardingPage() {
                   </button>
                   <button type="button" className="btn btn-secondary" onClick={() => navigate('/org')}>
                     Về tổng quan
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => {
+                      localStorage.removeItem('tickey_active_workspace');
+                      window.location.href = '/org/onboarding?create=true';
+                    }}
+                  >
+                    + Đăng ký tổ chức mới
                   </button>
                 </div>
                 {orgStatus === 'PENDING_REVIEW' && (

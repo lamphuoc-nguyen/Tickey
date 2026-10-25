@@ -245,7 +245,10 @@ export function WorkspacePickerPage() {
         {/* Action Button Below & Logout */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <button
-            onClick={() => navigate('/org/onboarding')}
+            onClick={() => {
+              localStorage.removeItem('tickey_active_workspace');
+              navigate('/org/onboarding?create=true');
+            }}
             className="btn btn-outline"
             style={{ fontSize: '14px' }}
           >

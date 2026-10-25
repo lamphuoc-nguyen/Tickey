@@ -200,7 +200,7 @@ export function useCreateOrganization() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: async (input: { name: string; slug: string; businessType: string }) => {
-      const created = await api.post<{ id: string }>('/api/organizations', input);
+      const created = await api.post<{ id: string }>('/api/organizations', input); localStorage.setItem('tickey_active_workspace', JSON.stringify({ kind: 'ORG', orgId: created.id, roles: ['OWNER'] }));
       try {
         await repositories.workspace.setActiveWorkspace('ORG', created.id);
       } catch (error) {
