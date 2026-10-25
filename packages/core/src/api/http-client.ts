@@ -13,7 +13,7 @@ export class HttpClient {
   constructor(apiUrl: string | undefined, auth: SupabaseClient, timeoutMs = 20_000) {
     this.auth = auth;
     this.timeoutMs = timeoutMs;
-    if (!apiUrl) throw new Error('Thiếu EXPO_PUBLIC_API_URL. Xem apps/mobile/.env.example.');
+    if (!apiUrl) throw new Error('Thiếu cấu hình API URL (VITE_API_URL hoặc EXPO_PUBLIC_API_URL).');
     this.baseUrl = z.url().parse(apiUrl).replace(/\/$/, '');
   }
 
