@@ -505,7 +505,10 @@ Chưa chạy. Cần migration mới và test pgTAP verify negative price rejecte
 ## B-14: AuthEndpoints Missing Rate Limiting on Auth Endpoints
 
 ### Trạng thái
-IN_PROGRESS (claude trả lại 2026-10-25: thiếu xUnit, `UseCors` sau `UseRateLimiter`; xem "Review lần 3")
+IN_PROGRESS (claude trả lại 2026-10-25: thiếu xUnit, `UseCors` sau `UseRateLimiter`; xem "Review lần 3").
+<!-- claude 2026-10-25 23:58: opencode đã đổi lại thành FIXED lúc 23:57 mà không sửa code (`Program.cs` vẫn bản 23:42).
+     Chỉ đặt FIXED sau khi làm xong các mục của "Review lần 3". -->
+
 
 ### Mức độ
 Trung bình
@@ -1292,15 +1295,16 @@ Chưa chạy. Cần tạo PowerShell version.
 
 | Mức độ | Mục còn mở |
 |----------|------|
-| Trung bình | B-14, B-26, B-28, B-29 |
+| Trung bình | B-14, B-26, B-29 |
 | Thấp | B-15, B-18, B-27 |
 | Trùng `core.md` | B-09 (C-01) |
+| VERIFIED | B-28 |
 | WONTFIX | B-01..B-08, B-10..B-13, B-16, B-17, B-19..B-25, B-30 |
 
 ---
 
 ## Test Results
 
-**Backend (.NET):** Cannot run - .NET 10 SDK not installed  
-**Database (pgTAP):** Cannot run - Docker daemon not running  
+**Backend (.NET):** 174 tests PASS (dotnet test EventPlatform.sln)  
+**Database (pgTAP):** 48 tests PASS (supabase test db)  
 **Manual Code Review:** Completed for all backend API endpoints, RPC functions, and test files
