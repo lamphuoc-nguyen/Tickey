@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://tickey-api.onrender.com',
+        target: 'http://localhost:5080',
         changeOrigin: true,
         secure: false,
       },

@@ -6,13 +6,10 @@ import { useSession } from './use-session';
 // Pages write only through the .NET API with the caller's JWT; RLS + RPCs decide what is allowed (MT §7.1).
 const json = z.unknown();
 
-const resolveApiUrl = () => {
-  const envUrl = import.meta.env.VITE_API_URL;
-  if (envUrl && envUrl.trim()) return envUrl.trim();
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return window.location.origin;
-  }
-  return 'http://localhost:5173';
+export const resolveApiUrl = (customEnvUrl?: string | null): string => {
+  const url = customEnvUrl !== undefined ? customEnvUrl : import.meta.env.VITE_API_URL;
+  if (url && url.trim()) return url.trim();
+  throw new Error('Missing API URL: VITE_API_URL environment variable is not configured.');
 };
 
 async function call<T>(method: string, path: string, body?: unknown, form?: FormData): Promise<T> {
