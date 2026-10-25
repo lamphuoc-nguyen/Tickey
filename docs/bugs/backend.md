@@ -714,6 +714,19 @@ Người dùng xác nhận là lỗi (2026-10-25). Migration mới: `issue_comp_
 `VALIDATION_FAILED {reason: "duplicate recipient email", emails: [...]}` khi `p_recipients` có email trùng
 (so sánh `lower(trim(email))`), trước khi tạo bất kỳ booking nào.
 
+### Review bản nháp (claude, 2026-10-25)
+`supabase/migrations/20261025100000_validate_comp_ticket_emails.sql` chưa đạt:
+1. **Chặn**: khối `declare` bỏ mất `r record;` → migration không áp dụng được. Đã thử trên DB local trong transaction
+   rồi rollback: `ERROR: loop variable of loop over rows must be a record variable or list of scalar variables` (LINE 46).
+   `supabase db reset` sẽ hỏng.
+2. Recipient không có `email` (null/rỗng) bị gộp thành "trùng" `[null]`. Lọc `where nullif(trim(email), '') is not null`
+   trong truy vấn đếm trùng; để `create_booking` tự xử lý thiếu email như cũ.
+3. `v_emails` khai báo và gán nhưng không dùng; bỏ đi.
+4. Tên file: theo quy ước đợt này `202610250000NN_<slug>.sql` → đổi thành `20261025000001_validate_comp_ticket_emails.sql`.
+5. Thêm pgTAP: hai recipient `A@x.com` / ` a@x.com ` → `VALIDATION_FAILED` với `reason = 'duplicate recipient email'`,
+   không tạo booking nào; danh sách không trùng → vẫn tạo đủ booking.
+Quyền `EXECUTE` (authenticated, service_role) khớp bản gốc, giữ nguyên.
+
 ### Kiểm thử
 Chưa chạy. Cần test pgTAP verify duplicate emails in comp tickets rejected.
 
