@@ -248,7 +248,7 @@ giá VIP.
 
 ## C-06: Portal nhập giờ suất diễn theo múi giờ trình duyệt, nhưng hiển thị theo múi giờ địa điểm
 
-- Trạng thái: OPEN
+- Trạng thái: chuyển sang `docs/bugs/frontend.md` F-01 (lỗi chỉ ở frontend; theo dõi ở đó)
 - Phía: frontend
 - Giao cho: antigravity
 - Mức độ: low (chỉ lộ khi trình duyệt của Org khác múi giờ với `venues.timezone`, mặc định `Asia/Ho_Chi_Minh`)
@@ -308,7 +308,7 @@ Chưa chạy. pgTAP: `sum(refund_items.amount) = refunds.amount`.
 
 ## C-08: Portal có thể gọi nhầm `/api` vào chính origin của portal hoặc API production
 
-- Trạng thái: OPEN (cần xác nhận biến môi trường trên Vercel)
+- Trạng thái: chuyển sang `docs/bugs/frontend.md` F-02 (lỗi chỉ ở frontend; theo dõi ở đó)
 - Phía: frontend
 - Giao cho: antigravity
 - Mức độ: low
