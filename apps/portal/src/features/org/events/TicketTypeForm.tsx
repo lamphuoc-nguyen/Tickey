@@ -27,14 +27,16 @@ export function TicketTypeForm({
   const { showToast } = useToast();
   const zones = useLayoutZones(session.layoutVersionId);
   const save = useSaveTicketType(session.id);
+  const venueTimezone = session.venue?.timezone ?? 'Asia/Ho_Chi_Minh';
+
   const [name, setName] = useState(ticketType?.name ?? '');
   const [kind, setKind] = useState<TicketTypeManage['kind']>(ticketType?.kind ?? 'PAID');
   const [price, setPrice] = useState(String(ticketType?.priceAmount ?? 300000));
   const [quota, setQuota] = useState(String(ticketType ? inventoryOf(ticketType).quota : 100));
   const [maxPerOrder, setMaxPerOrder] = useState(ticketType?.maxPerOrder?.toString() ?? '');
   const [zoneIds, setZoneIds] = useState<string[]>(ticketType?.zones.map((z) => z.zoneId) ?? []);
-  const [saleStartAt, setSaleStartAt] = useState(toLocalInput(ticketType?.saleStartAt));
-  const [saleEndAt, setSaleEndAt] = useState(toLocalInput(ticketType?.saleEndAt));
+  const [saleStartAt, setSaleStartAt] = useState(() => toLocalInput(ticketType?.saleStartAt, venueTimezone));
+  const [saleEndAt, setSaleEndAt] = useState(() => toLocalInput(ticketType?.saleEndAt, venueTimezone));
   const [refundPolicy, setRefundPolicy] = useState(ticketType?.refundPolicy ?? 'ONLY_IF_CANCELLED');
   const [refundDeadline, setRefundDeadline] = useState(ticketType?.refundDeadlineHours?.toString() ?? '48');
   const [visibility, setVisibility] = useState(ticketType?.visibility ?? 'PUBLIC');
@@ -67,8 +69,8 @@ export function TicketTypeForm({
         quota: Number(quota),
         maxPerOrder: maxPerOrder ? Number(maxPerOrder) : null,
         zoneIds,
-        saleStartAt: toIso(saleStartAt),
-        saleEndAt: toIso(saleEndAt),
+        saleStartAt: toIso(saleStartAt, venueTimezone),
+        saleEndAt: toIso(saleEndAt, venueTimezone),
         refundPolicy,
         refundDeadlineHours: refundPolicy === 'REFUNDABLE_BEFORE_DEADLINE' ? Number(refundDeadline) : null,
         visibility: kind === 'COMP' ? 'HIDDEN' : visibility,
@@ -177,7 +179,9 @@ export function TicketTypeForm({
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
-          <label className="form-label">Bắt đầu bán (để trống: theo suất)</label>
+          <label className="form-label">
+            Bắt đầu bán <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 400 }}>({venueTimezone}, để trống: theo suất)</span>
+          </label>
           <input
             className="form-input"
             type="datetime-local"
@@ -186,7 +190,9 @@ export function TicketTypeForm({
           />
         </div>
         <div>
-          <label className="form-label">Ngừng bán (để trống: theo suất)</label>
+          <label className="form-label">
+            Ngừng bán <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 400 }}>({venueTimezone}, để trống: theo suất)</span>
+          </label>
           <input
             className="form-input"
             type="datetime-local"

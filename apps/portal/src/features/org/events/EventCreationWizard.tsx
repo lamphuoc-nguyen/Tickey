@@ -40,7 +40,7 @@ interface WizardTicketItem {
   refundPolicy: 'ONLY_IF_CANCELLED' | 'REFUNDABLE_BEFORE_DEADLINE' | 'NO_REFUNDS';
 }
 
-function getDefaultDates() {
+function getDefaultDates(timeZone = 'Asia/Ho_Chi_Minh') {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(19, 0, 0, 0);
@@ -57,11 +57,11 @@ function getDefaultDates() {
   salesEnd.setHours(18, 0, 0, 0);
 
   return {
-    startsAt: toLocalInput(tomorrow.toISOString()),
-    endsAt: toLocalInput(tomorrowEnd.toISOString()),
-    doorsOpenAt: toLocalInput(doorsOpen.toISOString()),
-    salesStartAt: toLocalInput(now.toISOString()),
-    salesEndAt: toLocalInput(salesEnd.toISOString()),
+    startsAt: toLocalInput(tomorrow.toISOString(), timeZone),
+    endsAt: toLocalInput(tomorrowEnd.toISOString(), timeZone),
+    doorsOpenAt: toLocalInput(doorsOpen.toISOString(), timeZone),
+    salesStartAt: toLocalInput(now.toISOString(), timeZone),
+    salesEndAt: toLocalInput(salesEnd.toISOString(), timeZone),
   };
 }
 
@@ -100,6 +100,8 @@ export function EventCreationWizard({
   const [venueId, setVenueId] = useState('');
   const chosenVenueId = venueId || venues.data?.[0]?.id || '';
   const venueDetail = useVenue(chosenVenueId);
+  const venueTimezone =
+    venueDetail.data?.timezone || venues.data?.find((v) => v.id === chosenVenueId)?.timezone || 'Asia/Ho_Chi_Minh';
 
   const publishedVersions = useMemo(
     () =>
@@ -232,11 +234,11 @@ export function EventCreationWizard({
         venueId: chosenVenueId,
         layoutVersionId: chosenLayoutVersionId,
         title: sessionTitle.trim() || 'Đêm diễn chính',
-        startsAt: toIso(startsAt),
-        endsAt: toIso(endsAt),
-        doorsOpenAt: toIso(doorsOpenAt),
-        salesStartAt: toIso(salesStartAt),
-        salesEndAt: toIso(salesEndAt),
+        startsAt: toIso(startsAt, venueTimezone),
+        endsAt: toIso(endsAt, venueTimezone),
+        doorsOpenAt: toIso(doorsOpenAt, venueTimezone),
+        salesStartAt: toIso(salesStartAt, venueTimezone),
+        salesEndAt: toIso(salesEndAt, venueTimezone),
         maxTicketsPerAccount: Number(maxTicketsPerAccount) || 10,
       });
       setCreatedSessionId(res.id);
@@ -735,7 +737,7 @@ export function EventCreationWizard({
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               <div>
                 <label className="form-label" style={{ fontWeight: 600 }}>
-                  Giờ bắt đầu sự kiện <span style={{ color: 'var(--danger)' }}>*</span>
+                  Giờ bắt đầu sự kiện <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 400 }}>({venueTimezone})</span> <span style={{ color: 'var(--danger)' }}>*</span>
                 </label>
                 <input
                   type="datetime-local"
@@ -746,7 +748,7 @@ export function EventCreationWizard({
               </div>
               <div>
                 <label className="form-label" style={{ fontWeight: 600 }}>
-                  Giờ kết thúc sự kiện <span style={{ color: 'var(--danger)' }}>*</span>
+                  Giờ kết thúc sự kiện <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 400 }}>({venueTimezone})</span> <span style={{ color: 'var(--danger)' }}>*</span>
                 </label>
                 <input
                   type="datetime-local"
@@ -759,7 +761,7 @@ export function EventCreationWizard({
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               <div>
-                <label className="form-label">Giờ mở cửa đón khách (Doors Open)</label>
+                <label className="form-label">Giờ mở cửa đón khách (Doors Open) <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 400 }}>({venueTimezone})</span></label>
                 <input
                   type="datetime-local"
                   className="form-input"
@@ -803,7 +805,7 @@ export function EventCreationWizard({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div>
                   <label className="form-label" style={{ color: '#1E40AF' }}>
-                    Bắt đầu bán vé <span style={{ color: 'var(--danger)' }}>*</span>
+                    Bắt đầu bán vé <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 400 }}>({venueTimezone})</span> <span style={{ color: 'var(--danger)' }}>*</span>
                   </label>
                   <input
                     type="datetime-local"
@@ -814,7 +816,7 @@ export function EventCreationWizard({
                 </div>
                 <div>
                   <label className="form-label" style={{ color: '#1E40AF' }}>
-                    Ngừng bán vé <span style={{ color: 'var(--danger)' }}>*</span>
+                    Ngừng bán vé <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 400 }}>({venueTimezone})</span> <span style={{ color: 'var(--danger)' }}>*</span>
                   </label>
                   <input
                     type="datetime-local"
