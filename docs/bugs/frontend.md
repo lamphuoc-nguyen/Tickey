@@ -121,8 +121,79 @@ Tạo app nhưng thiếu file cấu hình flat config cho ESLint 10.
 Thêm `apps/agent-dashboard/eslint.config.js` theo mẫu `apps/portal/eslint.config.js` (ignore `dist`). Không thêm
 dependency. Nếu lint báo lỗi trong `src/`, sửa luôn trong cùng mục này.
 
+### Review bản nháp (claude, 2026-10-25 23:35)
+`apps/agent-dashboard/eslint.config.js` (chưa track) giống hệt `apps/portal/eslint.config.js`, đúng vùng, không thêm
+dependency: đạt. Nhưng mục này **chưa xong**: lint giờ chạy được và báo 15 lỗi, 1 cảnh báo, tất cả trong `src/App.tsx`
+(theo "Đề xuất sửa" thì sửa luôn ở mục này):
+- `no-unused-vars`: import `Edit`, `ChevronDown`, `ChevronUp` không dùng (dòng 12, 16, 17).
+- `react-hooks/static-components` (dòng 1041-1048): `AgentListView`, `CreateAgentView`, `ImportRegistryView`,
+  `SettingsView`, `AgentDetailModal`, `ToastContainer` được khai báo **bên trong** `App` (dòng 197-961), nên mỗi lần
+  render là một component mới: React unmount/mount lại, form `CreateAgentView` mất state và focus khi gõ. Đưa ra cấp
+  module, truyền state qua props.
+- `react-hooks/purity` (dòng 63, `Date.now()` trong `showToast`) và `react-hooks/set-state-in-effect` +
+  `exhaustive-deps` (dòng 171-172, `useEffect(() => { loadAgents(); }, [])`).
+- `no-explicit-any` (dòng 883, 903, 920, 928).
+Không tắt rule để qua lint; nếu một rule không hợp lý thì ghi lý do vào bug và hỏi claude.
+
+Kết quả claude chạy trên working tree: `lint` exit 1 (15 lỗi); `typecheck` xanh; `build` xanh nhưng bundle hỏng lúc
+chạy (xem F-04, lỗi có từ trước, không do bản sửa này).
+
 ### Kiểm thử
 Chưa chạy. `pnpm --filter @event/agent-dashboard lint`, `typecheck`, `build`.
+
+---
+
+## F-04: Agent Dashboard trắng trang: bundle trình duyệt gọi `fs`/`url` của Node lúc nạp module
+
+### Trạng thái
+OPEN (cần chốt hướng sửa)
+
+### Phía
+shared (`packages/agent-manager` + `apps/agent-dashboard`)
+
+### Mức độ
+Cao (app không chạy được)
+
+### Giao cho
+claude (chốt hướng; phần app sau đó giao antigravity)
+
+### Luồng
+khác
+
+### Người phát hiện
+claude
+
+### Tái hiện
+1. `pnpm --filter @event/agent-dashboard build` (xanh, kèm cảnh báo `Module "fs"/"path"/"url" has been externalized
+   for browser compatibility`).
+2. Mở `dist/` bằng `vite preview`.
+
+### Kỳ vọng / Thực tế
+- Kỳ vọng: dashboard hiển thị danh sách agent.
+- Thực tế: bundle thay `fs`/`path`/`url` bằng object rỗng; câu lệnh cấp module `fileURLToPath(import.meta.url)` ném
+  `TypeError` ngay khi nạp → trang trắng. (Kết luận từ bundle, chưa mở trình duyệt.)
+
+### Bằng chứng
+- `packages/agent-manager/src/registry/agent-registry.ts:1-3` import `fs`, `path`, `url`; dòng 24
+  `const __filename = fileURLToPath(import.meta.url);` chạy ở cấp module; `readFileSync`/`writeFileSync` ở dòng 59,
+  88, 121, 308, 345, 352, 364.
+- `apps/agent-dashboard/src/App.tsx:33` import từ `@event/agent-manager`; dòng 640 `await import('fs')`.
+- Bundle `dist/assets/index-*.js`: `var af=t(((e,t)=>{t.exports={}})),Q=af(); ... var sf=(0,Q.fileURLToPath)(import.meta.url);`
+  và lần nữa ở `ff=(0,Q.fileURLToPath)(import.meta.url)` (từ `App.tsx`).
+
+### Nguyên nhân
+`@event/agent-manager` chỉ có một entry dùng cho cả CLI Node và trình duyệt; registry đọc/ghi `registry.json` trực tiếp
+trên đĩa, điều trình duyệt không làm được.
+
+### Đề xuất sửa
+Cần người dùng chọn hướng trước khi sửa:
+- (a) Dashboard đọc `registry.json` tĩnh (import JSON lúc build / fetch) và chỉ đọc; tác vụ ghi để CLI. `agent-manager`
+  tách entry thuần (schema, validate, không `fs`) cho trình duyệt và entry `node` cho registry.
+- (b) Dashboard gọi một API cục bộ (dev server/Node) để đọc/ghi registry.
+Sau khi chốt: claude sửa `packages/agent-manager`, antigravity sửa `apps/agent-dashboard`.
+
+### Kiểm thử
+Chưa sửa. Sau khi sửa: `build` không còn cảnh báo externalized; `vite preview` hiển thị danh sách agent.
 
 ---
 
@@ -131,6 +202,6 @@ Chưa chạy. `pnpm --filter @event/agent-dashboard lint`, `typecheck`, `build`.
 | Severity | Count | Bugs |
 |----------|-------|------|
 | Nghiêm trọng (Critical) | 0 | — |
-| Cao (High) | 0 | — |
+| Cao (High) | 1 | F-04 |
 | Trung bình (Medium) | 0 | — |
 | Thấp (Low) | 3 | F-01, F-02, F-03 |
