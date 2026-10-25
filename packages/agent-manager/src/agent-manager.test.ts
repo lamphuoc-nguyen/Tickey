@@ -1,10 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { AgentConfigSchema, validateAgentConfig, safeValidateAgentConfig } from './schemas/agent-config.js';
 import { createAgentRegistryManager } from './registry/agent-registry.js';
-import { writeFileSync, mkdirSync, rmSync, existsSync } from 'fs';
-import { join } from 'path';
+import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from 'fs';
+import { join, dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
 import { tmpdir } from 'os';
 import { generateUUID } from './utils/id.js';
+import { filterAgents, toPosixPath } from './registry/registry-query.js';
+import type { AgentRegistryEntry } from './schemas/agent-config.js';
 
 describe('Agent Config Schema', () => {
   const createValidConfig = (overrides: Partial<typeof validConfig> = {}) => ({
@@ -174,6 +177,8 @@ describe('Agent Registry Manager', () => {
     expect(entry.id).toBe(config.id);
     expect(entry.name).toBe('Test Agent');
     expect(entry.enabled).toBe(true);
+    // Stored with forward slashes on every OS so the browser can look it up in import.meta.glob keys
+    expect(entry.configPath).toBe('agents/test-agent.json');
   });
 
   it('should list registered agents', async () => {
@@ -264,5 +269,61 @@ describe('Utility Functions', () => {
       uuids.add(generateUUID());
     }
     expect(uuids.size).toBe(100);
+  });
+});
+
+describe('Registry queries', () => {
+  const entry = (overrides: Partial<AgentRegistryEntry>): AgentRegistryEntry => ({
+    id: generateUUID(),
+    name: 'Agent',
+    version: '1.0.0',
+    description: 'An agent',
+    category: 'general',
+    tags: [],
+    configPath: 'agents/general/agent-v1.0.0.json',
+    enabled: true,
+    registeredAt: '2026-10-25T00:00:00.000Z',
+    updatedAt: '2026-10-25T00:00:00.000Z',
+    ...overrides,
+  });
+
+  it('filters by enabled, category and tag', () => {
+    const agents = [
+      entry({ name: 'A', category: 'coding', tags: ['review'] }),
+      entry({ name: 'B', category: 'coding', enabled: false, tags: ['review'] }),
+      entry({ name: 'C', category: 'general', tags: ['review'] }),
+    ];
+    expect(filterAgents(agents).map(a => a.name)).toEqual(['A', 'B', 'C']);
+    expect(filterAgents(agents, { enabledOnly: true, category: 'coding', tag: 'review' }).map(a => a.name)).toEqual(['A']);
+    expect(filterAgents(agents, { tag: 'missing' })).toEqual([]);
+  });
+
+  it('normalizes Windows separators', () => {
+    expect(toPosixPath('agents\\coding\\code-reviewer-v1.0.0.json')).toBe('agents/coding/code-reviewer-v1.0.0.json');
+  });
+});
+
+describe('Browser entry', () => {
+  // F-04: the dashboard bundles '@event/agent-manager'; a Node built-in anywhere in its import graph blanks the page.
+  it('does not import Node built-ins', () => {
+    const srcDir = dirname(fileURLToPath(import.meta.url));
+    const seen = new Set<string>();
+    const builtins: string[] = [];
+    const visit = (file: string): void => {
+      if (seen.has(file)) return;
+      seen.add(file);
+      const source = readFileSync(file, 'utf-8');
+      for (const [, spec] of source.matchAll(/(?:from|import)\s*\(?\s*['"]([^'"]+)['"]/g)) {
+        if (!spec) continue;
+        if (spec.startsWith('.')) {
+          visit(resolve(dirname(file), spec.replace(/\.js$/, '.ts')));
+        } else if (/^(node:|fs$|path$|url$|os$|child_process$)/.test(spec)) {
+          builtins.push(`${file}: ${spec}`);
+        }
+      }
+    };
+    visit(join(srcDir, 'index.ts'));
+    expect(seen.size).toBeGreaterThan(1);
+    expect(builtins).toEqual([]);
   });
 });

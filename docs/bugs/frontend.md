@@ -146,7 +146,7 @@ Chưa chạy. `pnpm --filter @event/agent-dashboard lint`, `typecheck`, `build`.
 ## F-04: Agent Dashboard trắng trang: bundle trình duyệt gọi `fs`/`url` của Node lúc nạp module
 
 ### Trạng thái
-OPEN (cần chốt hướng sửa)
+IN_PROGRESS (phần `packages/agent-manager` xong; chờ antigravity sửa `apps/agent-dashboard`)
 
 ### Phía
 shared (`packages/agent-manager` + `apps/agent-dashboard`)
@@ -155,7 +155,7 @@ shared (`packages/agent-manager` + `apps/agent-dashboard`)
 Cao (app không chạy được)
 
 ### Giao cho
-claude (chốt hướng; phần app sau đó giao antigravity)
+claude (`packages/agent-manager`, xong) · antigravity (`apps/agent-dashboard`)
 
 ### Luồng
 khác
@@ -192,8 +192,87 @@ Cần người dùng chọn hướng trước khi sửa:
 - (b) Dashboard gọi một API cục bộ (dev server/Node) để đọc/ghi registry.
 Sau khi chốt: claude sửa `packages/agent-manager`, antigravity sửa `apps/agent-dashboard`.
 
+### Hướng đã chốt (người dùng chọn (a), 2026-10-25)
+Dashboard **chỉ đọc**, nạp `registry.json` và `agents/**/*.json` lúc build. Mọi thao tác ghi (tạo, đăng ký, bật/tắt,
+sửa tag, import/export) thuộc CLI `@event/agent-manager`, không làm trong trình duyệt.
+
+Contract `@event/agent-manager` (claude, đã làm):
+- Entry `@event/agent-manager` (`src/index.ts`) an toàn cho trình duyệt: schema + `validate*`/`safeValidate*`
+  (`AgentRegistrySchema`, `AgentConfigSchema`…), `filterAgents(agents, { enabledOnly, category, tag })`, `toPosixPath`,
+  `generateUUID`/`isValidUUID`/`generateShortId`/`slugify`, các type. Test `Browser entry > does not import Node built-ins`
+  chặn mọi import `fs`/`path`/`url`/`os`/`node:*` trong cây import của entry này.
+- Entry `@event/agent-manager/node` (`src/node.ts`): như trên + `AgentRegistryManager`, `createAgentRegistryManager`.
+  Chỉ dùng trong Node (CLI, test).
+- `configPath` trong registry luôn dùng `/` (`registerAgent` gọi `toPosixPath`; `registry.json` đã chuẩn hoá), khớp khoá
+  của `import.meta.glob` sau khi bỏ tiền tố `../../../`.
+- Bỏ câu lệnh cấp module `fileURLToPath(import.meta.url)` (không dùng) ở `agent-registry.ts`.
+
+Việc của antigravity (`apps/agent-dashboard/**`):
+1. `App.tsx`: bỏ `createAgentRegistryManager`, `resolve`, `__dirname`, `import('fs')`. Nạp dữ liệu bằng
+   `import.meta.glob('../../../registry.json', { eager: true, import: 'default' })` và
+   `import.meta.glob('../../../agents/**/*.json', { eager: true, import: 'default' })` (glob không vướng `rootDir: src`),
+   kiểm bằng `safeValidateAgentRegistry` / `safeValidateAgentConfig`; dữ liệu sai → hiện lỗi trên trang, không trắng trang.
+   Lọc bằng `filterAgents`.
+2. Bỏ hoặc vô hiệu các tab/nút ghi (Create Agent, Import Registry, Export, bật/tắt, Settings đổi đường dẫn); nếu giữ
+   chỗ hiển thị thì ghi rõ lệnh CLI tương ứng thay vì nút.
+3. `tsconfig.json`: `"types": ["node"]` → `["vite/client"]` để dùng Node API trong `src/` báo lỗi lúc typecheck
+   (`vite/client` đi kèm `vite`, không thêm dependency). Không thêm/đổi package.
+4. Làm cùng F-03 (lint) vì cùng sửa `App.tsx`.
+
 ### Kiểm thử
-Chưa sửa. Sau khi sửa: `build` không còn cảnh báo externalized; `vite preview` hiển thị danh sách agent.
+claude (2026-10-25, phần package): `pnpm --filter @event/agent-manager typecheck` xanh, `test` 17/17 xanh (thêm 3 test;
+đã thử đột biến: thêm `createAgentRegistryManager` vào `index.ts` → test chặn đỏ, chỉ ra `agent-registry.ts: fs`, `path`).
+`turbo run lint typecheck test`: 14/16; đỏ `@event/agent-dashboard#lint` (F-03, có sẵn) và
+`@event/agent-dashboard#typecheck`: `src/App.tsx(29,3): error TS2305: Module '"@event/agent-manager"' has no exported
+member 'createAgentRegistryManager'` — **dự kiến**: lỗi lúc chạy nay lộ ra lúc typecheck, hết khi antigravity làm xong.
+Đóng bug khi: `lint`, `typecheck`, `build` dashboard xanh; `build` không còn cảnh báo `externalized for browser
+compatibility`; `vite preview` hiển thị 4 agent của `registry.json` (claude kiểm trên trình duyệt).
+
+---
+
+## F-05: CLI `@event/agent-manager` không chạy: Node không tìm thấy `../registry/agent-registry.js`
+
+### Trạng thái
+OPEN
+
+### Phía
+shared (`packages/agent-manager`)
+
+### Mức độ
+Thấp (công cụ dev; không ảnh hưởng app người dùng)
+
+### Giao cho
+claude
+
+### Luồng
+khác
+
+### Người phát hiện
+claude
+
+### Tái hiện
+1. `cd packages/agent-manager && node src/cli/list-agents.ts` (cũng là script `agent:list`; tương tự `agent:validate`,
+   `agent:register`).
+
+### Kỳ vọng / Thực tế
+- Kỳ vọng: in danh sách agent.
+- Thực tế: `Error [ERR_MODULE_NOT_FOUND]: Cannot find module '…/src/registry/agent-registry.js' imported from
+  …/src/cli/list-agents.ts`.
+
+### Bằng chứng
+`packages/agent-manager/src/cli/list-agents.ts:1` (`HEAD` cũng vậy, có từ trước F-04): Node chạy `.ts` bằng type
+stripping nhưng không đổi specifier `.js` → `.ts`; chỉ bundler/vitest làm việc đó.
+
+### Nguyên nhân
+Script dùng `node <file>.ts` trong khi mã import theo kiểu bundler (`.js`).
+
+### Đề xuất sửa
+Chọn một: đổi import trong cây CLI sang `.ts` + `allowImportingTsExtensions` (cần `noEmit`, hiện tsconfig của package
+`noEmit: false`), hoặc chạy CLI qua công cụ đã có trong repo (không thêm dependency). Cần thống nhất trước khi sửa vì
+F-04 hướng dẫn dashboard trỏ người dùng sang CLI.
+
+### Kiểm thử
+Chưa sửa.
 
 ---
 
@@ -204,4 +283,4 @@ Chưa sửa. Sau khi sửa: `build` không còn cảnh báo externalized; `vite 
 | Nghiêm trọng (Critical) | 0 | — |
 | Cao (High) | 1 | F-04 |
 | Trung bình (Medium) | 0 | — |
-| Thấp (Low) | 3 | F-01, F-02, F-03 |
+| Thấp (Low) | 4 | F-01, F-02, F-03, F-05 |

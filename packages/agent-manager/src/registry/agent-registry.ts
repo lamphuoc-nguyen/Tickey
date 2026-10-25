@@ -1,6 +1,5 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
 import { join, relative, dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
 import {
   AgentConfig,
   AgentConfigSchema,
@@ -20,9 +19,7 @@ import {
   DEFAULT_AGENT_DIRECTORY_CONFIG,
 } from '../schemas/agent-config.js';
 import { generateUUID } from '../utils/id.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { AgentListOptions, filterAgents, toPosixPath } from './registry-query.js';
 
 /**
  * Default configuration for the agent directory manager
@@ -149,7 +146,7 @@ export class AgentRegistryManager {
 
     // Check if agent already exists
     const existingIndex = this.registry.agents.findIndex(a => a.id === config.id);
-    const relativePath = relative(this.projectRoot, absolutePath);
+    const relativePath = toPosixPath(relative(this.projectRoot, absolutePath));
     const existingEntry = existingIndex >= 0 ? this.registry.agents[existingIndex] : null;
 
     const entry: AgentRegistryEntry = {
@@ -225,20 +222,8 @@ export class AgentRegistryManager {
   /**
    * List all registered agents
    */
-  listAgents(options?: { enabledOnly?: boolean; category?: string; tag?: string }): AgentRegistryEntry[] {
-    let agents = this.registry.agents;
-
-    if (options?.enabledOnly) {
-      agents = agents.filter(a => a.enabled);
-    }
-    if (options?.category) {
-      agents = agents.filter(a => a.category === options.category);
-    }
-    if (options?.tag) {
-      agents = agents.filter(a => a.tags.includes(options.tag!));
-    }
-
-    return agents;
+  listAgents(options?: AgentListOptions): AgentRegistryEntry[] {
+    return filterAgents(this.registry.agents, options);
   }
 
   /**

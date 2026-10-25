@@ -13,7 +13,7 @@
         "typescript",
         "react"
       ],
-      "configPath": "agents\\coding\\code-reviewer-v1.0.0.json",
+      "configPath": "agents/coding/code-reviewer-v1.0.0.json",
       "enabled": true,
       "registeredAt": "2026-10-23T16:37:46.432Z",
       "updatedAt": "2026-10-23T16:54:10.663Z"
@@ -29,7 +29,7 @@
         "chat",
         "assistant"
       ],
-      "configPath": "agents\\general\\general-assistant-v1.0.0.json",
+      "configPath": "agents/general/general-assistant-v1.0.0.json",
       "enabled": true,
       "registeredAt": "2026-10-23T16:37:46.434Z",
       "updatedAt": "2026-10-23T16:54:10.664Z"
@@ -47,7 +47,7 @@
         "visualization",
         "postgres"
       ],
-      "configPath": "agents\\analysis\\data-analyst-v1.0.0.json",
+      "configPath": "agents/analysis/data-analyst-v1.0.0.json",
       "enabled": true,
       "registeredAt": "2026-10-23T16:38:27.541Z",
       "updatedAt": "2026-10-23T16:54:10.660Z"
@@ -65,7 +65,7 @@
         "automation",
         "workflow"
       ],
-      "configPath": "agents\\workflow\\deployment-pipeline-v1.0.0.json",
+      "configPath": "agents/workflow/deployment-pipeline-v1.0.0.json",
       "enabled": true,
       "registeredAt": "2026-10-23T16:38:27.547Z",
       "updatedAt": "2026-10-23T16:54:10.667Z"

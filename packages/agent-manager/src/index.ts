@@ -1,11 +1,10 @@
+// Browser-safe entry: no Node built-ins (fs, path, url) may be imported from here.
 // Schemas
 export * from './schemas/agent-config.js';
 
-// Registry
-export {
-  AgentRegistryManager,
-  createAgentRegistryManager,
-} from './registry/agent-registry.js';
+// Registry queries (pure). The file-backed AgentRegistryManager lives in '@event/agent-manager/node'.
+export { filterAgents, toPosixPath } from './registry/registry-query.js';
+export type { AgentListOptions } from './registry/registry-query.js';
 
 // Utilities
 export {
