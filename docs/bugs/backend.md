@@ -727,6 +727,24 @@ Người dùng xác nhận là lỗi (2026-10-25). Migration mới: `issue_comp_
    không tạo booking nào; danh sách không trùng → vẫn tạo đủ booking.
 Quyền `EXECUTE` (authenticated, service_role) khớp bản gốc, giữ nguyên.
 
+### Review bản nháp pgTAP (claude, 2026-10-25 23:25)
+`supabase/tests/database/04_portal_rpcs.test.sql` (working tree) chưa chạy được, và sẽ làm hỏng cả 9 test `save_gate`
+sẵn có vì lỗi nằm trong khối fixture:
+1. `public.save_layout_version` không tồn tại. Dựng layout như `pg_temp.setup_catalog` ở
+   `02_core_flows.test.sql:47-75`: `create_layout(venue, name) ->> 'layout_version_id'` → `save_layout_draft` →
+   `publish_layout_version`.
+2. `save_session` đọc `starts_at`/`ends_at` (`init_database.sql:3678`), không phải `start_at`/`end_at`.
+3. `session_a`, `tt_comp` được `insert into fx` hai lần (dòng 46-52 và 83-89) → vi phạm khoá chính `fx.k`. Giữ một chỗ.
+4. `issue_comp_tickets` có chữ ký `(uuid, uuid, jsonb, text)` (`init_database.sql:4728`); gọi với một tham số jsonb
+   sẽ ra `42883 function does not exist`, không phải `P0001`. Gọi
+   `format('select public.issue_comp_tickets(%L, %L, %L::jsonb, %L)', ...)`.
+5. `throws_ok(..., 'VALIDATION_FAILED')` chưa kiểm `reason`. Bắt lỗi trong `do`/hàm `pg_temp` để so
+   `details ->> 'reason' = 'duplicate recipient email'`, và thêm `is(count(*) bookings COMP của session, 0)` sau ca trùng.
+6. Ca hợp lệ: ngoài `lives_ok`, kiểm đúng 2 booking `COMP` được tạo. Thêm ca recipient thiếu email không bị báo trùng
+   (review mục 2 ở trên).
+7. Ghi chú đầu file nhắc "migration 20261021*"; thêm tên migration B-18 sau khi đổi tên.
+Chạy `supabase db reset --local` rồi `supabase test db --local`, dán kết quả vào "Kiểm thử".
+
 ### Kiểm thử
 Chưa chạy. Cần test pgTAP verify duplicate emails in comp tickets rejected.
 
