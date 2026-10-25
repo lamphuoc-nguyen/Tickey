@@ -4,12 +4,11 @@ import { supabase } from './supabase';
 import { useSession } from './use-session';
 
 // Pages write only through the .NET API with the caller's JWT; RLS + RPCs decide what is allowed (MT §7.1).
-let http: HttpClient | undefined;
 const json = z.unknown();
 
 async function call<T>(method: string, path: string, body?: unknown, form?: FormData): Promise<T> {
-  http ??= new HttpClient(import.meta.env.VITE_API_URL, supabase);
-  const data = await http.request(path, json, { method, body, form, authenticated: true });
+  const client = new HttpClient(import.meta.env.VITE_API_URL || '', supabase);
+  const data = await client.request(path, json, { method, body, form, authenticated: true });
   return mapDatabaseJson(data) as T;
 }
 
@@ -49,8 +48,16 @@ const messages: Partial<Record<ApiError['code'], string>> = {
 
 /** Vietnamese message for an API / network error, for toasts and inline notices. */
 export function errorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    return messages[error.code] ?? 'Không thể hoàn tất yêu cầu. Vui lòng thử lại hoặc liên hệ hỗ trợ.';
+  if (
+    error instanceof ApiError ||
+    (typeof error === 'object' && error !== null && ('code' in error || (error as Error).name === 'ApiError'))
+  ) {
+    const code = (error as { code?: ApiError['code'] }).code;
+    if (code && messages[code]) return messages[code];
+    return (error as Error).message || 'Không thể hoàn tất yêu cầu. Vui lòng thử lại hoặc liên hệ hỗ trợ.';
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
   }
   return 'Có lỗi xảy ra. Vui lòng thử lại.';
 }

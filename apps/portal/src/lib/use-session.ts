@@ -23,25 +23,44 @@ export function useSession(): SessionState {
   useEffect(() => {
     let mounted = true;
     let resolved = false;
-    const apply = (session: Session | null) => {
+    const apply = async (session: Session | null) => {
       resolved = true;
-      if (mounted) {
-        let activeWs = readActiveWorkspace(session?.access_token);
-        const savedWs = localStorage.getItem('tickey_active_workspace');
-        if (savedWs) {
-          try {
-            const parsed = JSON.parse(savedWs);
-            if (parsed?.kind) {
-              activeWs = {
-                kind: parsed.kind,
-                orgId: parsed.orgId ?? null,
-                roles: parsed.roles ?? [],
-              };
-            }
-          } catch {
-            void 0;
+      if (!mounted) return;
+      let activeWs = readActiveWorkspace(session?.access_token);
+      const savedWs = localStorage.getItem('tickey_active_workspace');
+      if (savedWs) {
+        try {
+          const parsed = JSON.parse(savedWs);
+          if (parsed?.kind) {
+            activeWs = {
+              kind: parsed.kind,
+              orgId: parsed.orgId ?? null,
+              roles: parsed.roles ?? [],
+            };
           }
+        } catch {
+          void 0;
         }
+      }
+      if (session && !activeWs.orgId) {
+        try {
+          const { data } = await supabase.rpc('list_my_workspaces');
+          const org = (data as Array<{ kind: string; org_id: string; roles: string[] }>)?.find(
+            (w) => w.kind === 'ORG' && w.org_id,
+          );
+          if (org) {
+            activeWs = {
+              kind: 'ORG',
+              orgId: org.org_id,
+              roles: org.roles ?? [],
+            };
+            localStorage.setItem('tickey_active_workspace', JSON.stringify(activeWs));
+          }
+        } catch {
+          void 0;
+        }
+      }
+      if (mounted) {
         setState({
           loading: false,
           session,
