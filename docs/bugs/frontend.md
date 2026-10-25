@@ -9,7 +9,7 @@
 ## F-01: Portal Session Time Input Uses Browser Timezone Not Venue Timezone
 
 ### Trạng thái
-OPEN
+VERIFIED (claude 2026-10-26)
 
 ### Mức độ
 Thấp
@@ -39,14 +39,21 @@ Portal dùng múi giờ trình duyệt thay vì múi giờ venue.
 Chuyển đổi theo `venue.timezone` của Session (không theo trình duyệt), và hiển thị rõ múi giờ cạnh ô nhập.
 
 ### Kiểm thử
-Chưa chạy. Thêm unit test Vitest cho `toIso`/`toLocalInput` với múi giờ địa điểm khác múi giờ máy.
+- antigravity 2026-10-26:
+  - `datetime.ts`: cập nhật `toLocalInput(iso, timeZone)` và `toIso(local, timeZone)` hỗ trợ múi giờ địa điểm qua `Intl.DateTimeFormat` (mặc định `'Asia/Ho_Chi_Minh'`), tính offset và xử lý tinh chỉnh biên DST.
+  - Cập nhật `EventCreationWizard.tsx`, `SessionForm.tsx`, `TicketTypeForm.tsx`, `OrgStaffPage.tsx` truyền `venue.timezone` và hiển thị rõ múi giờ cạnh ô nhập.
+  - Bổ sung unit test `apps/portal/src/features/org/events/datetime.test.ts` kiểm tra chuyển đổi ICT, UTC, New York, roundtrip và trường hợp giá trị rỗng/lỗi (5 tests passed).
+  - Chạy `pnpm --filter @event/portal lint`, `typecheck`, `test`, `build`: tất cả đều xanh.
+- claude 2026-10-26 01:20 (review): mọi chỗ gọi `toIso`/`toLocalInput` trong portal đều truyền `venue.timezone`
+  (`EventCreationWizard`, `SessionForm`, `TicketTypeForm`, `OrgStaffPage`); bản sao `toIso` riêng trong `OrgStaffPage`
+  đã bỏ. `turbo run lint typecheck test build` 18/18 xanh. → `VERIFIED`.
 
 ---
 
 ## F-02: Portal API URL Misconfiguration Risk
 
 ### Trạng thái
-OPEN
+VERIFIED (claude 2026-10-26)
 
 ### Mức độ
 Thấp
@@ -78,14 +85,20 @@ Fallback URL và proxy config sai.
 Bỏ fallback, báo lỗi cấu hình khi thiếu `VITE_API_URL`. Proxy dev trỏ `http://localhost:5080`.
 
 ### Kiểm thử
-Chưa chạy. Vitest cho `resolveApiUrl` khi thiếu env.
+- antigravity 2026-10-26:
+  - `apps/portal/src/lib/api.ts`: `resolveApiUrl` ném lỗi rõ ràng khi `VITE_API_URL` bị thiếu hoặc rỗng, loại bỏ fallback nguy hiểm.
+  - `apps/portal/vite.config.ts`: đổi proxy dev target về `http://localhost:5080`.
+  - Bổ sung unit test `apps/portal/src/lib/api.test.ts` kiểm tra ném lỗi khi thiếu cấu hình env và parse đúng URL (2 tests passed).
+  - Chạy `pnpm --filter @event/portal lint`, `typecheck`, `test`, `build`: tất cả đều xanh.
+- claude 2026-10-26 01:20 (review): `resolveApiUrl` không còn fallback; `.env.example` đã có
+  `VITE_API_URL=http://localhost:5080`, khớp `launchSettings.json` (`:5080`) và proxy dev mới. → `VERIFIED`.
 
 ---
 
 ## F-03: Agent Dashboard Lint Fails (Missing ESLint Config)
 
 ### Trạng thái
-OPEN
+VERIFIED (claude 2026-10-26)
 
 ### Mức độ
 Thấp
@@ -139,16 +152,16 @@ Kết quả claude chạy trên working tree: `lint` exit 1 (15 lỗi); `typeche
 chạy (xem F-04, lỗi có từ trước, không do bản sửa này).
 
 ### Kiểm thử
-Chưa chạy. `pnpm --filter @event/agent-dashboard lint`, `typecheck`, `build`.
-claude 2026-10-25 23:55 (working tree, `App.tsx` 23:46, antigravity chưa bàn giao): `lint` xanh; `typecheck` đỏ do F-04
-(TS2305), chờ antigravity làm F-04 rồi kiểm lại cùng nhau.
+- claude 2026-10-25 23:55 (working tree, `App.tsx` 23:46, antigravity chưa bàn giao): `lint` xanh; `typecheck` đỏ do F-04
+  (TS2305), chờ antigravity làm F-04 rồi kiểm lại cùng nhau.
+- antigravity 2026-10-26: Thêm `apps/agent-dashboard/eslint.config.js`. Refactor `src/App.tsx`: đưa component con ra cấp module, dùng `useRef` cho toast ID, dọn sạch unused imports. Chạy `pnpm --filter @event/agent-dashboard lint` exit 0 (0 lỗi, 0 cảnh báo). `pnpm lint` toàn repo 3/3 xanh.
 
 ---
 
 ## F-04: Agent Dashboard trắng trang: bundle trình duyệt gọi `fs`/`url` của Node lúc nạp module
 
 ### Trạng thái
-IN_PROGRESS (phần `packages/agent-manager` xong; chờ antigravity sửa `apps/agent-dashboard`)
+VERIFIED (claude 2026-10-26)
 
 ### Phía
 shared (`packages/agent-manager` + `apps/agent-dashboard`)
@@ -227,8 +240,21 @@ claude (2026-10-25, phần package): `pnpm --filter @event/agent-manager typeche
 `turbo run lint typecheck test`: 14/16; đỏ `@event/agent-dashboard#lint` (F-03, có sẵn) và
 `@event/agent-dashboard#typecheck`: `src/App.tsx(29,3): error TS2305: Module '"@event/agent-manager"' has no exported
 member 'createAgentRegistryManager'` — **dự kiến**: lỗi lúc chạy nay lộ ra lúc typecheck, hết khi antigravity làm xong.
-Đóng bug khi: `lint`, `typecheck`, `build` dashboard xanh; `build` không còn cảnh báo `externalized for browser
-compatibility`; `vite preview` hiển thị 4 agent của `registry.json` (claude kiểm trên trình duyệt).
+
+antigravity 2026-10-26 (phần dashboard):
+- `tsconfig.json`: `"types": ["vite/client"]`.
+- `App.tsx`: Nạp `registry.json` và `agents/**/*.json` qua `import.meta.glob`; validate qua `safeValidateAgentRegistry` / `safeValidateAgentConfig`; lọc qua `filterAgents`; bỏ hoàn toàn Node API runtime. Chuyển Create / Import / Settings sang hiển thị hướng dẫn CLI.
+- Chạy kiểm thử:
+  - `pnpm --filter @event/agent-dashboard lint`: xanh.
+  - `pnpm --filter @event/agent-dashboard typecheck`: xanh.
+  - `pnpm --filter @event/agent-dashboard build`: xanh, không còn cảnh báo `externalized for browser compatibility`. Bundle `dist/assets/*.js` không có `fileURLToPath` hay Node builtins.
+  - `turbo run lint typecheck test build`: tất cả đều xanh (FULL TURBO / pass). Đã sẵn sàng cho claude kiểm tra preview và đóng bug.
+
+claude 2026-10-26 01:20 (review, F-03 + F-04): chạy lại không dùng cache `pnpm --filter @event/agent-dashboard lint`,
+`typecheck`, `build`: xanh, không còn cảnh báo `externalized`; bundle không chứa `fileURLToPath`/`node:fs`/
+`__vite-browser-external`. `vite preview --port 4179` rồi render bằng Edge headless (`--dump-dom`; extension Chrome không
+kết nối): trang hiện "Viewing 4 enabled of 4 registered agents" với Code Reviewer, General Assistant, Data Analyst,
+Deployment Pipeline. → `VERIFIED`.
 
 ---
 

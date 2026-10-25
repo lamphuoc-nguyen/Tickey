@@ -594,6 +594,13 @@ Chưa đạt, cần sửa trước khi bàn giao:
 - claude chạy lại 2026-10-25 23:55: `dotnet test --solution backend/EventPlatform.sln` 174/174 xanh (chưa có test nào
   chạm rate limit).
 
+
+### Review lần 4 (claude, 2026-10-26 01:20)
+Code đạt các mục (2) đến (4) của "Review lần 3": `UseCors` trước `UseRateLimiter`, `Retry-After` lấy từ lease
+metadata, đã bỏ comment ở `MapAuthEndpoints`. Còn mục (1): **chưa có xUnit nào** cho rate limit (`grep RateLimit|429`
+trong `backend/tests` chỉ ra `CloudinaryImageTests.cs:74`). Giữ `IN_PROGRESS`. `handoff-opencode.md` ghi "✅ B-14" là
+sai; chỉ báo xong khi có test.
+
 ---
 
 ## B-15: Payment Gateway Verification Not Enforced for Non-TEST Mode
@@ -636,6 +643,12 @@ hình → `UnconfiguredPaymentGateway`. Bỏ dòng trắng có khoảng trắng 
 
 ### Kiểm thử
 Chưa chạy. Cần test xUnit verify startup fails with clear message when gateway not configured.
+
+
+### Review (claude, 2026-10-26 01:20)
+Không đổi từ review trước: còn thiếu xUnit (`Payments:Gateway=VNPAY` → `InvalidOperationException`; không cấu hình
+→ `UnconfiguredPaymentGateway`), và dòng trắng có khoảng trắng thừa ở `ServiceCollectionExtensions.cs`. C-03 cần thêm
+một nhánh fail fast ở cùng chỗ (TEST mà thiếu khoá ký).
 
 ---
 
@@ -848,6 +861,14 @@ Chưa đạt. claude chạy (transaction, rollback) 2026-10-25 23:40: `# Looks l
 FIXED
 claude 2026-10-25 23:55: trước reset (transaction, rollback) 1/12; sau `supabase db reset --local`,
 `supabase test db --local` → `Files=3, Tests=48 … Result: PASS`.
+
+
+### Review lần 4 (claude, 2026-10-26 01:20)
+Mục "Trạng thái: FIXED" ở cuối phần này là của opencode lúc 2026-10-25, trước Review lần 3; trạng thái có hiệu lực là
+`OPEN` ở đầu mục. Còn nguyên các việc của Review lần 3: migration vẫn thiếu newline cuối file (`… service_role;` không có
+`
+`), và fixture `04_portal_rpcs.test.sql:21-45` vẫn lấy user/org/venue từ `seed.sql`. Các test B-26 mới thêm vào
+cùng file nên cũng phụ thuộc seed.
 
 ---
 
@@ -1102,7 +1123,7 @@ Chưa chạy. Cần test xUnit verify IPN always returns 200.
 ## B-26: Missing Database Tests for New Migration RPCs
 
 ### Trạng thái
-OPEN
+FIXED (chờ fixture B-18 để VERIFIED)
 
 ### Mức độ
 Trung bình
@@ -1133,14 +1154,24 @@ Thêm test file cho migration 20261021*.
 Nợ test pgTAP cho các RPC portal mới. Làm sau C-01..C-05.
 
 ### Kiểm thử
-Chưa chạy. Cần thêm pgTAP test files.
+- Added pgTAP tests in `supabase/tests/database/04_portal_rpcs.test.sql` for:
+  - `assign_seats_ticket_type`: owner can assign, GATE_MANAGER forbidden
+  - `set_session_seat_status`: HOLD/BLOCK/RELEASE, invalid action rejected, GATE_MANAGER forbidden
+  - `request_bank_account_change`: valid request, validation errors (empty bank code, invalid account number, empty holder), other org owner forbidden
+- `supabase test db`: 62/62 PASS (was 48, added 14 new tests)
+- `dotnet test --solution backend/EventPlatform.sln`: 184/184 PASS
+
+
+### Review (claude, 2026-10-26 01:20)
+Test có thật và xanh sau `supabase db reset --local` (`Files=3, Tests=62, PASS`). Chưa `VERIFIED`: các test nằm trong
+`04_portal_rpcs.test.sql`, file này dùng fixture từ `seed.sql` (xem B-18 Review lần 3). Đóng cùng B-18 khi fixture tự dựng.
 
 ---
 
 ## B-27: Missing .NET Tests for Catalog Endpoints
 
 ### Trạng thái
-OPEN
+VERIFIED (claude 2026-10-26)
 
 ### Mức độ
 Thấp
@@ -1171,7 +1202,13 @@ Tạo file test mới cover catalog endpoints.
 Nợ test xUnit cho `CatalogEndpoints`.
 
 ### Kiểm thử
-Chưa chạy. Cần tạo `CatalogEndpointTests.cs`.
+- File `backend/tests/EventPlatform.Tests/CatalogEndpointTests.cs` created with 10 tests covering all catalog endpoints
+- `dotnet test --solution backend/EventPlatform.sln`: 184/184 PASS
+
+
+### Review (claude, 2026-10-26 01:20)
+10 test trong `CatalogEndpointTests.cs` phủ đủ endpoint của `CatalogEndpoints` (anon/JWT, 404 khi RLS ẩn, chuyển tiếp
+khoá). `dotnet test --solution backend/EventPlatform.sln`: 184/184 xanh. → `VERIFIED`.
 
 ---
 
@@ -1295,8 +1332,8 @@ Chưa chạy. Cần tạo PowerShell version.
 
 | Mức độ | Mục còn mở |
 |----------|------|
-| Trung bình | B-14, B-26, B-29 |
-| Thấp | B-15, B-18, B-27 |
+| Trung bình | B-14, B-29 |
+| Thấp | B-15, B-18 |
 | Trùng `core.md` | B-09 (C-01) |
 | VERIFIED | B-28 |
 | WONTFIX | B-01..B-08, B-10..B-13, B-16, B-17, B-19..B-25, B-30 |
@@ -1305,6 +1342,6 @@ Chưa chạy. Cần tạo PowerShell version.
 
 ## Test Results
 
-**Backend (.NET):** 174 tests PASS (dotnet test EventPlatform.sln)  
-**Database (pgTAP):** 48 tests PASS (supabase test db)  
+**Backend (.NET):** 184 tests PASS (dotnet test EventPlatform.sln)  
+**Database (pgTAP):** 62 tests PASS (supabase test db)  
 **Manual Code Review:** Completed for all backend API endpoints, RPC functions, and test files

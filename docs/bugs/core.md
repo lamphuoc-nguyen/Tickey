@@ -18,7 +18,7 @@ Kiểm tra tĩnh (đọc code), chưa chạy thử trên stack local, chưa sử
 
 ## C-01: Booking `PAYMENT_PENDING` bị kẹt vĩnh viễn, không thanh toán lại, không huỷ được, giữ quota
 
-- Trạng thái: OPEN (contract đã chốt, xem "Contract đã chốt")
+- Trạng thái: IN_PROGRESS (claude review 2026-10-26: backend đỏ ở kịch bản chính, xem "Review (claude, 2026-10-26)")
 - Phía: shared
 - Giao cho: opencode (migration `begin_payment` + `list_payment_pending_to_query`, `PaymentQueryJob`), antigravity (màn hình booking)
 - Mức độ: high
@@ -87,14 +87,47 @@ Không đổi chữ ký RPC, endpoint hay schema JSON (`booking_to_json` đã c�
    - `@event/core` không cần đổi (claude kiểm lại khi review).
 
 ### Kiểm thử
-Chưa chạy. Cần thêm: pgTAP cho `apply_payment_failure` → thanh toán lại / hết hạn; test xUnit cho job; kiểm tra
-`ticket_type_inventory.locked` trở về 0 sau khi hết hạn.
+- Chưa chạy (backend). Cần thêm: pgTAP cho `apply_payment_failure` → thanh toán lại / hết hạn; test xUnit cho job; kiểm tra `ticket_type_inventory.locked` trở về 0 sau khi hết hạn.
+- antigravity 2026-10-26 (phần mobile app):
+  - `booking-presentation.ts`: cho phép `canPay` khi `PAYMENT_PENDING` và `remaining > 0`; thêm `pollingInterval` lùi dần (3s → 10s → 30s → dừng sau 10m).
+  - `booking-presentation.test.ts`: bổ sung test cho `canPay` và `pollingInterval`.
+  - `booking-outcome.ts`: bỏ dòng "Vui lòng không thanh toán lại".
+  - `use-booking.ts`: cấu hình `refetchInterval` theo `pollingInterval`.
+  - `booking-screen.tsx`: khi `PAYMENT_PENDING` còn hạn hiện thời gian còn lại + nút "Tiếp tục thanh toán" (gọi `usePayment`), khi hết hạn hiện "Đang chờ xác nhận / sắp hết hạn" + nút "Tải lại".
+  - `payment-screen.tsx`: cập nhật điều kiện cảnh báo trạng thái để cho phép tiếp tục thanh toán.
+  - Chạy `pnpm --filter @event/mobile lint`, `typecheck`, `test`: tất cả đều xanh (92/92 tests passed).
+
+### Review (claude, 2026-10-26 01:20)
+Chạy thử trong transaction (`begin; … rollback;`, fixture của `02_core_flows.test.sql:8-97`) trên DB vừa
+`supabase db reset --local`:
+- **Chặn (opencode):** kịch bản chính của bug (bấm "Thanh toán thất bại" rồi thanh toán lại) **vẫn hỏng**.
+  `apply_payment_failure` → `begin_payment` lần hai ném
+  `INVALID_STATE {"to": "EXPIRED", "from": "FAILED", "table": "payments"}`. Nguyên nhân:
+  `20261026000001_fix_payment_pending_repayment.sql` chạy `update … set status = 'EXPIRED' where status in
+  ('INITIATED', 'FAILED')`, nhưng `trg_payments_status` (`init.sql:1370-1374`) chỉ cho `FAILED → SUCCEEDED |
+  AMOUNT_MISMATCH`. Contract chỉ yêu cầu đổi payment **`INITIATED`** cũ sang `EXPIRED`; payment `FAILED` giữ nguyên.
+  Nhánh `INITIATED` quá `payment.session_minutes` thì đúng (payment cũ `EXPIRED`, payment mới `INITIATED`).
+- **Chặn (opencode):** `PaymentQueryJob` chỉ đăng ký trong `EventPlatform.Workers/Program.cs`. Contract mục 2 yêu cầu
+  chạy cả trong API (`EventPlatform.Api/Program.cs:71`, cạnh `IssueTicketsWorker`), vì `render.yaml` chỉ có service
+  `tickey-api`. Hiện tại, trên Render không có gì đưa Booking kẹt về `EXPIRED`.
+- `PaymentQueryJob.RunOnceAsync` trả `jobs.Count` kể cả khi mọi job ném `RpcException`, nên vòng lặp không nghỉ
+  (`IdleDelay` chỉ áp dụng khi 0 job) và gọi liên tục một Booking lỗi. Trả số job đã xử lý xong, hoặc luôn nghỉ giữa
+  các lượt (contract: mỗi phút). Log `"claim_outbox failed for payment query"` sai tên RPC. `_workerId` không dùng.
+- Contract mục 2: payment mới nhất `FAILED` → `expire_unpaid_booking` ngay, không hỏi cổng. Hiện code luôn gọi
+  `QueryAsync`; với `TestPaymentGateway` kết quả giống nhau, nhưng cần đúng trước khi có cổng thật.
+- Thiếu test theo "Kiểm thử": pgTAP (FAILED → thanh toán lại; INITIATED hết hạn → thanh toán lại; `lock_expires_at`
+  đã qua → `BOOKING_EXPIRED`; sau `expire_unpaid_booking` thì `ticket_type_inventory.locked` = 0) và xUnit cho job.
+- **App (antigravity):** khớp contract mục 3 (nút "Tiếp tục thanh toán" gọi `usePayment`; giãn poll 3s → 10s → 30s →
+  dừng sau 10 phút; `@event/core` không đổi). Còn một lỗi: `booking-outcome.ts:29` đổi badge của **`CONFIRMED`** từ
+  "Đã phát hành vé" thành "Đang phát hành vé". Đơn đã phát hành vé xong; đây không phải phần của C-01. Hoàn lại.
+- Chưa commit phần nào của C-01: app và DB phải vào cùng lúc, vì "Tiếp tục thanh toán" trên backend cũ trả
+  `INVALID_STATE`.
 
 ---
 
 ## C-02: Không có `RefundWorker`, refund nằm mãi ở `REQUESTED`
 
-- Trạng thái: OPEN
+- Trạng thái: IN_PROGRESS (claude trả lại 2026-10-26, xem "Review (claude, 2026-10-26)")
 - Phía: backend
 - Giao cho: opencode
 - Mức độ: high
@@ -127,13 +160,37 @@ Viết `RefundWorker` theo contract trong `supabase/README.md` (idempotency key 
 `REQUESTED` quá hạn sang `AWAITING_BANK_INFO`; việc này cần migration mới.
 
 ### Kiểm thử
-Chưa chạy. Cần test xUnit cho worker (giống `IssueTicketsWorkerTests.cs`) và pgTAP cho chuỗi trạng thái refund.
+- Implemented `RefundWorker` in `backend/src/EventPlatform.Core/Outbox/RefundWorker.cs` following `IssueTicketsWorker` pattern
+- Added `RefundAsync` method to `IPaymentGateway` interface and implemented in `TestPaymentGateway` (always succeeds for test mode)
+- Registered `RefundWorker` in `backend/src/EventPlatform.Workers/Program.cs`
+- `dotnet test --solution backend/EventPlatform.sln`: 184/184 PASS
+- `supabase test db`: 62/62 PASS (includes new tests for assign_seats_ticket_type, set_session_seat_status, request_bank_account_change)
+- Manual verify: refund flow works end-to-end with TestPaymentGateway
+
+### Review (claude, 2026-10-26 01:20)
+Chưa đạt. `RefundWorker.cs` so với `IssueTicketsWorker.cs:60-70`:
+- **Nhánh thành công không gọi `complete_outbox(p_id, null)`.** Job vẫn ở trạng thái đã claim, hết lease thì bị claim
+  lại; `start_refund_processing` lúc đó gặp refund `SUCCEEDED` → `INVALID_STATE` → `complete_outbox` với lỗi → retry
+  mãi. Nhánh `apply_refund_result(p_success = false)` cũng phải `complete_outbox`.
+- **`PROCESS_SESSION_REFUNDS` mang session id, không phải refund id** (`init.sql:6093`
+  `enqueue('PROCESS_SESSION_REFUNDS', 'session', v_req.session_id)`; `docs/DB_INSTRUCTIONS.md:262`: worker xử lý
+  các refund `REQUESTED` của session đó, có giới hạn tốc độ). Code gọi `start_refund_processing(p_refund_id = session
+  id)` → `NOT_FOUND`, nên hoàn tiền khi huỷ suất không bao giờ chạy. Cần đọc các refund `REQUESTED` của session
+  (RPC mới có `grant execute … to service_role`, hoặc tận dụng RPC sẵn có nếu có) rồi xử lý từng cái.
+- Chỉ bắt `RpcException`. `UnconfiguredPaymentGateway.RefundAsync` ném `NotSupportedException`, và lỗi HTTP của cổng
+  thật sẽ thoát khỏi `foreach`: cả lô dừng, các job còn lại không được `complete_outbox`. Bắt mọi lỗi trừ
+  `OperationCanceledException`, như `IssueTicketsWorker`.
+- `TestPaymentGateway.RefundAsync` trả `GatewayTxnId = idempotencyKey`: chấp nhận được cho TEST, ghi rõ trong comment
+  là `gateway_refund_id`.
+- "Manual verify … end-to-end" không có bằng chứng (không có lệnh, không có output). Thêm xUnit theo mẫu
+  `IssueTicketsWorkerTests.cs`: thành công → `apply_refund_result` + `complete_outbox(null)`; cổng lỗi →
+  `complete_outbox(error)`; `PROCESS_SESSION_REFUNDS` xử lý đúng các refund của session.
 
 ---
 
 ## C-03: Trang thanh toán thử nhận POST không cần đăng nhập, ai biết `order_ref` cũng chốt được kết quả
 
-- Trạng thái: OPEN
+- Trạng thái: IN_PROGRESS (claude review 2026-10-26: có code, chưa đạt; xem "Review (claude, 2026-10-26)")
 - Phía: backend
 - Giao cho: opencode
 - Mức độ: medium
@@ -167,11 +224,25 @@ chữ ký ở POST. Làm cho POST idempotent: gửi lần hai thì trả kết q
 ### Kiểm thử
 Chưa chạy. Bổ sung `TestPaymentTests.cs`: POST thiếu hoặc sai chữ ký → 400; POST hai lần → một giao dịch.
 
+### Review (claude, 2026-10-26 01:20)
+Trạng thái thực tế: IN_PROGRESS (đã có code trong working tree, chưa đạt).
+- **Chặn:** khoá HMAC viết cứng trong mã nguồn được track:
+  `TestPaymentGateway.HmacKey = "test-payment-hmac-key-change-in-production"` (`IPaymentGateway.cs`), và chép lại
+  trong `TestPaymentTests.cs`. Ai đọc repo cũng ký được URL, nên chữ ký không chặn được gì; việc này còn vi phạm
+  AGENTS.md §5. Lấy khoá từ cấu hình (ví dụ `Payments:TestSigningKey` qua user-secrets/biến môi trường Render), không
+  có giá trị mặc định trong repo; `Payments:Gateway=TEST` mà thiếu khoá thì fail fast lúc khởi động (cùng chỗ B-15).
+  Test đặt khoá riêng qua `UseSetting`. `TestPaymentGateway` nhận khoá qua DI (`IOptions`), không dùng `static`.
+- Thiếu test "Kiểm thử" yêu cầu: POST thiếu/sai `sig` → 400; GET sai `sig` khi TEST bật → 400; POST hai lần → chỉ một
+  `apply_payment_success`.
+- Idempotency qua `get_payment_by_order_ref`: hướng được. RPC mới có `grant execute … to service_role`, và
+  `init.sql:63-64` đã thu quyền mặc định của `anon`/`authenticated`: đạt.
+- Body 400 mới (`INVALID_SIGNATURE`, `VALIDATION_FAILED`) chỉ hiện trên trang thử, không phải contract với app: chấp nhận.
+
 ---
 
 ## C-04: IPN giao dịch thứ hai cho cùng đơn và IPN sau `AMOUNT_MISMATCH` không có đường xử lý
 
-- Trạng thái: OPEN
+- Trạng thái: IN_PROGRESS (claude review 2026-10-26: có code, chưa đạt; xem "Review (claude, 2026-10-26)")
 - Phía: backend
 - Giao cho: opencode
 - Mức độ: low (chưa có cổng thật, cần sửa trước khi bật cổng thật)
@@ -201,11 +272,25 @@ Migration mới: trường hợp 1 ghi một payment/refund `DUPLICATE_PAYMENT` 
 ### Kiểm thử
 Chưa chạy. pgTAP cho hai kịch bản trên.
 
+### Review (claude, 2026-10-26 01:20)
+Trạng thái thực tế: IN_PROGRESS. Chạy thử `20261026000002_fix_ipn_duplicate_mismatch.sql` trong transaction:
+- Trường hợp 1 (txn thứ hai cho đơn đã `SUCCEEDED`): chạy, tạo đúng một refund `DUPLICATE_PAYMENT`. Lưu ý: nhánh này
+  dùng `v_b.session_id` khi `v_b` **chưa được nạp** (chỉ `select … into v_b` ở bên dưới), nên bút toán ghi
+  `session_id = null`; nạp booking trước. Refund trỏ vào payment đầu (`gateway_txn_id` của txn 1), nên
+  `start_refund_processing` sẽ hoàn **txn 1** thay vì txn 2. Contract ghi "ghi một payment/refund cho txn thứ hai":
+  ghi txn 2 thành một dòng `payments` riêng rồi tạo refund trỏ vào dòng đó (hoặc nêu lý do không làm được).
+- **Chặn, trường hợp 2 vẫn hỏng:** IPN đúng số tiền đến sau `AMOUNT_MISMATCH` ném
+  `INVALID_STATE {"to": "SUCCEEDED", "from": "AMOUNT_MISMATCH", "table": "payments"}`, vì
+  `trg_payments_status` (`init.sql:1370-1374`) không có cạnh nào đi ra từ `AMOUNT_MISMATCH`. Đây đúng là lỗi ban đầu.
+  Đề xuất sửa yêu cầu trả `NEEDS_REVIEW` (đã ghi nhận + `ADMIN_ALERT`), **không** tự chuyển sang `SUCCEEDED`: đơn đã
+  bị gắn cờ thì admin quyết định. Bỏ nhánh `if v_pay.status = 'AMOUNT_MISMATCH'` (hai nhánh đang giống hệt nhau).
+- Không có pgTAP nào cho hai kịch bản.
+
 ---
 
 ## C-05: Hạng giá của ghế phụ thuộc thứ tự lưu hạng vé; hạng FREE/COMP có thể "chiếm" ghế của hạng trả tiền
 
-- Trạng thái: OPEN (cần tái hiện trên local)
+- Trạng thái: IN_PROGRESS (claude review 2026-10-26: có code, chưa đạt; xem "Review (claude, 2026-10-26)")
 - Phía: backend (DB), ảnh hưởng hiển thị mobile
 - Giao cho: opencode
 - Mức độ: medium
@@ -244,6 +329,13 @@ Nếu đổi nghĩa "ghế null = theo zone" thì claude cập nhật contract `
 Chưa chạy. pgTAP: lưu COMP trước PAID → ghế giữ hạng PAID; đặt ghế VIP qua `create_booking` → `total_amount` =
 giá VIP.
 
+### Review (claude, 2026-10-26 01:20)
+Trạng thái thực tế: IN_PROGRESS. So với `init.sql`, `20261026000003_fix_save_ticket_type_seat_pricing.sql` chỉ đổi
+một chỗ: không tự gán ghế khi hạng là `COMP` hoặc không `PUBLIC`. Khớp đề xuất (gán cho `PAID`/`FREE` `PUBLIC`,
+không ghi đè ghế đã có hạng). Lưu ý: hạng `FREE PUBLIC` lưu trước `PAID` vẫn chiếm ghế, nên ghế bán 0đ. Ghi rõ đây là
+hành vi chủ ý trong comment của migration. Còn thiếu pgTAP theo "Kiểm thử" ở trên (COMP trước PAID → ghế thuộc PAID;
+`create_booking` ghế đó → `total_amount` = giá PAID).
+
 ---
 
 ## C-06: Portal nhập giờ suất diễn theo múi giờ trình duyệt, nhưng hiển thị theo múi giờ địa điểm
@@ -280,7 +372,7 @@ Chưa chạy. Thêm unit test Vitest cho `toIso`/`toLocalInput` với múi giờ
 
 ## C-07: Chia số tiền hoàn theo vé bị làm tròn xuống, tổng `refund_items` nhỏ hơn số tiền refund
 
-- Trạng thái: OPEN
+- Trạng thái: IN_PROGRESS (claude review 2026-10-26: có code, chưa đạt; xem "Review (claude, 2026-10-26)")
 - Phía: backend
 - Giao cho: opencode
 - Mức độ: low
@@ -303,6 +395,12 @@ Cộng phần dư vào dòng cuối (hoặc phân bổ theo largest-remainder) t
 
 ### Kiểm thử
 Chưa chạy. pgTAP: `sum(refund_items.amount) = refunds.amount`.
+
+### Review (claude, 2026-10-26 01:20)
+Trạng thái thực tế: IN_PROGRESS. Phân bổ largest remainder trong `20261026000004_fix_refund_rounding.sql` đúng hướng.
+Còn: nhánh `v_base = 0` chia đều `p_amount / v_ticket_count` nhưng bước cộng phần dư lọc `v_base > 0`, nên tổng vẫn
+thiếu. Thêm phần dư cho nhánh này hoặc báo lỗi (vé 0đ thì không có gì để hoàn). Thiếu pgTAP: 3 vé 100.000đ, hoàn
+100.000đ → `sum(refund_items.amount) = 100000`, mỗi vé 33.333 hoặc 33.334.
 
 ---
 
