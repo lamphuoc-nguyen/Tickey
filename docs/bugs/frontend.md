@@ -140,6 +140,8 @@ chạy (xem F-04, lỗi có từ trước, không do bản sửa này).
 
 ### Kiểm thử
 Chưa chạy. `pnpm --filter @event/agent-dashboard lint`, `typecheck`, `build`.
+claude 2026-10-25 23:55 (working tree, `App.tsx` 23:46, antigravity chưa bàn giao): `lint` xanh; `typecheck` đỏ do F-04
+(TS2305), chờ antigravity làm F-04 rồi kiểm lại cùng nhau.
 
 ---
 
