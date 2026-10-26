@@ -7,7 +7,7 @@
 -- ============================================================================
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(27);
+select plan(45);
 
 -- ---------------------------------------------------------------- fixture
 create temp table fx (k text primary key, v uuid);
@@ -31,6 +31,9 @@ insert into fx values
   ('c2',      '00000000-0000-0000-0000-000000000005'), ('c3', '00000000-0000-0000-0000-000000000006');
 insert into public.memberships (user_id, scope, roles)
 values (pg_temp.fx('admin'), 'PLATFORM', array['KYC_REVIEWER','FINANCE_ADMIN','DISPUTE_ADMIN','SUPPORT']);
+
+-- Signing key for QR code signing
+insert into public.signing_keys (kid, public_key) values ('k1', 'PUBKEY');
 
 create function pg_temp.setup_org(p_owner uuid, p_slug text) returns uuid language plpgsql as $$
 declare v_org uuid; v_kyc uuid;
@@ -238,7 +241,192 @@ select is((select count(*)::int from public.seats where tenant_id = pg_temp.fx('
           'Khách không thấy sơ đồ ghế của sự kiện chưa công bố');
 reset role;
 
--- ---------------------------------------------------------------- máy trạng thái, sổ cái
+-- ---------------------------------------------------------------- Full happy path: Booking → Payment → Ticket (CONFIRMED)
+-- Test end-to-end flow: create_booking → begin_payment → apply_payment_success → issue_tickets → attach_ticket_credentials → CONFIRMED
+set local role service_role;
+do $$
+declare
+  v_booking uuid;
+  v_ref text;
+  v_happy_ses uuid;
+  v_happy_tt uuid;
+  v_happy_seat uuid;
+  v_lv uuid;
+begin
+  -- Get layout_version_id from existing session
+  select layout_version_id into v_lv from public.sessions where id = pg_temp.fx('a_ses');
+  
+  -- Create a fresh session for the happy path test to avoid seat conflicts
+  perform pg_temp.act_as(pg_temp.fx('owner_a'));
+  v_happy_ses := public.save_session(jsonb_build_object('event_id', pg_temp.fx('a_event'), 'venue_id', pg_temp.fx('a_venue'),
+              'layout_version_id', v_lv, 'starts_at', now() + interval '4 days', 'ends_at', now() + interval '4 days 2 hours',
+              'sales_start_at', now() - interval '1 hour', 'sales_end_at', now() + interval '4 days'));
+  select id into v_happy_seat from public.seats where layout_version_id = v_lv and seat_code = 'A-1';
+  v_happy_tt := public.save_ticket_type(jsonb_build_object('session_id', v_happy_ses, 'name', 'VIP-Happy', 'kind', 'PAID',
+              'price_amount', 300000, 'quota', 10, 'zone_ids', jsonb_build_array((select id from public.zones where layout_version_id = v_lv and code = 'A'))));
+  perform public.run_session_status_transitions();
+  
+  perform pg_temp.act_as(pg_temp.fx('c1'), 'aal1');
+  -- Create a new booking for the happy path test
+  v_booking := (public.create_booking(v_happy_ses,
+    jsonb_build_array(jsonb_build_object('ticket_type_id', v_happy_tt, 'seat_id', v_happy_seat)),
+    'happy-path-001') ->> 'id')::uuid;
+  insert into fx values ('happy_booking', v_booking);
+  
+  -- Begin payment
+  v_ref := public.begin_payment(v_booking, 'VNPAY') -> 'payment' ->> 'order_ref';
+  insert into pay values ('happy_ref', v_ref);
+end $$;
+reset role;
+
+-- Verify booking is PAYMENT_PENDING after begin_payment
+select is((select status from public.bookings where id = pg_temp.fx('happy_booking')), 'PAYMENT_PENDING',
+          'Happy path: Booking chuyển sang PAYMENT_PENDING sau begin_payment');
+
+-- IPN success (service_role)
+set local role service_role;
+select is(public.apply_payment_success(pg_temp.ref('happy_ref'), 'TXN-HAPPY', 300000, '{}') ->> 'result', 'PAID',
+          'Happy path: IPN thành công chuyển Booking sang PAID');
+
+-- Issue tickets
+select is((select count(*)::int from public.issue_tickets(pg_temp.fx('happy_booking'), 'k1')), 1,
+          'Happy path: issue_tickets tạo 1 vé');
+
+-- Attach credentials
+select is(public.attach_ticket_credentials(pg_temp.fx('happy_booking'),
+      (select jsonb_agg(jsonb_build_object('ticket_id', t.id, 'kid', 'k1', 'payload', 'p', 'signature', 's'))
+       from public.tickets t where booking_id = pg_temp.fx('happy_booking'))), 'CONFIRMED',
+          'Happy path: attach_ticket_credentials chuyển Booking sang CONFIRMED');
+
+-- Verify final state
+reset role;
+select is((select status from public.bookings where id = pg_temp.fx('happy_booking')), 'CONFIRMED',
+          'Happy path: Booking cuối cùng là CONFIRMED');
+select is((select count(*)::int from public.tickets where booking_id = pg_temp.fx('happy_booking') and status = 'ISSUED'), 1,
+          'Happy path: Có 1 vé ISSUED');
+select is((select count(*)::int from public.ticket_credentials where ticket_id in (select id from public.tickets where booking_id = pg_temp.fx('happy_booking'))), 1,
+          'Happy path: Có 1 credential được ký');
+select is((select count(*)::int from public.outbox where topic = 'ISSUE_TICKETS' and aggregate_id = pg_temp.fx('happy_booking')), 1,
+          'Happy path: Outbox ISSUE_TICKETS được tạo');
+
+-- Ledger check
+select is((select count(*)::int from public.ledger_transactions t join public.payments p on p.id = t.reference_id
+           where p.booking_id = pg_temp.fx('happy_booking')), 1,
+          'Happy path: Có 1 bút toán ledger cho thanh toán');
+
+reset role;
+
+-- ---------------------------------------------------------------- C-01: INITIATED hết hạn → thanh toán lại
+-- Setup part 1: Create session, ticket type (superuser for run_session_status_transitions)
+do $$
+declare v_lv uuid; v_ses uuid; v_tt uuid; v_zone uuid; v_seat1 uuid; v_seat2 uuid;
+begin
+  select layout_version_id into v_lv from public.sessions where id = pg_temp.fx('a_ses');
+  perform pg_temp.act_as(pg_temp.fx('owner_a'));
+  v_ses := public.save_session(jsonb_build_object('event_id', pg_temp.fx('a_event'), 'venue_id', pg_temp.fx('a_venue'),
+            'layout_version_id', v_lv, 'starts_at', now() + interval '13 days', 'ends_at', now() + interval '13 days 2 hours',
+            'sales_start_at', now() - interval '1 hour', 'sales_end_at', now() + interval '13 days'));
+  v_tt := public.save_ticket_type(jsonb_build_object('session_id', v_ses, 'name', 'VIP-C01', 'kind', 'PAID',
+                  'price_amount', 300000, 'quota', 10, 'zone_ids', jsonb_build_array((select id from public.zones where layout_version_id = v_lv and code = 'A'))));
+  perform public.run_session_status_transitions();
+  v_seat1 := (select id from public.seats where layout_version_id = v_lv and seat_code = 'A-1');
+  v_seat2 := (select id from public.seats where layout_version_id = v_lv and seat_code = 'A-2');
+  insert into fx values ('c01_ses', v_ses), ('c01_tt', v_tt), ('c01_lv', v_lv),
+                        ('c01_seat1', v_seat1), ('c01_seat2', v_seat2);
+end $$;
+
+-- Setup part 2: Test INITIATED expired -> repayment
+set local role authenticated;
+do $$
+declare v_booking uuid; v_ref text;
+begin
+  perform pg_temp.act_as(pg_temp.fx('c1'), 'aal1');
+  v_booking := (public.create_booking(pg_temp.fx('c01_ses'),
+    jsonb_build_array(jsonb_build_object('ticket_type_id', pg_temp.fx('c01_tt'), 'seat_id', pg_temp.fx('c01_seat1'))),
+    'c01-initiated-expired-001') ->> 'id')::uuid;
+  v_ref := public.begin_payment(v_booking, 'VNPAY') -> 'payment' ->> 'order_ref';
+  insert into fx values ('c01_exp_booking', v_booking);
+  insert into pay values ('c01_exp_ref', v_ref);
+end $$;
+reset role;
+
+-- Expire the INITIATED payment (set initiated_at to 16 minutes ago, session_minutes = 15)
+set local role service_role;
+do $$
+declare v_ref text;
+begin
+  v_ref := pg_temp.ref('c01_exp_ref');
+  update public.payments set initiated_at = now() - interval '16 minutes' where order_ref = v_ref;
+end $$;
+reset role;
+
+-- Call begin_payment again - should create new payment
+set local role authenticated;
+do $$
+declare v_ref text;
+begin
+  perform pg_temp.act_as(pg_temp.fx('c1'), 'aal1');
+  v_ref := public.begin_payment(pg_temp.fx('c01_exp_booking'), 'VNPAY') -> 'payment' ->> 'order_ref';
+  insert into pay values ('c01_exp_ref_new', v_ref);
+end $$;
+reset role;
+
+-- Verify old payment is EXPIRED, new payment is INITIATED
+set local role service_role;
+select is((select status from public.payments where order_ref = pg_temp.ref('c01_exp_ref')), 'EXPIRED',
+          'C-01: Old INITIATED payment becomes EXPIRED after expiry');
+select is((select status from public.payments where order_ref = pg_temp.ref('c01_exp_ref_new')), 'INITIATED',
+          'C-01: New payment created with INITIATED status');
+select is((select count(*)::int from public.payments where booking_id = pg_temp.fx('c01_exp_booking')), 2,
+          'C-01: Two payments exist for the booking (old EXPIRED, new INITIATED)');
+-- Also verify the booking is still PAYMENT_PENDING
+select is((select status from public.bookings where id = pg_temp.fx('c01_exp_booking')), 'PAYMENT_PENDING',
+          'C-01: Booking stays PAYMENT_PENDING after repayment');
+-- Verify lock_expires_at was extended
+select ok((select lock_expires_at from public.bookings where id = pg_temp.fx('c01_exp_booking')) > now(),
+          'C-01: lock_expires_at extended after repayment');
+reset role;
+
+-- Setup part 3: Test FAILED payment can be retried (verify FAILED payment stays FAILED)
+set local role authenticated;
+do $$
+declare v_booking uuid; v_ref text;
+begin
+  perform pg_temp.act_as(pg_temp.fx('c2'), 'aal1');
+  v_booking := (public.create_booking(pg_temp.fx('c01_ses'),
+    jsonb_build_array(jsonb_build_object('ticket_type_id', pg_temp.fx('c01_tt'), 'seat_id', pg_temp.fx('c01_seat2'))),
+    'c01-failed-retry-001') ->> 'id')::uuid;
+  v_ref := public.begin_payment(v_booking, 'VNPAY') -> 'payment' ->> 'order_ref';
+  insert into fx values ('c01_failed_booking', v_booking);
+  insert into pay values ('c01_failed_ref', v_ref);
+end $$;
+reset role;
+
+set local role service_role;
+select is(public.apply_payment_failure(pg_temp.ref('c01_failed_ref'), 'card_declined', '{}') ->> 'result', 'FAILED',
+          'C-01: Payment failure -> FAILED');
+reset role;
+
+set local role authenticated;
+do $$
+declare v_ref text;
+begin
+  perform pg_temp.act_as(pg_temp.fx('c2'), 'aal1');
+  v_ref := public.begin_payment(pg_temp.fx('c01_failed_booking'), 'VNPAY') -> 'payment' ->> 'order_ref';
+  insert into pay values ('c01_failed_ref_new', v_ref);
+end $$;
+reset role;
+
+set local role service_role;
+select is((select status from public.payments where order_ref = pg_temp.ref('c01_failed_ref')), 'FAILED',
+          'C-01: Old FAILED payment stays FAILED after retry');
+select is((select status from public.payments where order_ref = pg_temp.ref('c01_failed_ref_new')), 'INITIATED',
+          'C-01: New payment created with INITIATED status after FAILED');
+select is((select count(*)::int from public.payments where booking_id = pg_temp.fx('c01_failed_booking')), 2,
+          'C-01: Two payments exist (old FAILED, new INITIATED)');
+reset role;
+
+-- ---------------------------------------------------------------- Máy trạng thái, sổ cái
 select throws_ok(format('update public.bookings set status = %L where id = %L', 'PENDING', pg_temp.fx('b1')),
                  'P0001', 'INVALID_STATE', 'Booking PAID không quay về PENDING');
 select throws_ok(format('update public.sessions set status = %L where id = %L', 'SCHEDULED', pg_temp.fx('a_ses')),
