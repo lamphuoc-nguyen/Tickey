@@ -9,6 +9,7 @@ import { canPay } from '@/features/customer/booking/booking-presentation';
 import { usePayment } from '../hooks/use-payment';
 import { customerCapabilities } from '@/lib/capabilities';
 import { BookingSummary } from '@/features/customer/booking/components/booking-summary';
+import { BuyerInfo } from '@/features/customer/booking/components/buyer-info';
 
 function Content() {
   const { bookingId = '' } = useLocalSearchParams<{ bookingId: string }>();
@@ -22,15 +23,17 @@ function Content() {
       footer={
         <ActionFooter
           busy={payment.isPending}
-          disabled={!configured || !terms || !booking || !canPay(booking, query.remainingMs)}
+          disabled={!configured || !terms || !booking || !!query.error || !canPay(booking, query.remainingMs)}
           disabledReason={
             !configured
               ? 'Thanh toán trực tuyến chưa khả dụng.'
               : !booking
                 ? 'Cần tải được đơn trước khi thanh toán.'
-                : !canPay(booking, query.remainingMs)
-                  ? 'Đơn hiện không cho phép thanh toán. Hãy kiểm tra trạng thái mới nhất.'
-                  : 'Xác nhận điều khoản trước khi tiếp tục.'
+                : query.error
+                  ? 'Cần cập nhật trạng thái đơn trước khi thanh toán.'
+                  : !canPay(booking, query.remainingMs)
+                    ? 'Đơn hiện không cho phép thanh toán. Hãy kiểm tra trạng thái mới nhất.'
+                    : 'Xác nhận điều khoản trước khi tiếp tục.'
           }
           onPress={() => payment.mutate()}
         >
@@ -44,7 +47,8 @@ function Content() {
       {booking && (
         <>
           <Heading small>{booking.code}</Heading>
-          <BookingSummary booking={booking} />
+          <BookingSummary booking={booking} compact />
+          <BuyerInfo />
           <Pressable
             accessibilityRole="checkbox"
             accessibilityState={{ checked: terms }}

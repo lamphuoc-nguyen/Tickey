@@ -130,9 +130,9 @@ export interface StaffAssignment {
 export const ROLE_LABELS: Record<string, string> = {
   OWNER: 'Chủ sở hữu',
   EVENT_MANAGER: 'Quản lý sự kiện',
-  FINANCE: 'Kế toán',
+  FINANCE: 'Kế toán đối soát',
   GATE_MANAGER: 'Quản lý cổng',
-  SCANNER: 'Soát vé',
+  SCANNER: 'Nhân sự soát vé',
   POS: 'Bán vé tại quầy',
 };
 

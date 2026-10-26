@@ -21,7 +21,7 @@ import {
   errorMessage,
 } from '@/components/ui';
 import { DetailRow, ResultPanel } from '@/components/detail';
-import { TextAction } from '@/components/customer-controls';
+import { Badge, Disclosure, TextAction } from '@/components/customer-controls';
 import {
   useAvailability,
   useLayout,
@@ -31,7 +31,7 @@ import {
 } from '@/features/customer/catalog/hooks/use-catalog';
 import { useBookingDraft } from '../draft-store';
 import { useSelectionBooking } from '../hooks/use-selection-booking';
-import { FreeRegistrationFields } from '../components/free-registration-fields';
+import { BuyerInfo } from '../components/buyer-info';
 import { selectedSeatItems, selectionLimit, ticketTypeSaleState } from '../selection-rules';
 import { selectionMapHeight } from '../seat-map-viewport';
 
@@ -69,7 +69,6 @@ export default function SelectionScreen() {
     (t) => t.kind !== 'COMP' && t.visibility === 'PUBLIC' && t.status === 'ACTIVE',
   );
   const activeTypes = listedTypes.filter((t) => ticketTypeSaleState(t, now) === 'ON_SALE');
-  const upcomingTypes = listedTypes.filter((t) => ticketTypeSaleState(t, now) === 'NOT_STARTED');
   const selectedType = activeTypes.find((t) => t.id === draft.ticketTypeId);
   const seatsToType = useMemo(
     () =>
@@ -104,6 +103,11 @@ export default function SelectionScreen() {
           (sum, id) => sum + (activeTypes.find((t) => t.id === seatsToType.get(id))?.priceAmount ?? 0),
           0,
         );
+  const priceReady =
+    zone?.type === 'standing'
+      ? !!selectedType
+      : draft.selected.length > 0 &&
+        draft.selected.every((id) => activeTypes.some((type) => type.id === seatsToType.get(id)));
   const isFree =
     items.length > 0 && items.every((i) => activeTypes.find((t) => t.id === i.ticketTypeId)?.kind === 'FREE');
   const freeUnavailable =
@@ -191,7 +195,7 @@ export default function SelectionScreen() {
           <View style={[ui.row, { justifyContent: 'space-between' }]}>
             <Copy style={ui.semibold}>{draft.unresolved ? 'Yêu cầu đang kiểm tra' : 'Tạm tính'}</Copy>
             <Copy style={{ color: c.accent, fontFamily: 'Outfit-Bold', fontSize: 17 }}>
-              {items.length ? formatMoney(total) : 'Chưa chọn vé'}
+              {items.length ? (priceReady ? formatMoney(total) : 'Cần cập nhật giá') : 'Chưa chọn vé'}
             </Copy>
           </View>
           <ActionFooter
@@ -249,12 +253,35 @@ export default function SelectionScreen() {
         emptyText="Chưa có sơ đồ hoặc khu vé."
       />
       {!!booking.error && <ErrorNotice error={booking.error} />}
-      {upcomingTypes.length > 0 && (
-        <Notice warning>
-          {upcomingTypes
-            .map((t) => `Hạng ${t.name} mở bán từ ${formatSessionTime(t.saleStartAt!)}.`)
-            .join(' ')}
-        </Notice>
+      {!!listedTypes.length && (
+        <Disclosure title="Hạng vé và thời gian mở bán">
+          {listedTypes.map((type) => {
+            const state = ticketTypeSaleState(type, now);
+            return (
+              <View key={type.id} style={{ gap: 6, paddingVertical: 8 }}>
+                <View style={[ui.row, { justifyContent: 'space-between', flexWrap: 'wrap' }]}>
+                  <Copy style={ui.semibold}>{type.name}</Copy>
+                  <Copy>{formatMoney(type.priceAmount)}</Copy>
+                </View>
+                <View style={{ alignSelf: 'flex-start' }}>
+                  <Badge>
+                    {state === 'ON_SALE'
+                      ? 'Đang mở bán'
+                      : state === 'NOT_STARTED'
+                        ? 'Chưa mở bán'
+                        : 'Đã đóng bán'}
+                  </Badge>
+                </View>
+                {state === 'NOT_STARTED' && type.saleStartAt && (
+                  <Copy style={ui.muted}>Mở bán {formatSessionTime(type.saleStartAt)}</Copy>
+                )}
+                {state === 'ENDED' && type.saleEndAt && (
+                  <Copy style={ui.muted}>Đã đóng {formatSessionTime(type.saleEndAt)}</Copy>
+                )}
+              </View>
+            );
+          })}
+        </Disclosure>
       )}
       {freeUnavailable && (
         <>
@@ -463,21 +490,12 @@ export default function SelectionScreen() {
                 label="Số lượng"
                 value={`${zone?.type === 'standing' ? draft.quantity : draft.selected.length} vé`}
               />
-              {!mixedSelection && <DetailRow label="Tổng tham khảo" value={formatMoney(total)} />}
+              {!mixedSelection && priceReady && (
+                <DetailRow label="Tổng tham khảo" value={formatMoney(total)} />
+              )}
             </Card>
           )}
-          {isFree && (
-            <FreeRegistrationFields
-              sessionId={sessionId}
-              count={
-                zone?.type === 'standing'
-                  ? draft.quantity > 0 && draft.quantity <= maxQuantity
-                    ? draft.quantity
-                    : 0
-                  : draft.selected.length
-              }
-            />
-          )}
+          {isFree && items.length > 0 && <BuyerInfo />}
           {!draft.unresolved && draft.selected.length > 0 && (
             <TextAction onPress={() => draft.selected.forEach((id) => draft.toggleSeat(id))}>
               Bỏ chọn tất cả

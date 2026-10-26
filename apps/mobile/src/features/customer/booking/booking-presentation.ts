@@ -2,7 +2,7 @@ import { holdRemainingMs, type Booking, type BookingStatus } from '@event/core';
 export const bookingLabels: Record<BookingStatus, string> = {
   PENDING: 'Đang giữ chỗ',
   PAYMENT_PENDING: 'Đang xác nhận thanh toán',
-  PAID: 'Đã nhận tiền · Đang phát vé',
+  PAID: 'Đang phát hành vé',
   CONFIRMED: 'Đã xác nhận · Vé đã phát hành',
   CANCELLED: 'Đã hủy đơn',
   EXPIRED: 'Đã hết hạn giữ chỗ',

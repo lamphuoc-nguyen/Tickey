@@ -1,115 +1,121 @@
 import { useLocalSearchParams, router } from 'expo-router';
 import { AuthGate } from '@/features/auth/components/auth-gate';
-import { Button, ErrorNotice, Notice, QueryState, Screen } from '@/components/ui';
+import { ActionFooter, ErrorNotice, Heading, QueryState, Screen } from '@/components/ui';
 import { MenuGroup, MenuRow } from '@/components/customer-controls';
-import { useBookingTickets, useTicket } from '../hooks/use-ticket';
-import { TicketPresentation } from '../components/ticket-presentation';
+import { BuyerInfo } from '@/features/customer/booking/components/buyer-info';
+import { useBookingTickets, useOrder, useSaveBookingTickets, useTicket } from '../hooks/use-ticket';
+import { BookingPassPresentation } from '../components/booking-pass-presentation';
+import { oldestDownload } from '../booking-pass';
+
+/** Existing ticket links resolve to their booking; no per-person carousel or name assignment. */
 function Content() {
   const { ticketId = '' } = useLocalSearchParams<{ ticketId: string }>();
-  const { ticket, online, query, download, downloadedAt, saved } = useTicket(ticketId);
-  const siblings = useBookingTickets(online ? (ticket?.bookingId ?? '') : '');
-  const list = online
-    ? (siblings.data ?? [])
-    : (saved.data?.map((s) => s.ticket).filter((t) => t.bookingId === ticket?.bookingId) ?? []);
-  const position = list.findIndex((t) => t.id === ticketId),
-    next = position >= 0 ? list[position + 1] : undefined;
+  const { ticket, online, query, saved } = useTicket(ticketId);
+  const bookingId = ticket?.bookingId ?? '';
+  const siblings = useBookingTickets(bookingId, online);
+  const order = useOrder(bookingId, online);
+  const save = useSaveBookingTickets();
+  const records = online
+    ? (siblings.data ?? (ticket ? [ticket] : []))
+    : (saved.data?.filter((s) => s.ticket.bookingId === bookingId).map((s) => s.ticket) ?? []);
+  const canSave = online && !!siblings.data?.length && !query.error && !siblings.error && !order.error;
   return (
     <Screen
       footer={
-        <Button
+        <ActionFooter
           disabled={!ticket}
-          disabledReason="Cần tải được vé trước khi mở đơn hoặc vé tiếp theo."
-          onPress={() => {
-            if (!ticket) return;
-            if (next) router.replace({ pathname: '/tickets/[ticketId]', params: { ticketId: next.id } });
-            else router.push({ pathname: '/booking/[bookingId]', params: { bookingId: ticket.bookingId } });
-          }}
+          disabledReason="Cần tải được thông tin đơn trước khi tiếp tục."
+          onPress={() =>
+            ticket &&
+            router.push(
+              online ? { pathname: '/booking/[bookingId]', params: { bookingId } } : '/tickets/offline',
+            )
+          }
         >
-          {next ? 'Vé tiếp theo' : 'Về đơn của tôi'}
-        </Button>
+          {online ? 'Chi tiết đơn' : 'Vé đã tải'}
+        </ActionFooter>
       }
     >
+      <Heading>Vé vào cổng</Heading>
       <QueryState
         loading={online ? query.isPending : saved.isPending}
         error={online ? query.error : saved.error}
         retry={() => void (online ? query.refetch() : saved.refetch())}
         empty={!online && !saved.isPending && !saved.error && !ticket}
-        emptyText="Vé này chưa được tải để xem offline."
+        emptyText="Đơn này chưa được tải để xem offline."
       />
-      <TicketPresentation
-        ticket={ticket}
-        online={online}
-        downloadedAt={downloadedAt}
-        stale={online && !!query.error}
-        position={position}
-        count={list.length}
-      />
-      {ticket?.session?.status === 'CANCELLED' && (
+      {ticket && (
         <>
-          <Notice warning>Suất diễn đã bị hủy. Vé không dùng để vào cổng.</Notice>
-          <MenuRow
-            label="Thông tin hủy suất và hoàn tiền"
-            onPress={() => router.push({ pathname: '/tickets/[ticketId]/cancelled', params: { ticketId } })}
+          {online && (
+            <QueryState
+              loading={siblings.isPending}
+              error={siblings.error ?? order.error}
+              retry={() => {
+                void siblings.refetch();
+                void order.refetch();
+              }}
+              compact
+            />
+          )}
+          <BookingPassPresentation
+            order={order.data}
+            tickets={records}
+            online={online}
+            downloadedAt={oldestDownload(saved.data ?? [], bookingId)}
+            stale={online && (!!query.error || !!siblings.error || !!order.error)}
           />
+          <BuyerInfo online={online} />
+          <MenuGroup title="Thông tin và hỗ trợ">
+            {ticket.session?.status === 'CANCELLED' && (
+              <MenuRow
+                label="Suất hủy và hoàn tiền"
+                onPress={() =>
+                  router.push({ pathname: '/tickets/[ticketId]/cancelled', params: { ticketId } })
+                }
+              />
+            )}
+            {online && (
+              <MenuRow
+                navigation={false}
+                label="Cập nhật thông tin vé"
+                busy={query.isRefetching || siblings.isRefetching || order.isRefetching}
+                onPress={() => {
+                  void query.refetch();
+                  void siblings.refetch();
+                  void order.refetch();
+                }}
+              />
+            )}
+            <MenuRow
+              icon="venue"
+              label="Địa điểm tổ chức"
+              onPress={() => router.push({ pathname: '/tickets/[ticketId]/venue', params: { ticketId } })}
+            />
+            <MenuRow
+              icon="ticket"
+              navigation={false}
+              label={save.isSuccess ? 'Đã lưu thông tin vé trên thiết bị' : 'Lưu đơn để xem offline'}
+              busy={save.isPending}
+              disabled={!canSave}
+              disabledReason={
+                online
+                  ? 'Cần tải đủ thông tin vé của đơn trước khi lưu.'
+                  : 'Kết nối mạng để tải thông tin mới nhất.'
+              }
+              onPress={() => save.mutate(siblings.data ?? [])}
+            />
+            <MenuRow
+              label="Gửi phản ánh"
+              onPress={() => router.push({ pathname: '/reports/new', params: { ticketId } })}
+            />
+            <MenuRow
+              label="Liên hệ hỗ trợ"
+              onPress={() => router.push({ pathname: '/support', params: { bookingId } })}
+            />
+          </MenuGroup>
+          {!!save.error && <ErrorNotice error={save.error} />}
         </>
       )}
-      <QueryState error={siblings.error} retry={() => void siblings.refetch()} compact />
-      <MenuGroup title="Thông tin vé">
-        <MenuRow
-          icon="venue"
-          label="Địa điểm tổ chức"
-          disabled={!ticket}
-          disabledReason="Cần tải được vé để xác định địa điểm."
-          onPress={() => router.push({ pathname: '/tickets/[ticketId]/venue', params: { ticketId } })}
-        />
-        {ticket && !ticket.holderName && ticket.status === 'ISSUED' && online && (
-          <MenuRow
-            icon="account"
-            label="Ghi tên người tham dự"
-            disabled={!!query.error}
-            disabledReason="Cần kiểm tra được trạng thái vé trước khi ghi tên."
-            onPress={() => router.push({ pathname: '/tickets/[ticketId]/holder', params: { ticketId } })}
-          />
-        )}
-        <MenuRow
-          icon="ticket"
-          navigation={false}
-          label={download.isSuccess ? 'Đã lưu vé trên thiết bị' : 'Lưu vé để xem offline'}
-          busy={download.isPending}
-          disabled={!online || !query.data || !!query.error}
-          disabledReason={
-            !online
-              ? 'Cần kết nối mạng để tải bản cập nhật của vé.'
-              : 'Cần tải được thông tin vé trước khi lưu để xem offline.'
-          }
-          onPress={() => download.mutate()}
-        />
-        {online && (
-          <MenuRow
-            navigation={false}
-            label="Cập nhật trạng thái vé"
-            busy={query.isRefetching}
-            onPress={() => void query.refetch()}
-          />
-        )}
-      </MenuGroup>
-      {!!download.error && <ErrorNotice error={download.error} />}
-      <MenuGroup title="Hỗ trợ">
-        <MenuRow
-          label="Gửi phản ánh"
-          disabled={!ticket}
-          disabledReason="Cần tải được vé liên quan trước khi gửi phản ánh."
-          onPress={() => router.push({ pathname: '/reports/new', params: { ticketId } })}
-        />
-        <MenuRow
-          label="Liên hệ hỗ trợ"
-          onPress={() =>
-            router.push(
-              ticket ? { pathname: '/support', params: { bookingId: ticket.bookingId } } : '/support',
-            )
-          }
-        />
-      </MenuGroup>
     </Screen>
   );
 }
