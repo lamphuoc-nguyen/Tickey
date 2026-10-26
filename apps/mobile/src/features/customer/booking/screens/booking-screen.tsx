@@ -19,6 +19,7 @@ import { MenuGroup, MenuRow, TextAction } from '@/components/customer-controls';
 import { DetailRow, ResultPanel } from '@/components/detail';
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import { useBookingTickets } from '@/features/customer/tickets/hooks/use-ticket';
+import { usePayment } from '@/features/customer/payment/hooks/use-payment';
 import { useBooking, useCancelBooking } from '../hooks/use-booking';
 import { bookingLabels, canCancel, canPay } from '../booking-presentation';
 import { BookingSummary } from '../components/booking-summary';
@@ -26,6 +27,7 @@ function Content() {
   const insets = useSafeAreaInsets();
   const { bookingId = '' } = useLocalSearchParams<{ bookingId: string }>();
   const query = useBooking(bookingId),
+    payment = usePayment(bookingId),
     cancel = useCancelBooking(),
     tickets = useBookingTickets(bookingId, query.data?.status === 'CONFIRMED');
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -37,26 +39,38 @@ function Content() {
       footer={
         booking && (
           <ActionFooter
-            busy={query.isRefetching}
-            disabled={!!query.error || (booking.status === 'PENDING' && !canPay(booking, query.remainingMs))}
+            busy={query.isRefetching || payment.isPending}
+            disabled={
+              !!query.error ||
+              (booking.status === 'PENDING' && !canPay(booking, query.remainingMs)) ||
+              (booking.status === 'PAYMENT_PENDING' && !canPay(booking, query.remainingMs) && query.isRefetching)
+            }
             disabledReason={
               query.error
                 ? 'Cần cập nhật được trạng thái đơn trước khi tiếp tục.'
                 : 'Hết thời gian hiển thị giữ chỗ. Kiểm tra trạng thái mới nhất hoặc chọn lại.'
             }
-            onPress={() =>
-              booking.status === 'CONFIRMED'
-                ? router.push({ pathname: '/booking/[bookingId]/result', params: { bookingId } })
-                : canPay(booking, query.remainingMs)
-                  ? router.push({ pathname: '/booking/[bookingId]/holder', params: { bookingId } })
-                  : void query.refetch()
-            }
+            onPress={() => {
+              if (booking.status === 'CONFIRMED') {
+                router.push({ pathname: '/booking/[bookingId]/result', params: { bookingId } });
+              } else if (booking.status === 'PAYMENT_PENDING' && canPay(booking, query.remainingMs)) {
+                payment.mutate();
+              } else if (booking.status === 'PENDING' && canPay(booking, query.remainingMs)) {
+                router.push({ pathname: '/booking/[bookingId]/holder', params: { bookingId } });
+              } else {
+                void query.refetch();
+              }
+            }}
           >
             {booking.status === 'CONFIRMED'
               ? 'Xem vé của đơn'
-              : booking.status === 'PENDING'
-                ? 'Thông tin người tham dự'
-                : 'Kiểm tra trạng thái'}
+              : booking.status === 'PAYMENT_PENDING'
+                ? canPay(booking, query.remainingMs)
+                  ? 'Tiếp tục thanh toán'
+                  : 'Tải lại'
+                : booking.status === 'PENDING'
+                  ? 'Thông tin người tham dự'
+                  : 'Kiểm tra trạng thái'}
           </ActionFooter>
         )
       }
@@ -96,12 +110,38 @@ function Content() {
               </Copy>
             </View>
           )}
-          {booking.status === 'PAYMENT_PENDING' && (
+          {booking.status === 'PAYMENT_PENDING' && query.remainingMs > 0 && (
+            <>
+              <View
+                style={[
+                  ui.row,
+                  {
+                    padding: 12,
+                    backgroundColor: c.tint,
+                    borderRadius: 12,
+                    flexWrap: 'wrap',
+                    justifyContent: 'space-between',
+                  },
+                ]}
+              >
+                <Copy>Thời gian thanh toán còn</Copy>
+                <Copy style={[ui.semibold, { color: c.primary }]}>
+                  {minutes}:{String(seconds).padStart(2, '0')}
+                </Copy>
+              </View>
+              <ResultPanel
+                title="Đang xác nhận thanh toán"
+                description="Chưa có kết quả cuối cùng từ cổng thanh toán. Bạn có thể tiếp tục thanh toán nếu giao dịch chưa hoàn tất."
+              />
+            </>
+          )}
+          {booking.status === 'PAYMENT_PENDING' && query.remainingMs <= 0 && (
             <ResultPanel
-              title="Đang xác nhận thanh toán"
-              description="Chưa có kết quả cuối cùng. Vui lòng không thanh toán lại."
+              title="Đang chờ xác nhận / sắp hết hạn"
+              description="Chưa có kết quả cuối cùng từ cổng thanh toán. Đang kiểm tra trạng thái..."
             />
           )}
+          {!!payment.error && <ErrorNotice error={payment.error} />}
           {booking.status === 'PAID' && (
             <ResultPanel
               title="Đang phát hành vé"
