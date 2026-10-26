@@ -7,7 +7,7 @@
 -- ============================================================================
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(69);
+select plan(72);
 
 -- ---------------------------------------------------------------- fixture
 create temp table fx (k text primary key, v uuid);
@@ -601,6 +601,134 @@ select is((select ticket_type_id from public.session_seats where session_id = pg
 select is((select count(*)::int from public.session_seats where session_id = pg_temp.fx('c05_update_ses') and ticket_type_id = pg_temp.fx('c05_update_paid_tt') and status in ('AVAILABLE','BLOCKED','HELD')), 1,
           'C-05: PAID keeps other seats, only manually assigned seat stays FREE');
 
+-- ---------------------------------------------------------------- C-07: create_refund rounding
+-- C-07 Test 1 setup: 2 tickets 100000 each, refund 100001 -> tests largest remainder (50000, 50001)
+-- Split: session/ticket types as superuser, booking/payment as authenticated
+do $$
+declare v_ses uuid; v_tt uuid; v_seat1 uuid; v_seat2 uuid; v_lv uuid;
+begin
+  select layout_version_id into v_lv from public.sessions where id = pg_temp.fx('a_ses');
+  perform pg_temp.act_as(pg_temp.fx('owner_a'));
+  v_ses := public.save_session(jsonb_build_object('event_id', pg_temp.fx('a_event'), 'venue_id', pg_temp.fx('a_venue'),
+            'layout_version_id', v_lv, 'starts_at', now() + interval '11 days', 'ends_at', now() + interval '11 days 2 hours',
+            'sales_start_at', now() - interval '1 hour', 'sales_end_at', now() + interval '11 days'));
+  v_tt := public.save_ticket_type(jsonb_build_object('session_id', v_ses, 'name', 'VIP-C07', 'kind', 'PAID',
+                  'price_amount', 100000, 'quota', 10, 'zone_ids', jsonb_build_array((select id from public.zones where layout_version_id = v_lv and code = 'A'))));
+  perform public.run_session_status_transitions();
+  v_seat1 := (select id from public.seats where layout_version_id = v_lv and seat_code = 'A-1');
+  v_seat2 := (select id from public.seats where layout_version_id = v_lv and seat_code = 'A-2');
+  insert into fx values ('c07_round_ses', v_ses), ('c07_round_tt', v_tt), ('c07_round_lv', v_lv),
+                        ('c07_round_seat1', v_seat1), ('c07_round_seat2', v_seat2);
+end $$;
+
+set local role authenticated;
+do $$
+declare v_booking uuid; v_ref text;
+begin
+  perform pg_temp.act_as(pg_temp.fx('c1'), 'aal1');
+  v_booking := (public.create_booking(pg_temp.fx('c07_round_ses'),
+    jsonb_build_array(
+      jsonb_build_object('ticket_type_id', pg_temp.fx('c07_round_tt'), 'seat_id', pg_temp.fx('c07_round_seat1')),
+      jsonb_build_object('ticket_type_id', pg_temp.fx('c07_round_tt'), 'seat_id', pg_temp.fx('c07_round_seat2'))
+    ),
+    'c07-round-001') ->> 'id')::uuid;
+  insert into fx values ('c07_round_booking', v_booking);
+  
+  v_ref := public.begin_payment(v_booking, 'VNPAY') -> 'payment' ->> 'order_ref';
+  insert into pay values ('c07_round_ref', v_ref);
+end $$;
+reset role;
+
+set local role service_role;
+do $$
+declare v_ref text; v_booking uuid; v_refund uuid;
+begin
+  v_ref := pg_temp.ref('c07_round_ref');
+  v_booking := pg_temp.fx('c07_round_booking');
+  perform public.apply_payment_success(v_ref, 'TXN-C07', 200000, '{}');
+  perform public.issue_tickets(v_booking, 'k1');
+  
+  -- Refund 100001 (tests largest remainder: 50000, 50001)
+  v_refund := public.create_refund(v_booking, 100001, 'CUSTOMER_REQUEST', 'MANUAL', gen_random_uuid(), pg_temp.fx('c1'),
+    (select jsonb_agg(id) from public.tickets where booking_id = v_booking));
+  insert into fx values ('c07_round_refund', v_refund);
+end $$;
+reset role;
+
+-- C-07 Test 1: 2 tickets 100000 each, refund 100001 -> largest remainder 50000, 50001
+select is((select sum(amount)::bigint from public.refund_items where refund_id = pg_temp.fx('c07_round_refund')), 100001::bigint,
+          'C-07: sum(refund_items.amount) = refunds.amount (100001)');
+select ok((select count(*) from public.refund_items where refund_id = pg_temp.fx('c07_round_refund') and amount in (50000, 50001)) = 2,
+          'C-07: refund items are 50000, 50001');
+
+-- C-07 Test 2: v_base = 0 (refund only FREE tickets) -> VALIDATION_FAILED
+-- Create booking with both PAID (price > 0, seated) and FREE (standing, no seat) tickets, refund only FREE ticket
+-- Split: session/ticket types as superuser, booking as authenticated, payment as service_role
+do $$
+declare v_ses uuid; v_tt_paid uuid; v_tt_free uuid; v_seat1 uuid; v_zone_ga uuid; v_lv uuid;
+begin
+  select layout_version_id into v_lv from public.sessions where id = pg_temp.fx('a_ses');
+  perform pg_temp.act_as(pg_temp.fx('owner_a'));
+  v_ses := public.save_session(jsonb_build_object('event_id', pg_temp.fx('a_event'), 'venue_id', pg_temp.fx('a_venue'),
+            'layout_version_id', v_lv, 'starts_at', now() + interval '12 days', 'ends_at', now() + interval '12 days 2 hours',
+            'sales_start_at', now() - interval '1 hour', 'sales_end_at', now() + interval '12 days'));
+  -- PAID ticket with price > 0 (zone A, seated)
+  v_tt_paid := public.save_ticket_type(jsonb_build_object('session_id', v_ses, 'name', 'Paid-C07', 'kind', 'PAID',
+                  'price_amount', 100000, 'quota', 10, 'zone_ids', jsonb_build_array((select id from public.zones where layout_version_id = v_lv and code = 'A'))));
+  -- FREE ticket with price = 0 (zone GA, standing)
+  v_zone_ga := (select id from public.zones where layout_version_id = v_lv and code = 'GA');
+  v_tt_free := public.save_ticket_type(jsonb_build_object('session_id', v_ses, 'name', 'Free-C07', 'kind', 'FREE',
+                  'price_amount', 0, 'quota', 10, 'zone_ids', jsonb_build_array(v_zone_ga)));
+  perform public.run_session_status_transitions();
+  v_seat1 := (select id from public.seats where layout_version_id = v_lv and seat_code = 'A-1');
+  insert into fx values ('c07_zero_ses', v_ses), ('c07_zero_tt_paid', v_tt_paid), ('c07_zero_tt_free', v_tt_free), ('c07_zero_lv', v_lv),
+                        ('c07_zero_seat1', v_seat1), ('c07_zero_zone_ga', v_zone_ga);
+end $$;
+
+set local role authenticated;
+do $$
+declare v_booking uuid; v_ref text;
+begin
+  perform pg_temp.act_as(pg_temp.fx('c1'), 'aal1');
+  -- Booking with both PAID (seated) and FREE (standing, no seat_id) tickets
+  v_booking := (public.create_booking(pg_temp.fx('c07_zero_ses'),
+    jsonb_build_array(
+      jsonb_build_object('ticket_type_id', pg_temp.fx('c07_zero_tt_paid'), 'seat_id', pg_temp.fx('c07_zero_seat1')),
+      jsonb_build_object('ticket_type_id', pg_temp.fx('c07_zero_tt_free'), 'zone_id', pg_temp.fx('c07_zero_zone_ga'), 'quantity', 1)
+    ),
+    'c07-zero-001') ->> 'id')::uuid;
+  insert into fx values ('c07_zero_booking', v_booking);
+  
+  v_ref := public.begin_payment(v_booking, 'VNPAY') -> 'payment' ->> 'order_ref';
+  insert into pay values ('c07_zero_ref', v_ref);
+end $$;
+reset role;
+
+set local role service_role;
+do $$
+declare v_ref text; v_booking uuid;
+begin
+  v_booking := pg_temp.fx('c07_zero_booking');
+  v_ref := pg_temp.ref('c07_zero_ref');
+  -- Payment amount = PAID ticket price (100000)
+  perform public.apply_payment_success(v_ref, 'TXN-C07-ZERO', 100000, '{}');
+  perform public.issue_tickets(v_booking, 'k1');
+end $$;
+reset role;
+
+-- C-07 Test 2 assertion: refund only FREE ticket (v_base = 0) -> VALIDATION_FAILED
+set local role service_role;
+select throws_ok(
+  format('select public.create_refund(%L, %L, %L, %L, %L, %L, %L)',
+    pg_temp.fx('c07_zero_booking'), 1000, 'CUSTOMER_REQUEST', 'MANUAL', gen_random_uuid(), pg_temp.fx('c1'),
+    (select jsonb_agg(t.id) from public.tickets t join public.booking_items bi on bi.id = t.booking_item_id
+     where t.booking_id = pg_temp.fx('c07_zero_booking') and bi.unit_price = 0)
+  ),
+  'P0001', 'VALIDATION_FAILED',
+  'C-07: Refund FREE tickets (v_base=0) throws VALIDATION_FAILED'
+);
+reset role;
+
 -- ---------------------------------------------------------------- C-01: INITIATED hết hạn → thanh toán lại
 -- Setup part 1: Create session, ticket type (superuser for run_session_status_transitions)
 do $$
@@ -720,3 +848,4 @@ select is((select sum(case direction when 'DEBIT' then amount else -amount end) 
           'Sổ cái cân: tổng Nợ = tổng Có');
 
 select * from finish();
+rollback;
