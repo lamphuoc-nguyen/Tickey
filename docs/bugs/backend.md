@@ -1477,15 +1477,82 @@ trong/ trước `catch`. Bản sửa 19:18 dời `handledCount++` lên đầu v�
 
 `dotnet test --solution backend/EventPlatform.sln` (**có build**): **212/212 PASS**, exit 0 (trước đó 211, +1 test mới).
 
+## B-32: CI không bao giờ build Release/Docker image — lỗi build của Render không có cửa bị bắt
+
+### Trạng thái
+OPEN
+
+### Phía
+backend
+
+### Giao cho
+opencode
+
+### Mức độ
+medium
+
+### Luồng
+khác
+
+### Người phát hiện
+claude (2026-10-26 phiên 28)
+
+### Tái hiện
+1. Mở `.github/workflows/ci.yml`: job `backend` chỉ có một bước chạy lệnh ở dòng 34.
+2. Không job nào chạy `dotnet publish -c Release`, cũng không job nào chạy `docker build -f ./Dockerfile .`.
+3. Đẩy một commit làm vỡ `dotnet publish -c Release` hoặc vỡ `Dockerfile` (ví dụ sai `COPY`, sai đường dẫn
+   project, hoặc lỗi chỉ xuất hiện ở cấu hình `Release`) → **CI vẫn xanh**, Render mới là chỗ fail.
+
+### Kỳ vọng / Thực tế
+- Kỳ vọng: CI xanh ⇒ Render build được. Pipeline deploy duy nhất của backend là `Dockerfile` + `dotnet publish -c Release`,
+  nên CI phải chạy đúng hai thứ đó.
+- Thực tế: CI chỉ chạy `dotnet test` (mặc định cấu hình **Debug**, không publish). `Dockerfile` và `render.yaml`
+  **không được build hay validate ở bất kỳ job nào**. Lỗi build chỉ lộ ra trên Render, sau khi đã merge vào `main`.
+
+### Bằng chứng
+- `.github/workflows/ci.yml:26-34` — job `Backend (.NET)`, bước duy nhất là
+  `dotnet test --solution backend/EventPlatform.sln`. Không có `publish`, không có `docker build`.
+- `.github/workflows/ci.yml:10-24`, `:36-45` — hai job còn lại là TypeScript và pgTAP; không job nào đụng `Dockerfile`.
+- `render.yaml:9-10` — Render build `dockerfilePath: ./Dockerfile` với `dockerContext: .`, tức đúng thứ CI bỏ qua.
+- Repo **không có `.dockerignore`** (`ls .dockerignore` → No such file or directory). Hệ quả: `docker build` tại chỗ
+  repo trên máy dev copy `obj/`/`bin/` của Windows vào context, nên build local **không trung thực** so với Render
+  (Render clone sạch từ git). Phiên 27 phải dùng `git archive HEAD` ra thư mục sạch mới dựng lại được đúng điều kiện.
+
+### Nguyên nhân
+CI được viết theo `AGENTS.md` mục 6 (lint/typecheck/test/pgTAP) — là bộ kiểm tra trước khi **bàn giao**, không phải
+bộ kiểm tra trước khi **deploy**. Artifact deploy (image Docker) chưa bao giờ nằm trong phạm vi CI.
+
+### Ghi chú: không phải nguyên nhân sự cố Render 2026-10-26
+Sự cố Render của phiên 27 fail ở bước **Deploy / health check**, không phải Build (người dùng xác nhận 2026-10-26
+phiên 28). Nguyên nhân là thiếu env var `sync: false` trong Render dashboard làm `.ValidateOnStart()` giết container
+lúc boot — xem `docs/DEPLOY_RENDER.md`. B-32 là **khoảng trống phòng ngừa**: lần sau nếu lỗi *thật sự* ở build thì CI
+vẫn sẽ không bắt được. Đừng ghi B-32 là nguyên nhân sự cố đó.
+
+### Đề xuất sửa
+Việc nằm ở hai vùng (`AGENTS.md` mục 1): `.dockerignore` đi cùng `Dockerfile` → **opencode**;
+`.github/**` → **claude**. opencode soạn `.dockerignore` và nội dung job, claude đưa job vào `ci.yml` và commit:
+- Thêm `.dockerignore` ở gốc repo, ít nhất: `**/bin`, `**/obj`, `node_modules`, `.git`, `apps`, `packages`,
+  `supabase`, `docs`. Kiểm bằng `docker build` ngay tại chỗ repo rồi so với `git archive HEAD` → hai bên phải giống.
+- Thêm một job vào `.github/workflows/ci.yml` chạy `docker build -f ./Dockerfile -t tickey-api:ci .` (không push).
+  Job này tự nhiên bao luôn `dotnet publish -c Release` vì `Dockerfile` đã làm việc đó.
+- Không cần job khởi động container trong CI: thiếu env var là lỗi cấu hình dashboard, không phải lỗi repo.
+
+### Kiểm thử
+Chưa chạy — bug mới ghi, chưa giao xong việc. Khi sửa, tối thiểu:
+- `git archive HEAD | tar -x -C <dir sạch>` rồi `docker build -f ./Dockerfile .` → exit 0 (đối chứng cho `.dockerignore`).
+- Mở một PR nháp làm vỡ `Dockerfile` có chủ ý → job mới phải **đỏ**.
+
+---
+
 ## Summary by Severity (Sau triage)
 
 | Mức độ | Mục còn mở |
 |----------|------|
 | high | *(không còn)* |
-| Trung bình | B-29 |
+| medium | B-32 |
 | Thấp | *(không còn)* |
 | Trùng `core.md` | B-09 (C-01) |
-| VERIFIED | B-14, B-15, B-18, B-26, B-28, B-31 |
+| VERIFIED | B-14, B-15, B-18, B-26, B-28, B-29, B-31 |
 | WONTFIX | B-01..B-08, B-10..B-13, B-16, B-17, B-19..B-25, B-30 |
 
 ---
