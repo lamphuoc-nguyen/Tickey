@@ -1480,7 +1480,7 @@ trong/ trước `catch`. Bản sửa 19:18 dời `handledCount++` lên đầu v�
 ## B-32: CI không bao giờ build Release/Docker image — lỗi build của Render không có cửa bị bắt
 
 ### Trạng thái
-FIXED
+VERIFIED
 
 ### Phía
 backend
@@ -1550,13 +1550,19 @@ vẫn sẽ không bắt được. Đừng ghi B-32 là nguyên nhân sự cố �
   `ls /src/backend/src/EventPlatform.Api/bin` → chỉ `Release` (do publish trong container tạo), **không có** `Debug`
   của host; `grep -c -i "C:\\Users" .../obj/project.assets.json` → **0**, tức `obj/` trong image do
   `dotnet restore` của container sinh ra, không phải copy từ Windows.
-- Context gửi lên daemon: `transferring context: 5.41kB` (trước đây là cả monorepo kèm `node_modules/`, `.git/`).
+- Context gửi lên daemon: `transferring context: 343.24kB` cho `COPY backend/` (đọc từ log CI, lần build **sạch**),
+  cộng `955B` cho layer `.csproj`. Trước đây context là cả monorepo kèm `node_modules/` và `.git/`.
+  (Lần build local ban đầu in `5.41kB` — đó chỉ là layer `.csproj`, vì bước `COPY backend/` đã cache; đừng dùng số đó.)
 - `dotnet build --configuration Release backend/EventPlatform.sln`: **Build succeeded, 0 Warning(s), 0 Error(s)**.
 - `ci.yml` parse được, 4 job: `web`, `backend`, `docker`, `database`.
 
-**Chưa kiểm:** hai job mới chưa từng chạy trên GitHub Actions, và chưa thử PR nháp làm vỡ `Dockerfile` có chủ ý để
-chứng minh job mới **đỏ** đúng lúc. Vì vậy trạng thái để `FIXED`, chưa `VERIFIED` — chuyển `VERIFIED` khi thấy job
-`docker` xanh trên một PR thật.
+Trên GitHub Actions, PR #36 (run `40346141725`): **4/4 job xanh** — `API image (Dockerfile)` 25s,
+`Apps and packages (TypeScript)` 1m6s, `Backend (.NET)` 1m25s, `Database (pgTAP)` 2m32s. Đã đọc log job `docker` để
+chắc nó build thật chứ không no-op: có `EventPlatform.Core -> …/bin/Release/net10.0/…`,
+`EventPlatform.Api -> /app/publish/` và `naming to docker.io/library/tickey-api:ci`.
+
+**Chưa kiểm (không chặn):** chưa thử PR nháp làm vỡ `Dockerfile` có chủ ý để chứng minh job mới **đỏ** đúng lúc. Mới
+chỉ chứng minh được job xanh khi code lành.
 
 ---
 
@@ -1567,9 +1573,8 @@ chứng minh job mới **đỏ** đúng lúc. Vì vậy trạng thái để `FIX
 | high | *(không còn)* |
 | medium | *(không còn)* |
 | Thấp | *(không còn)* |
-| FIXED, chờ CI thật xanh | B-32 |
 | Trùng `core.md` | B-09 (C-01) |
-| VERIFIED | B-14, B-15, B-18, B-26, B-28, B-29, B-31 |
+| VERIFIED | B-14, B-15, B-18, B-26, B-28, B-29, B-31, B-32 |
 | WONTFIX | B-01..B-08, B-10..B-13, B-16, B-17, B-19..B-25, B-30 |
 
 ---
