@@ -7,7 +7,7 @@
 -- ============================================================================
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(72);
+select plan(80);
 
 -- ---------------------------------------------------------------- fixture
 create temp table fx (k text primary key, v uuid);
@@ -478,6 +478,72 @@ select is((select locked from public.ticket_type_inventory where ticket_type_id 
           'C-01: ticket_type_inventory.locked = 0 after expire');
 select is((select status from public.session_seats where session_id = pg_temp.fx('c04_exp_ses') and seat_id = (select id from public.seats where layout_version_id = pg_temp.fx('c04_exp_lv') and seat_code = 'A-2')), 'AVAILABLE',
           'C-01: Seat released to AVAILABLE after expire');
+reset role;
+
+-- ---------------------------------------------------------------- C-09: IPN correct amount after AMOUNT_MISMATCH
+-- Setup: Create session, ticket type, booking, payment (superuser for run_session_status_transitions)
+do $$
+declare
+  v_ses uuid; v_tt uuid; v_zone uuid; v_lv uuid; v_seat uuid;
+begin
+  select layout_version_id into v_lv from public.sessions where id = pg_temp.fx('a_ses');
+  select id into v_zone from public.zones where layout_version_id = v_lv and code = 'A';
+  perform pg_temp.act_as(pg_temp.fx('owner_a'));
+  v_ses := public.save_session(jsonb_build_object('event_id', pg_temp.fx('a_event'), 'venue_id', pg_temp.fx('a_venue'),
+            'layout_version_id', v_lv, 'starts_at', now() + interval '14 days', 'ends_at', now() + interval '14 days 2 hours',
+            'sales_start_at', now() - interval '1 hour', 'sales_end_at', now() + interval '14 days'));
+  v_tt := public.save_ticket_type(jsonb_build_object('session_id', v_ses, 'name', 'VIP-C09', 'kind', 'PAID',
+              'price_amount', 300000, 'quota', 10, 'zone_ids', jsonb_build_array(v_zone)));
+  perform public.run_session_status_transitions();
+  v_seat := (select id from public.seats where layout_version_id = v_lv and seat_code = 'A-1');
+  insert into fx values ('c09_ses', v_ses), ('c09_tt', v_tt), ('c09_lv', v_lv), ('c09_seat', v_seat);
+end $$;
+
+-- Create booking and payment (authenticated)
+set local role authenticated;
+do $$
+declare v_booking uuid; v_ref text;
+begin
+  perform pg_temp.act_as(pg_temp.fx('c1'), 'aal1');
+  v_booking := (public.create_booking(pg_temp.fx('c09_ses'),
+    jsonb_build_array(jsonb_build_object('ticket_type_id', pg_temp.fx('c09_tt'), 'seat_id', pg_temp.fx('c09_seat'))),
+    'c09-mismatch-001') ->> 'id')::uuid;
+  v_ref := public.begin_payment(v_booking, 'VNPAY') -> 'payment' ->> 'order_ref';
+  insert into fx values ('c09_booking', v_booking);
+  insert into pay values ('c09_ref', v_ref);
+end $$;
+reset role;
+
+-- C-09 Test 1: First IPN with wrong amount -> AMOUNT_MISMATCH (gateway_txn_id = TXN-A)
+set local role service_role;
+select is(public.apply_payment_success(pg_temp.ref('c09_ref'), 'TXN-A', 999999, '{}') ->> 'result', 'AMOUNT_MISMATCH',
+          'C-09: First IPN with wrong amount -> AMOUNT_MISMATCH');
+
+-- Verify original payment still has gateway_txn_id = TXN-A and status = AMOUNT_MISMATCH
+select is((select gateway_txn_id from public.payments where order_ref = pg_temp.ref('c09_ref')), 'TXN-A',
+          'C-09: Original payment keeps gateway_txn_id = TXN-A');
+select is((select status from public.payments where order_ref = pg_temp.ref('c09_ref')), 'AMOUNT_MISMATCH',
+          'C-09: Original payment status = AMOUNT_MISMATCH');
+
+-- C-09 Test 2: Second IPN with correct amount -> NEEDS_REVIEW, creates new payment for TXN-B
+select is(public.apply_payment_success(pg_temp.ref('c09_ref'), 'TXN-B', 300000, '{}') ->> 'result', 'NEEDS_REVIEW',
+          'C-09: Corrected IPN after AMOUNT_MISMATCH -> NEEDS_REVIEW');
+
+-- Verify exactly one payment with gateway_txn_id = TXN-B, order_ref ends with -DUP-TXN-B
+select is((select count(*)::int from public.payments where gateway_txn_id = 'TXN-B'), 1,
+          'C-09: Exactly one payment with gateway_txn_id = TXN-B');
+select ok((select order_ref from public.payments where gateway_txn_id = 'TXN-B') like '%-DUP-TXN-B',
+          'C-09: New payment order_ref ends with -DUP-TXN-B');
+
+-- C-09 Test 3: Retry original IPN (TXN-A) -> DUPLICATE (original payment still has TXN-A)
+select is(public.apply_payment_success(pg_temp.ref('c09_ref'), 'TXN-A', 999999, '{}') ->> 'result', 'DUPLICATE',
+          'C-09: Retry IPN of TXN-A returns DUPLICATE');
+
+-- C-09 Test 4: ADMIN_ALERT enqueued for PAYMENT_AFTER_AMOUNT_MISMATCH (specific to C-09 test's TXN-B)
+select is((select count(*)::int from public.outbox where topic = 'ADMIN_ALERT'
+            and (payload->>'type') = 'PAYMENT_AFTER_AMOUNT_MISMATCH'
+            and (payload->>'gateway_txn_id') = 'TXN-B'), 1,
+          'C-09: ADMIN_ALERT with PAYMENT_AFTER_AMOUNT_MISMATCH enqueued for TXN-B');
 reset role;
 
 -- ---------------------------------------------------------------- C-05: save_ticket_type PAID priority over FREE
