@@ -7,7 +7,7 @@
 -- ============================================================================
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(45);
+select plan(62);
 
 -- ---------------------------------------------------------------- fixture
 create temp table fx (k text primary key, v uuid);
@@ -314,6 +314,170 @@ select is((select count(*)::int from public.ledger_transactions t join public.pa
            where p.booking_id = pg_temp.fx('happy_booking')), 1,
           'Happy path: Có 1 bút toán ledger cho thanh toán');
 
+reset role;
+
+-- ---------------------------------------------------------------- C-04: apply_payment_success fixes
+-- Setup part 1: Create sessions, ticket types (superuser for run_session_status_transitions)
+do $$
+declare
+  v_ses uuid; v_tt uuid; v_lv uuid;
+  v_ses2 uuid; v_tt2 uuid;
+  v_ses3 uuid; v_tt3 uuid;
+  v_ses4 uuid; v_tt4 uuid;
+begin
+  select layout_version_id into v_lv from public.sessions where id = pg_temp.fx('a_ses');
+  perform pg_temp.act_as(pg_temp.fx('owner_a'));
+
+  -- Test 1: AMOUNT_MISMATCH followed by corrected IPN
+  v_ses := public.save_session(jsonb_build_object('event_id', pg_temp.fx('a_event'), 'venue_id', pg_temp.fx('a_venue'),
+            'layout_version_id', v_lv, 'starts_at', now() + interval '5 days', 'ends_at', now() + interval '5 days 2 hours',
+            'sales_start_at', now() - interval '1 hour', 'sales_end_at', now() + interval '5 days'));
+  v_tt := public.save_ticket_type(jsonb_build_object('session_id', v_ses, 'name', 'VIP-C04', 'kind', 'PAID',
+            'price_amount', 300000, 'quota', 10, 'zone_ids', jsonb_build_array((select id from public.zones where layout_version_id = v_lv and code = 'A'))));
+  perform public.run_session_status_transitions();
+  insert into fx values ('c04_mismatch_ses', v_ses), ('c04_mismatch_tt', v_tt);
+
+  -- Test 2: Second transaction for same order (different gateway_txn_id) creates DUPLICATE_PAYMENT refund
+  v_ses2 := public.save_session(jsonb_build_object('event_id', pg_temp.fx('a_event'), 'venue_id', pg_temp.fx('a_venue'),
+             'layout_version_id', v_lv, 'starts_at', now() + interval '6 days', 'ends_at', now() + interval '6 days 2 hours',
+             'sales_start_at', now() - interval '1 hour', 'sales_end_at', now() + interval '6 days'));
+  v_tt2 := public.save_ticket_type(jsonb_build_object('session_id', v_ses2, 'name', 'VIP-C04-DUP', 'kind', 'PAID',
+             'price_amount', 300000, 'quota', 10, 'zone_ids', jsonb_build_array((select id from public.zones where layout_version_id = v_lv and code = 'A'))));
+  perform public.run_session_status_transitions();
+  insert into fx values ('c04_dup_ses', v_ses2), ('c04_dup_tt', v_tt2);
+
+  -- Test 3: FAILED payment can be retried (apply_payment_failure then begin_payment again)
+  v_ses3 := public.save_session(jsonb_build_object('event_id', pg_temp.fx('a_event'), 'venue_id', pg_temp.fx('a_venue'),
+             'layout_version_id', v_lv, 'starts_at', now() + interval '7 days', 'ends_at', now() + interval '7 days 2 hours',
+             'sales_start_at', now() - interval '1 hour', 'sales_end_at', now() + interval '7 days'));
+  v_tt3 := public.save_ticket_type(jsonb_build_object('session_id', v_ses3, 'name', 'VIP-C04-RETRY', 'kind', 'PAID',
+             'price_amount', 300000, 'quota', 10, 'zone_ids', jsonb_build_array((select id from public.zones where layout_version_id = v_lv and code = 'A'))));
+  perform public.run_session_status_transitions();
+  insert into fx values ('c04_retry_ses', v_ses3), ('c04_retry_tt', v_tt3);
+
+  -- Test 4: INITIATED payment expired -> BOOKING_EXPIRED
+  v_ses4 := public.save_session(jsonb_build_object('event_id', pg_temp.fx('a_event'), 'venue_id', pg_temp.fx('a_venue'),
+             'layout_version_id', v_lv, 'starts_at', now() + interval '8 days', 'ends_at', now() + interval '8 days 2 hours',
+             'sales_start_at', now() - interval '1 hour', 'sales_end_at', now() + interval '8 days'));
+  v_tt4 := public.save_ticket_type(jsonb_build_object('session_id', v_ses4, 'name', 'VIP-C04-EXP', 'kind', 'PAID',
+             'price_amount', 300000, 'quota', 10, 'zone_ids', jsonb_build_array((select id from public.zones where layout_version_id = v_lv and code = 'A'))));
+  perform public.run_session_status_transitions();
+  insert into fx values ('c04_exp_ses', v_ses4), ('c04_exp_tt', v_tt4), ('c04_exp_lv', v_lv);
+end $$;
+
+-- Setup part 2: Create bookings, payments (authenticated)
+set local role authenticated;
+do $$
+declare
+  v_booking uuid; v_ref text;
+  v_booking2 uuid; v_ref2 text;
+  v_booking3 uuid; v_ref3 text;
+  v_booking4 uuid; v_ref4 text;
+begin
+  -- Test 1
+  perform pg_temp.act_as(pg_temp.fx('c1'), 'aal1');
+  v_booking := (public.create_booking(pg_temp.fx('c04_mismatch_ses'),
+    jsonb_build_array(jsonb_build_object('ticket_type_id', pg_temp.fx('c04_mismatch_tt'), 'seat_id', (select id from public.seats where layout_version_id = pg_temp.fx('c04_exp_lv') and seat_code = 'A-1'))),
+    'c04-mismatch-001') ->> 'id')::uuid;
+  v_ref := public.begin_payment(v_booking, 'VNPAY') -> 'payment' ->> 'order_ref';
+  insert into fx values ('c04_mismatch_booking', v_booking);
+  insert into pay values ('c04_mismatch_ref', v_ref);
+
+  -- Test 2
+  perform pg_temp.act_as(pg_temp.fx('c1'), 'aal1');
+  v_booking2 := (public.create_booking(pg_temp.fx('c04_dup_ses'),
+    jsonb_build_array(jsonb_build_object('ticket_type_id', pg_temp.fx('c04_dup_tt'), 'seat_id', (select id from public.seats where layout_version_id = pg_temp.fx('c04_exp_lv') and seat_code = 'A-2'))),
+    'c04-dup-001') ->> 'id')::uuid;
+  v_ref2 := public.begin_payment(v_booking2, 'VNPAY') -> 'payment' ->> 'order_ref';
+  insert into fx values ('c04_dup_booking', v_booking2);
+  insert into pay values ('c04_dup_ref', v_ref2);
+
+  -- Test 3
+  perform pg_temp.act_as(pg_temp.fx('c1'), 'aal1');
+  v_booking3 := (public.create_booking(pg_temp.fx('c04_retry_ses'),
+    jsonb_build_array(jsonb_build_object('ticket_type_id', pg_temp.fx('c04_retry_tt'), 'seat_id', (select id from public.seats where layout_version_id = pg_temp.fx('c04_exp_lv') and seat_code = 'A-1'))),
+    'c04-retry-001') ->> 'id')::uuid;
+  v_ref3 := public.begin_payment(v_booking3, 'VNPAY') -> 'payment' ->> 'order_ref';
+  insert into fx values ('c04_retry_booking', v_booking3);
+  insert into pay values ('c04_retry_ref', v_ref3);
+
+  -- Test 4
+  perform pg_temp.act_as(pg_temp.fx('c1'), 'aal1');
+  v_booking4 := (public.create_booking(pg_temp.fx('c04_exp_ses'),
+    jsonb_build_array(jsonb_build_object('ticket_type_id', pg_temp.fx('c04_exp_tt'), 'seat_id', (select id from public.seats where layout_version_id = pg_temp.fx('c04_exp_lv') and seat_code = 'A-2'))),
+    'c04-exp-001') ->> 'id')::uuid;
+  v_ref4 := public.begin_payment(v_booking4, 'VNPAY') -> 'payment' ->> 'order_ref';
+  insert into fx values ('c04_exp_booking', v_booking4);
+  insert into pay values ('c04_exp_ref', v_ref4);
+end $$;
+reset role;
+
+-- C-04 Test 1: AMOUNT_MISMATCH followed by corrected IPN returns NEEDS_REVIEW
+set local role service_role;
+select is(public.apply_payment_success(pg_temp.ref('c04_mismatch_ref'), 'TXN-WRONG', 999999, '{}') ->> 'result', 'AMOUNT_MISMATCH',
+          'C-04: First IPN with wrong amount -> AMOUNT_MISMATCH');
+select is(public.apply_payment_success(pg_temp.ref('c04_mismatch_ref'), 'TXN-CORRECT', 300000, '{}') ->> 'result', 'NEEDS_REVIEW',
+          'C-04: Corrected IPN after AMOUNT_MISMATCH -> NEEDS_REVIEW');
+reset role;
+
+-- C-04 Test 2: Second transaction for same order (different gateway_txn_id) creates DUPLICATE_PAYMENT refund
+set local role service_role;
+select is(public.apply_payment_success(pg_temp.ref('c04_dup_ref'), 'TXN-FIRST', 300000, '{}') ->> 'result', 'PAID',
+          'C-04: First IPN succeeds -> PAID');
+select is(public.apply_payment_success(pg_temp.ref('c04_dup_ref'), 'TXN-SECOND', 300000, '{}') ->> 'result', 'DUPLICATE_PAYMENT_REFUND',
+          'C-04: Second IPN with different txn -> DUPLICATE_PAYMENT_REFUND');
+select is((select count(*)::int from public.refunds where booking_id = pg_temp.fx('c04_dup_booking') and reason = 'DUPLICATE_PAYMENT'), 1,
+          'C-04: DUPLICATE_PAYMENT refund created');
+-- Now creates a new payment for the second txn, so 2 ledger transactions (original + duplicate)
+select is((select count(*)::int from public.ledger_transactions lt join public.payments p on p.id = lt.reference_id where p.booking_id = pg_temp.fx('c04_dup_booking')), 2,
+          'C-04: Ledger has 2 transactions (original payment + duplicate payment)');
+
+-- C-04 Retry: sending same IPN again should return DUPLICATE, not create new refund
+select is(public.apply_payment_success(pg_temp.ref('c04_dup_ref'), 'TXN-SECOND', 300000, '{}') ->> 'result', 'DUPLICATE',
+          'C-04: Retry IPN of second txn returns DUPLICATE, no new refund');
+select is((select count(*)::int from public.refunds where booking_id = pg_temp.fx('c04_dup_booking') and reason = 'DUPLICATE_PAYMENT'), 1,
+          'C-04: Retry does not increase DUPLICATE_PAYMENT refund count');
+select is((select p.gateway_txn_id from public.refunds r join public.payments p on p.id = r.payment_id where r.booking_id = pg_temp.fx('c04_dup_booking') and r.reason = 'DUPLICATE_PAYMENT'), 'TXN-SECOND',
+          'C-04: DUPLICATE_PAYMENT refund points to payment with gateway_txn_id = TXN-SECOND');
+select is((select sum(amount)::bigint from public.refunds where booking_id = pg_temp.fx('c04_dup_booking') and reason = 'DUPLICATE_PAYMENT'), 300000::bigint,
+          'C-04: Total refunded amount = 300000 (one txn only)');
+reset role;
+
+-- C-01: FAILED payment can be retried (apply_payment_failure then begin_payment again)
+set local role service_role;
+select is(public.apply_payment_failure(pg_temp.ref('c04_retry_ref'), 'card_declined', '{}') ->> 'result', 'FAILED',
+          'C-01: Payment failure -> FAILED');
+select ok((public.begin_payment(pg_temp.fx('c04_retry_booking'), 'VNPAY') -> 'payment' ->> 'order_ref') <> pg_temp.ref('c04_retry_ref'),
+          'C-01: begin_payment after FAILED creates new payment');
+select is((select status from public.bookings where id = pg_temp.fx('c04_retry_booking')), 'PAYMENT_PENDING',
+          'C-01: Booking stays PAYMENT_PENDING after retry');
+reset role;
+
+-- C-01: INITIATED payment expired -> BOOKING_EXPIRED
+set local role service_role;
+do $$
+declare v_booking uuid; v_ref text; v_ses uuid; v_tt uuid; v_lv uuid;
+begin
+  v_booking := pg_temp.fx('c04_exp_booking');
+  v_ref := pg_temp.ref('c04_exp_ref');
+  v_ses := pg_temp.fx('c04_exp_ses');
+  v_tt := pg_temp.fx('c04_exp_tt');
+  v_lv := pg_temp.fx('c04_exp_lv');
+  -- Expire the booking manually (simulating lock_expires_at past)
+  update public.payments set initiated_at = now() - interval '30 minutes' where order_ref = v_ref;
+  update public.bookings set lock_expires_at = now() - interval '1 minute' where id = v_booking;
+  update public.session_seats set lock_expires_at = now() - interval '1 minute' where session_id = v_ses and status = 'LOCKED';
+end $$;
+select throws_ok(format('select public.begin_payment(%L, %L)', pg_temp.fx('c04_exp_booking'), 'VNPAY'),
+                 'P0001', 'BOOKING_EXPIRED',
+                 'C-01: begin_payment with expired lock raises BOOKING_EXPIRED');
+-- Expire the booking to release inventory
+select ok(public.expire_unpaid_booking(pg_temp.fx('c04_exp_booking')),
+          'C-01: expire_unpaid_booking releases inventory');
+select is((select locked from public.ticket_type_inventory where ticket_type_id = pg_temp.fx('c04_exp_tt')), 0,
+          'C-01: ticket_type_inventory.locked = 0 after expire');
+select is((select status from public.session_seats where session_id = pg_temp.fx('c04_exp_ses') and seat_id = (select id from public.seats where layout_version_id = pg_temp.fx('c04_exp_lv') and seat_code = 'A-2')), 'AVAILABLE',
+          'C-01: Seat released to AVAILABLE after expire');
 reset role;
 
 -- ---------------------------------------------------------------- C-01: INITIATED hết hạn → thanh toán lại
