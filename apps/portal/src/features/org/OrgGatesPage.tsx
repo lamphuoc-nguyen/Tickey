@@ -139,6 +139,14 @@ export function OrgGatesPage() {
     setEditingGate(null);
     setGateCode('');
     setGateName('');
+    if (!selectedEventId && events.data?.length) {
+      const firstWithVenue = events.data.find((e) =>
+        e.sessions.some((s) => s.venue?.id),
+      ) ?? events.data[0];
+      if (firstWithVenue) {
+        handleSelectEvent(firstWithVenue.id);
+      }
+    }
     setScreen('o-gate-create');
   };
   const openEdit = (gate: Gate) => {
@@ -150,7 +158,7 @@ export function OrgGatesPage() {
 
   const submitGate = (status?: string) => {
     if (!chosenVenueId) {
-      showToast('Tạo địa điểm trước khi tạo cổng.', 'warning');
+      showToast('Vui lòng chọn sự kiện có địa điểm để tạo cổng.', 'warning');
       return;
     }
     if (!gateCode.trim() || !gateName.trim()) {
@@ -391,20 +399,17 @@ export function OrgGatesPage() {
                 {editingGate ? `Cấu hình chi tiết · Cổng ${editingGate.code}` : 'Tạo mới cổng soát vé'}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {!editingGate && (
+                {!editingGate ? (
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                      <label className="form-label" style={{ marginBottom: 0, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        <Calendar size={15} color="var(--primary)" /> Chọn sự kiện áp dụng
-                      </label>
-                      <span style={{ fontSize: 12, color: 'var(--muted)' }}>Tự động liên kết địa điểm</span>
-                    </div>
+                    <label className="form-label" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <Calendar size={15} color="var(--primary)" /> Tên sự kiện
+                    </label>
                     <select
                       className="form-select"
                       value={selectedEventId}
                       onChange={(e) => handleSelectEvent(e.target.value)}
                     >
-                      <option value="">-- Chọn sự kiện để tự động chọn địa điểm --</option>
+                      <option value="">-- Chọn sự kiện --</option>
                       {(events.data ?? []).map((ev) => {
                         const eventVenue = ev.sessions.find((s) => s.venue?.id)?.venue;
                         return (
@@ -431,25 +436,18 @@ export function OrgGatesPage() {
                       >
                         <Sparkles size={14} />
                         <span>
-                          Sự kiện: <strong>{selectedEvent.title}</strong> · Địa điểm: <strong>{venues.data?.find((v) => v.id === chosenVenueId)?.name ?? 'Chưa xác định'}</strong>
+                          Địa điểm: <strong>{venues.data?.find((v) => v.id === chosenVenueId)?.name ?? 'Chưa xác định'}</strong>
                         </span>
                       </div>
                     )}
                   </div>
+                ) : (
+                  <div>
+                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                      Địa điểm: <strong>{venues.data?.find((v) => v.id === chosenVenueId)?.name ?? ''}</strong>
+                    </span>
+                  </div>
                 )}
-
-                <div>
-                  <label className="form-label">Địa điểm tổ chức</label>
-                  {editingGate ? (
-                    <input
-                      className="form-input"
-                      readOnly
-                      value={venues.data?.find((v) => v.id === chosenVenueId)?.name ?? ''}
-                    />
-                  ) : (
-                    venuePicker
-                  )}
-                </div>
 
                 <div>
                   <label className="form-label">Mã cổng (duy nhất trong địa điểm)</label>
