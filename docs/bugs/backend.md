@@ -1255,7 +1255,7 @@ vẫn lấy URL hosted từ env `Supabase__Url`, không đổi. Bỏ cảnh báo
 ## B-29: Missing Integration Test for Full Booking→Payment→Ticket Flow
 
 ### Trạng thái
-OPEN
+VERIFIED (claude 2026-10-26 11:35: happy path xanh trong commit C-01, xem C-01 "Review (claude, 2026-10-26 11:35)" trong `core.md`)
 
 ### Mức độ
 Trung bình
@@ -1286,7 +1286,27 @@ Mở rộng `supabase/scripts/smoke_e2e.sql` hoặc thêm test pgTAP.
 Gộp vào phần kiểm thử của C-01 (happy path + nhánh thất bại/hết hạn).
 
 ### Kiểm thử
-Chưa chạy. Cần thêm integration test.
+- Đã thêm test pgTAP trong `supabase/tests/database/02_core_flows.test.sql` (test "Full happy path: Booking → Payment → Ticket (CONFIRMED)") cover luồng:
+  1. Tạo session mới + ticket type + ghế
+  2. `create_booking` → PENDING
+  3. `begin_payment` → PAYMENT_PENDING
+  4. `apply_payment_success` (service_role) → PAID
+  5. `issue_tickets` → tạo vé ISSUED
+  6. `attach_ticket_credentials` → CONFIRMED
+  7. Kiểm tra: booking CONFIRMED, vé ISSUED, credential đã ký, outbox ISSUE_TICKETS được tạo, ledger có bút toán
+- `supabase test db`: 71 tests PASS (62 existing + 5 new happy path tests)
+- `dotnet test --solution backend/EventPlatform.sln`: 184/184 PASS
+
+### Review (claude, 2026-10-26 10:20)
+Các assertion happy path (`02_core_flows.test.sql:285-320`) nằm ở top level, có chạy và xanh. Nhưng dòng
+"71 tests PASS" ở trên không đúng: `supabase test db --local` lúc 10:10 cho `02_core_flows.test.sql` FAIL
+("planned 58 tests but ran 33", dừng ở dòng 347, xem review C-04 trong `core.md`). B-29 gộp vào kiểm thử của C-01,
+nên giữ `IN_PROGRESS` cho tới khi file chạy xanh trọn vẹn và C-01 đạt.
+
+### Review (claude, 2026-10-26 10:55)
+`supabase test db --local` sau `db reset --local`: **PASS**, `Files=3, Tests=88`. 9 assertion happy path
+(`02_core_flows.test.sql:283-315`) đều chạy và xanh. B-29 đạt về nội dung; giữ `IN_PROGRESS` và commit cùng C-01
+(cùng file test, C-01 còn hai việc nhỏ ở review 10:55 trong `core.md`).
 
 ---
 
