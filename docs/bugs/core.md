@@ -8,7 +8,7 @@ Kiểm tra tĩnh (đọc code), chưa chạy thử trên stack local, chưa sử
 | # | Rủi ro | Kết luận | Mã lỗi |
 | --- | --- | --- | --- |
 | 1 | Hai người cùng đặt một ghế | **Không phát hiện lỗi.** `create_booking` chạy trong một transaction: `SELECT … FOR UPDATE` các dòng `session_seats` theo thứ tự `seat_id` (tránh deadlock), rồi `UPDATE … WHERE status = 'AVAILABLE'` có điều kiện; thiếu dòng nào → `SEAT_CONFLICT` và rollback toàn bộ (`init.sql:4604-4627`). Khu đứng và quota dùng `UPDATE … WHERE capacity - sold - locked - held >= n` nguyên tử (`init.sql:4667`, `4690`). Advisory lock theo (user, session) chặn vượt giới hạn vé/tài khoản (`init.sql:4459`). Idempotency key có `unique (created_by, idempotency_key)` + bắt `unique_violation` (`init.sql:4417-4421`, `4598-4601`). Mobile xử lý `SeatConflictError` đúng (`use-selection-booking.ts:53`). Có script `supabase/scripts/concurrency_ac01.sh` nhưng chưa chạy trong đợt này. | — |
-| 2 | Thanh toán gọi 2 lần / callback trễ | IPN trùng (cùng `gateway_txn_id`) và IPN trễ sau khi hết hạn được xử lý đúng ở DB. Lỗi nằm ở nhánh **thất bại / hết phiên cổng** và các phần chưa được viết. | C-01, C-02, C-03, C-04 |
+| 2 | Thanh toán gọi 2 lần / callback trễ | IPN trùng (cùng `gateway_txn_id`) và IPN trễ sau khi hết hạn được xử lý đúng ở DB. Lỗi nằm ở nhánh **thất bại / hết phiên cổng** và các phần chưa được viết. | C-01, C-02, C-03, C-04, C-09 |
 | 3 | Nhả ghế khi hết hạn | Booking `PENDING` được nhả mỗi phút (cron + lazy). Booking `PAYMENT_PENDING` **không bao giờ được nhả** → rò quota hạng vé / khu đứng. | C-01 |
 | 4 | Xem / huỷ vé người khác bằng cách đổi ID | **Không phát hiện lỗi.** `get_booking` qua `can_view_booking`; `cancel_booking`, `begin_payment` kiểm `created_by`/`user_id` và trả `NOT_FOUND`; `assign_ticket_holder` kiểm `owner_id`; `GET /api/tickets/{id}` đi qua RLS `tickets_read`; QR (`ticket_credentials`) chỉ chủ vé hoặc Staff POS đã bán đọc được (`init.sql:1586-1614`, `4783-4826`, `5281-5300`). API chỉ dùng `service_role` ở IPN và trang thanh toán thử (xem C-03). Function mới mặc định không có quyền execute (`init.sql:63-64`). | C-03 (gián tiếp) |
 | 5 | Giá và múi giờ | Giá do server quyết định, chụp vào `booking_items`; không cho đổi giá khi đã có người mua; app hiển thị `total_amount` của server; giờ suất diễn trên mobile dùng `venues.timezone`. Rủi ro ở cách gán hạng giá cho ghế và ô nhập giờ trên portal. | C-05, C-06, C-07 |
@@ -352,7 +352,7 @@ Trạng thái thực tế: IN_PROGRESS.
 
 ## C-04: IPN giao dịch thứ hai cho cùng đơn và IPN sau `AMOUNT_MISMATCH` không có đường xử lý
 
-- Trạng thái: IN_PROGRESS (claude review 2026-10-26 10:55: trường hợp 2 đạt, trường hợp 1 chặn: IPN lặp của txn 2 hoàn tiền nhiều lần và hoàn nhầm txn 1; xem "Review (claude, 2026-10-26 10:55)")
+- Trạng thái: VERIFIED (claude 2026-10-26 11:48, commit `fbb510c`; xem "Review (claude, 2026-10-26 11:48)")
 - Phía: backend
 - Giao cho: opencode
 - Mức độ: low (chưa có cổng thật, cần sửa trước khi bật cổng thật)
@@ -479,6 +479,49 @@ Việc cho opencode (contract claude chốt, giữ như review 10:20):
 4. pgTAP: thêm 3 assertion của probe retry (gửi lại `TXN-2` → vẫn 1 refund; refund trỏ vào payment có
    `gateway_txn_id = 'TXN-2'`; `sum(refunds.amount) = 300000`), sửa assertion ledger dòng 431 cho khớp mục 2. Probe
    `c04_retry_probe.sql` phải 9/9.
+
+### Bàn giao opencode (2026-10-26 11:44)
+#### Đã sửa (migration `20261026000002_fix_ipn_duplicate_mismatch.sql`)
+1. **Kiểm tra trùng `gateway_txn_id` ngay đầu hàm** (dòng 35-41): trả `DUPLICATE` nếu đã có, không tạo refund mới.
+2. **Tạo payment riêng cho txn thứ 2** (dòng 45-51): `order_ref = v_pay.order_ref || '-DUP-' || p_gateway_txn_id`, `gateway = v_pay.gateway`, `status = 'SUCCEEDED'`. Trigger `tg_guard_status` cho phép `INSERT` thẳng `SUCCEEDED` (xác nhận trong probe).
+3. **Refund `DUPLICATE_PAYMENT` trỏ vào payment mới** (dòng 54-56): `payment_id = v_dup_pay.id`, `source_type = 'PAYMENT'`, `source_id = v_dup_pay.id`.
+4. **Bút toán ledger trỏ vào payment mới** (dòng 59-63): `reference_type = 'PAYMENT'`, `reference_id = v_dup_pay.id`.
+5. **AMOUNT_MISMATCH corrected** (dòng 82-88): Trả `NEEDS_REVIEW` với lý do `amount_mismatch_corrected`, không cố chuyển trạng thái.
+
+#### Kiểm thử
+- Probe `.agent-hub/probes/c04_retry_probe.sql`: **9/9 xanh** (không tạo refund trùng khi retry IPN TXN-2; refund trỏ đúng payment TXN-2; tổng hoàn = 300.000đ).
+- Probe `.agent-hub/probes/c04_probe.sql`: **6/6 xanh** (trường hợp AMOUNT_MISMATCH corrected).
+- `supabase test db --local`: **Files=3, Tests=104, PASS** (01_schema_rules: 9, 02_core_flows: 69, 04_portal_rpcs: 26).
+- `dotnet test --solution backend/EventPlatform.sln`: **197/197 xanh**.
+
+#### Thêm assertion retry trong `02_core_flows.test.sql` (plan 65 → 69)
+- `C-04: Retry IPN of second txn returns DUPLICATE, no new refund`
+- `C-04: Retry does not increase DUPLICATE_PAYMENT refund count`
+- `C-04: DUPLICATE_PAYMENT refund points to payment with gateway_txn_id = TXN-SECOND`
+- `C-04: Total refunded amount = 300000 (one txn only)`
+
+#### Đổi tên test trong `02_core_flows.test.sql`
+- Khối "C-04 Test 3" (FAILED → thanh toán lại) → đổi tên **`C-01: FAILED payment can be retried via begin_payment`**.
+- Khối "C-04 Test 4" (INITIATED expired → BOOKING_EXPIRED) → đổi tên **`C-01: INITIATED expired payment → BOOKING_EXPIRED, inventory locked = 0, seat released`**.
+
+Trạng thái: **FIXED**.
+
+### Review (claude, 2026-10-26 11:48)
+Trạng thái: VERIFIED. Bàn giao 11:42 bị trả lại vì thiếu mục 4 (assertion retry) và dòng Trạng thái ghi tên claude;
+bàn giao 11:44 đã sửa cả hai. Contract 4 điểm đạt:
+1. Txn 2 thành dòng `payments` riêng (`order_ref = <ref>-DUP-<txn>`, `SUCCEEDED`); `tg_guard_status` cho insert thẳng.
+2. Refund `DUPLICATE_PAYMENT` và bút toán trỏ vào payment đó.
+3. Kiểm trùng `gateway_txn_id` nằm trước mọi nhánh trạng thái; `payments.gateway_txn_id` là `unique` toàn cục
+   (`init.sql:1353`) nên kiểm toàn cục là đúng.
+4. pgTAP có 4 assertion retry; probe `c04_retry_probe.sql` 9/9, `c04_probe.sql` 6/6.
+
+claude kiểm trong worktree chỉ chứa C-04 (HEAD `69ac467` + migration `…000002` + khối C-04 của `02_core_flows`, bỏ khối
+C-05/C-07, `plan(62)`): `supabase db reset --local` rồi `supabase test db --local` **PASS `Files=3, Tests=80`**
+(02_core_flows 62), hai probe xanh. Không chạy lại `dotnet test`: commit không đổi code .NET, và `HandleIpnAsync`
+(`PaymentEndpoints.cs:53-83`) không đọc `result` mà luôn trả 200 sau khi RPC thành công, nên giá trị mới
+(`DUPLICATE`, `NEEDS_REVIEW`) không đổi contract API. Commit `fbb510c fix(db)`.
+
+Việc còn lại ở trường hợp 2 tách thành C-09 (không chặn).
 
 ---
 
@@ -700,3 +743,43 @@ Bỏ fallback, báo lỗi cấu hình khi thiếu `VITE_API_URL`. Proxy dev tr�
 
 ### Kiểm thử
 Chưa chạy. Vitest cho `resolveApiUrl` khi thiếu env.
+
+---
+
+## C-09: IPN đúng tiền sau `AMOUNT_MISMATCH` ghi đè `gateway_txn_id` của khoản thu sai tiền
+
+- Trạng thái: OPEN
+- Phía: backend
+- Giao cho: opencode
+- Mức độ: low (chưa có cổng thật, cần sửa trước khi bật cổng thật)
+- Luồng: thanh toán
+- Người phát hiện: claude (review C-04, 2026-10-26 11:48)
+
+### Tái hiện
+1. IPN 1: `apply_payment_success(ref, 'TXN-A', <sai tiền>)` → payment `AMOUNT_MISMATCH`, `gateway_txn_id = 'TXN-A'`.
+2. IPN 2: `apply_payment_success(ref, 'TXN-B', <đúng tiền>)` → `NEEDS_REVIEW`.
+3. Cổng gửi lại IPN 1 (`TXN-A`).
+
+### Kỳ vọng / Thực tế
+- Kỳ vọng: cả hai khoản thu thật (`TXN-A`, `TXN-B`) được lưu để admin hoàn đúng giao dịch; IPN lặp trả `DUPLICATE`;
+  admin được báo khi có khoản thu cần duyệt.
+- Thực tế:
+  - Bước 2 ghi đè `gateway_txn_id = 'TXN-B'` (`20261026000002_fix_ipn_duplicate_mismatch.sql`, nhánh
+    `v_pay.status = 'AMOUNT_MISMATCH'`), nên mất dấu `TXN-A`: không còn chỗ nào lưu mã giao dịch để hoàn khoản sai tiền.
+  - Bước 3: kiểm trùng không thấy `TXN-A`, rơi vào nhánh sai tiền, ghi lại `gateway_txn_id = 'TXN-A'` (lật qua lại theo
+    thứ tự IPN đến).
+  - Nhánh `NEEDS_REVIEW` không `enqueue('ADMIN_ALERT', …)`, trái với đề xuất ở review C-04 01:20 ("đã ghi nhận +
+    `ADMIN_ALERT`").
+
+### Bằng chứng
+`supabase/migrations/20261026000002_fix_ipn_duplicate_mismatch.sql`, nhánh `if v_pay.status = 'AMOUNT_MISMATCH'`
+(khoảng dòng 82-88) và nhánh `if p_amount <> v_pay.amount` ngay phía trên.
+
+### Đề xuất sửa
+Migration mới (không sửa `…000002`): ở nhánh `AMOUNT_MISMATCH`, ghi txn mới thành dòng `payments` riêng như C-04
+(`order_ref = <ref>-DUP-<txn>`), không đụng `gateway_txn_id` của payment gốc; enqueue `ADMIN_ALERT`
+(`type = 'PAYMENT_AFTER_AMOUNT_MISMATCH'`). Vẫn trả `NEEDS_REVIEW`. Thuộc opencode (`supabase/**`).
+
+### Kiểm thử
+Chưa chạy. pgTAP: sau bước 2 payment gốc vẫn `gateway_txn_id = 'TXN-A'`, có dòng payment cho `TXN-B`; bước 3 trả
+`DUPLICATE`; có một `outbox` `ADMIN_ALERT` cho bước 2.
