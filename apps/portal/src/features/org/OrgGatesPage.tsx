@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { Smartphone } from 'lucide-react';
+import { Smartphone, Sparkles, Calendar } from 'lucide-react';
 import { useToast } from '../../components/common/ToastProvider';
 import { QueryNotice } from '../../components/common/QueryNotice';
 import {
@@ -64,7 +64,43 @@ export function OrgGatesPage() {
   const revokeDevice = useRevokeDevice(orgId);
 
   const [search, setSearch] = useState('');
+  const [selectedEventId, setSelectedEventId] = useState('');
   const [editingGate, setEditingGate] = useState<Gate | null>(null);
+
+  const selectedEvent = useMemo(
+    () => (events.data ?? []).find((e) => e.id === selectedEventId),
+    [events.data, selectedEventId],
+  );
+
+  const eventsAtVenue = useMemo(() => {
+    if (!chosenVenueId) return [];
+    return (events.data ?? []).filter((e) =>
+      e.sessions.some((s) => s.venue?.id === chosenVenueId),
+    );
+  }, [events.data, chosenVenueId]);
+
+  const handleSelectEvent = (eventId: string) => {
+    setSelectedEventId(eventId);
+    if (!eventId) return;
+    const ev = (events.data ?? []).find((e) => e.id === eventId);
+    if (ev) {
+      const sessionVenue = ev.sessions.find((s) => s.venue?.id)?.venue;
+      if (sessionVenue?.id) {
+        setVenueId(sessionVenue.id);
+      }
+    }
+  };
+
+  const handleSelectVenue = (newVenueId: string) => {
+    setVenueId(newVenueId);
+    if (selectedEventId) {
+      const currentEv = (events.data ?? []).find((e) => e.id === selectedEventId);
+      const isAtVenue = currentEv?.sessions.some((s) => s.venue?.id === newVenueId);
+      if (!isAtVenue) {
+        setSelectedEventId('');
+      }
+    }
+  };
   const [gateCode, setGateCode] = useState('');
   const [gateName, setGateName] = useState('');
   const [revokeTarget, setRevokeTarget] = useState<GateDevice | null>(null);
@@ -183,7 +219,7 @@ export function OrgGatesPage() {
       className="form-select"
       style={{ width: 260 }}
       value={chosenVenueId}
-      onChange={(e) => setVenueId(e.target.value)}
+      onChange={(e) => handleSelectVenue(e.target.value)}
     >
       {(venues.data ?? []).map((v) => (
         <option key={v.id} value={v.id}>
@@ -216,11 +252,34 @@ export function OrgGatesPage() {
               flexWrap: 'wrap',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {venuePicker}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <Calendar size={14} /> Sự kiện:
+                </span>
+                <select
+                  className="form-select"
+                  style={{ width: 230 }}
+                  value={selectedEventId}
+                  onChange={(e) => handleSelectEvent(e.target.value)}
+                >
+                  <option value="">Tất cả sự kiện</option>
+                  {(events.data ?? []).map((ev) => (
+                    <option key={ev.id} value={ev.id}>
+                      🎪 {ev.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)' }}>Địa điểm:</span>
+                {venuePicker}
+              </div>
+
               <input
                 className="form-input"
-                style={{ width: 240 }}
+                style={{ width: 220 }}
                 placeholder="Tìm theo mã, tên cổng..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -267,6 +326,7 @@ export function OrgGatesPage() {
                     <tr>
                       <th>MÃ CỔNG</th>
                       <th>TÊN CỔNG</th>
+                      <th>SỰ KIỆN TẠI ĐỊA ĐIỂM</th>
                       <th>TRẠNG THÁI</th>
                       <th>THAO TÁC</th>
                     </tr>
@@ -276,6 +336,23 @@ export function OrgGatesPage() {
                       <tr key={g.id}>
                         <td style={{ fontWeight: 700 }}>{g.code}</td>
                         <td>{g.name}</td>
+                        <td>
+                          {eventsAtVenue.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              {eventsAtVenue.map((ev) => (
+                                <span
+                                  key={ev.id}
+                                  className="badge badge-info"
+                                  style={{ width: 'fit-content', fontSize: 11 }}
+                                >
+                                  🎪 {ev.title}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span style={{ color: 'var(--muted)', fontSize: 12 }}>Chưa có sự kiện</span>
+                          )}
+                        </td>
                         <td>
                           <span
                             className={`badge ${g.status === 'ACTIVE' ? 'badge-success' : 'badge-warning'}`}
@@ -314,8 +391,55 @@ export function OrgGatesPage() {
                 {editingGate ? `Cấu hình chi tiết · Cổng ${editingGate.code}` : 'Tạo mới cổng soát vé'}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {!editingGate && (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <label className="form-label" style={{ marginBottom: 0, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <Calendar size={15} color="var(--primary)" /> Chọn sự kiện áp dụng
+                      </label>
+                      <span style={{ fontSize: 12, color: 'var(--muted)' }}>Tự động liên kết địa điểm</span>
+                    </div>
+                    <select
+                      className="form-select"
+                      value={selectedEventId}
+                      onChange={(e) => handleSelectEvent(e.target.value)}
+                    >
+                      <option value="">-- Chọn sự kiện để tự động chọn địa điểm --</option>
+                      {(events.data ?? []).map((ev) => {
+                        const eventVenue = ev.sessions.find((s) => s.venue?.id)?.venue;
+                        return (
+                          <option key={ev.id} value={ev.id}>
+                            🎪 {ev.title} {eventVenue ? `(📍 ${eventVenue.name})` : '(Chưa gắn địa điểm)'}
+                          </option>
+                        );
+                      })}
+                    </select>
+                    {selectedEvent && (
+                      <div
+                        style={{
+                          fontSize: 12.5,
+                          color: '#0369A1',
+                          background: '#F0F9FF',
+                          padding: '8px 12px',
+                          borderRadius: 'var(--radius-md)',
+                          marginTop: 8,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          border: '1px solid #BAE6FD',
+                        }}
+                      >
+                        <Sparkles size={14} />
+                        <span>
+                          Sự kiện: <strong>{selectedEvent.title}</strong> · Địa điểm: <strong>{venues.data?.find((v) => v.id === chosenVenueId)?.name ?? 'Chưa xác định'}</strong>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div>
-                  <label className="form-label">Địa điểm</label>
+                  <label className="form-label">Địa điểm tổ chức</label>
                   {editingGate ? (
                     <input
                       className="form-input"
@@ -326,6 +450,7 @@ export function OrgGatesPage() {
                     venuePicker
                   )}
                 </div>
+
                 <div>
                   <label className="form-label">Mã cổng (duy nhất trong địa điểm)</label>
                   <input
@@ -334,7 +459,28 @@ export function OrgGatesPage() {
                     value={gateCode}
                     onChange={(e) => setGateCode(e.target.value)}
                   />
+                  <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                    {['G1', 'G2', 'VIP', 'CỔNG CHÍNH', 'CỔNG PHỤ'].map((sug) => (
+                      <button
+                        key={sug}
+                        type="button"
+                        onClick={() => setGateCode(sug)}
+                        style={{
+                          fontSize: 11,
+                          padding: '2px 8px',
+                          borderRadius: 4,
+                          border: '1px solid var(--border)',
+                          background: '#F9FAFB',
+                          color: 'var(--muted)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        + {sug}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+
                 <div>
                   <label className="form-label">Tên cổng soát vé</label>
                   <input
@@ -343,6 +489,25 @@ export function OrgGatesPage() {
                     value={gateName}
                     onChange={(e) => setGateName(e.target.value)}
                   />
+                  {selectedEvent && (
+                    <div style={{ marginTop: 6 }}>
+                      <button
+                        type="button"
+                        onClick={() => setGateName(`Cổng chính · ${selectedEvent.title}`)}
+                        style={{
+                          fontSize: 11.5,
+                          padding: '3px 8px',
+                          borderRadius: 4,
+                          border: '1px solid #BAE6FD',
+                          background: '#F0F9FF',
+                          color: '#0369A1',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        + Gợi ý: Cổng chính · {selectedEvent.title}
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: 'flex', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
                   <button
