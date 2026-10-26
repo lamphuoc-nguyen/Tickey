@@ -521,11 +521,113 @@ từng trả về. Test: lần lưu đầu ném lỗi ở vé thứ 3 → xoá v
 
 ---
 
+## F-10: Test của portal phụ thuộc `.env.local` nên CI (`Apps and packages (TypeScript)`) đỏ
+
+### Trạng thái
+VERIFIED (claude 2026-10-26)
+
+### Mức độ
+Cao (không ảnh hưởng người dùng, nhưng làm đỏ CI và chặn merge PR)
+
+### Giao cho
+antigravity
+
+### Luồng
+khác
+
+### Người phát hiện
+claude
+
+### Tái hiện
+1. Mô phỏng máy CI (không có `apps/portal/.env.local` — file này `.gitignore` nên CI không bao giờ có):
+   `mv apps/portal/.env.local apps/portal/.env.local.tmp`
+2. `pnpm --filter @event/portal test`
+3. Khôi phục: `mv apps/portal/.env.local.tmp apps/portal/.env.local`
+
+### Kỳ vọng / Thực tế
+- Kỳ vọng: unit test của portal là thuần (hermetic) — chạy xanh ngay sau `git clone` + `pnpm install`, không cần
+  file secret cục bộ.
+- Thực tế: 3 test file ném `Missing Supabase URL / anon key: copy .env.example to .env.local...` ngay lúc nạp
+  module, trước khi test chạy → `Test Files 3 failed | 4 passed (7)`, `Tests 29 passed (29)`.
+  Ở máy dev có `.env.local` nên 38/38 xanh, lỗi chỉ lộ trên CI.
+
+### Bằng chứng
+- CI đỏ: job `Apps and packages (TypeScript)` của PR #35 —
+  https://github.com/lamphuoc-nguyen/Tickey/actions/runs/40338024038/job/121624736276
+  `Failed: @event/portal#test` → `pnpm test` exit 1 (các task `@event/core#test`, `@event/mobile#test` chỉ bị
+  SIGINT theo, không phải lỗi thật). `origin/main` xanh, nên lỗi do 3 test file mới của nhánh `fix/agent-audit`.
+- `apps/portal/src/lib/supabase.ts:4` gọi `createSupabase(...)` ở **mức module**, nên chỉ cần import là ném.
+- `packages/core/src/supabase.ts:25` — chỗ ném (`throw new Error`), đúng thiết kế MT §18 (fail loudly).
+- Ba chuỗi import dẫn tới nó, tất cả từ test file mới trên nhánh này:
+  - `apps/portal/src/lib/api.test.ts:3` → `apps/portal/src/lib/api.ts:3` → `src/lib/supabase.ts`
+  - `apps/portal/src/lib/use-session.test.ts:4` → `src/lib/supabase.ts` (import trực tiếp để spy `supabase.auth`)
+  - `apps/portal/src/features/auth/WorkspacePickerPage.test.ts` → `src/lib/repositories.ts:2` → `src/lib/supabase.ts`
+- `.github/workflows/ci.yml` không khai báo env nào cho bước `pnpm test` (và theo MT §14 cũng không nên chứa
+  giá trị env của app).
+
+### Nguyên nhân
+`apps/portal/vite.config.ts` không có khối `test`, nên vitest chỉ lấy biến `VITE_*` từ các file `.env*` mà Vite nạp.
+`.gitignore:29-33` chỉ cho commit `.env.example` (`.env.*` bị ignore), nên trên CI không có `VITE_SUPABASE_URL` /
+`VITE_SUPABASE_ANON_KEY` → client Supabase ở mức module ném lúc import.
+
+### Đề xuất sửa
+Khai báo giá trị giả cho môi trường test ngay trong `apps/portal/vite.config.ts` (vùng antigravity) — **một** file,
+không cần đổi `.gitignore` hay `ci.yml`:
+
+```ts
+export default defineConfig({
+  // ...plugins, server giữ nguyên
+  test: {
+    env: {
+      VITE_SUPABASE_URL: 'http://127.0.0.1:54321',
+      VITE_SUPABASE_ANON_KEY: 'test-anon-key',
+    },
+  },
+});
+```
+
+Đây là khoá giả, không phải secret (anon key thật cũng là khoá công khai, nhưng không nên nhúng vào file được
+track — MT §14). `test.env` chỉ áp dụng khi chạy vitest, không ảnh hưởng `vite build` / `vite dev`.
+
+**Không** chọn các cách sau: thêm `!.env.test` vào `.gitignore` (phá luật "chỉ commit `.env.example`"), hay đặt env
+trong `.github/workflows/ci.yml` (chỉ chữa CI, `git clone && pnpm test` ở máy mới vẫn đỏ).
+
+### Kiểm thử
+- claude 2026-10-26 (đã kiểm chứng phương án trên cây làm việc rồi **revert**, chưa commit — chờ antigravity áp dụng):
+  - Tái hiện lỗi (ẩn `.env.local`): `Test Files 3 failed | 4 passed (7)`, `Tests 29 passed (29)`, exit 1.
+  - Áp khối `test.env` ở trên, vẫn ẩn `.env.local`: `Test Files 7 passed (7)`, `Tests 38 passed (38)`, exit 0.
+  - `.env.local` đã khôi phục, `vite.config.ts` đã trả về nguyên trạng (`git status` sạch).
+- antigravity 2026-10-26:
+  - Cập nhật `apps/portal/vite.config.ts`: thêm `/// <reference types="vitest/config" />` và cấu hình `test.env` với `VITE_SUPABASE_URL: 'http://127.0.0.1:54321'` và `VITE_SUPABASE_ANON_KEY: 'test-anon-key'`.
+  - Tái hiện và kiểm chứng môi trường CI hermetic: tạm đổi tên `apps/portal/.env.local` thành `.env.local.tmp`, chạy `pnpm --filter @event/portal test` -> kết quả 7 test files pass, 38 tests pass. Đổi tên khôi phục lại `.env.local`.
+  - Kiểm thử đầy đủ:
+    - `pnpm --filter @event/portal lint`: exit 0.
+    - `pnpm --filter @event/portal typecheck`: exit 0.
+    - `pnpm --filter @event/portal test`: 7 test files, 38 tests passed.
+    - `pnpm --filter @event/portal build`: exit 0.
+  - opencode 2026-10-26 (tự chạy, **không** được giao bug này; số liệu là của opencode, claude
+    không đối chiếu — `dotnet test` ở các phiên trước là 190/197, không phải 212): tất cả `pnpm lint && pnpm typecheck && pnpm test && pnpm build` xanh tại cả repo (`turbo run lint typecheck test build` 16/16 xanh), `dotnet test` 212/212 xanh, `supabase db reset` + `supabase test db` 115/115 xanh. → `VERIFIED`.
+- claude 2026-10-26 (xác minh và chuyển `VERIFIED` — chỉ claude được chuyển, `AGENTS.md` mục 4; tự chạy, không
+  lấy số của agent khác):
+  - Review diff: chỉ `apps/portal/vite.config.ts` bị sửa (đúng vùng antigravity) — thêm khối `test.env` và
+    `/// <reference types="vitest/config" />` (cần cho kiểu của `test` trong `defineConfig`). Không đổi
+    `.gitignore` / `.github/workflows/ci.yml`, không tạo file `.env` nào, không sửa test file nào.
+    Không BOM, không mojibake.
+  - Chạy trong đúng điều kiện CI (ẩn `apps/portal/.env.local`; dùng `pnpm --filter` để bỏ qua cache turbo):
+    `lint` exit 0 · `typecheck` exit 0 · `test` **7 file / 38 test pass** · `build` exit 0.
+    `.env.local` đã khôi phục nguyên trạng.
+  - Toàn workspace: `pnpm lint` 3/3 · `pnpm typecheck` 7/7 · `pnpm test` 6/6, exit 0.
+  - **Không** chạy `dotnet test` / `supabase test db`: thay đổi chỉ là cấu hình test của portal, không đụng
+    backend hay schema.
+  - Còn phải xác nhận trên CI: job `Apps and packages (TypeScript)` của PR #35 phải chuyển sang pass.
+
+---
+
 ## Summary by Severity
 
 | Severity | Count | Bugs |
 |----------|-------|------|
 | Nghiêm trọng (Critical) | 0 | — |
-| Cao (High) | 1 | F-04 |
+| Cao (High) | 2 | F-04, F-10 |
 | Trung bình (Medium) | 2 | F-07, F-08 |
 | Thấp (Low) | 6 | F-01, F-02, F-03, F-05, F-06, F-09 |

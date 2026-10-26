@@ -200,6 +200,25 @@ khối C-04/C-05/C-07 (cần `…000002..4`, sẽ vào cùng commit của bug đ
 `expire_unpaid_booking` trả tồn kho) là kịch bản C-01 nhưng dựng chung fixture với C-04, nên vào commit C-04; khi đó
 đổi tên thành `C-01: …`.
 
+### Ghi chú merge (claude, 2026-10-26, commit merge `33467fb`)
+
+`origin/main` đã đổi luồng checkout của mobile: bỏ bước holder, đẩy booking trả được tiền thẳng sang route
+`/booking/[bookingId]/payment`. Bản sửa C-01 ban đầu lại gọi `payment.mutate()` **inline** ngay trên
+`booking-screen.tsx` cho `PAYMENT_PENDING` — hai bên đụng nhau và đây là file duy nhất bị conflict khi merge.
+
+**Quyết định (giữ nguyên, đừng hồi quy):** chỉ còn **một** đường checkout — đường của main. Cả `PENDING` và
+`PAYMENT_PENDING` đều đi qua `/booking/[bookingId]/payment`; điều kiện nhãn footer dùng `canPay(...)` thay cho
+`status === 'PENDING'` để `PAYMENT_PENDING` vẫn hiện "Tiếp tục thanh toán" (đúng mục tiêu C-01). Lời gọi inline,
+`usePayment`, các clause `payment.isPending` / `payment.error` và `ErrorNotice` inline đã bị bỏ khỏi booking-screen
+(import `ErrorNotice` **giữ lại** — `cancel.error` còn dùng).
+
+**Lý do không giữ lời gọi inline:** `payment-screen.tsx` của main kiểm `customerCapabilities.gatewayPayment` +
+`EXPO_PUBLIC_PAYMENT_GATEWAY` + checkbox điều khoản trước khi mutate — hai lớp mà lời gọi inline bỏ qua. Sau merge
+`booking-presentation.ts` tự merge sạch nên `canPay()` đã nhận cả `PAYMENT_PENDING`.
+
+**antigravity:** không dựng lại nhánh `payment.mutate()` inline trên `booking-screen.tsx`. Mọi thay đổi luồng trả tiền
+phải đi qua `payment-screen.tsx`. Route `/booking/[bookingId]/holder` sau merge không còn ai tham chiếu (file vẫn còn).
+
 ---
 
 ## C-02: Không có `RefundWorker`, refund nằm mãi ở `REQUESTED`
