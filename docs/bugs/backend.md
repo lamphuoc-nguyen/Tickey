@@ -1564,12 +1564,91 @@ chắc nó build thật chứ không no-op: có `EventPlatform.Core -> …/bin/R
 **Chưa kiểm (không chặn):** chưa thử PR nháp làm vỡ `Dockerfile` có chủ ý để chứng minh job mới **đỏ** đúng lúc. Mới
 chỉ chứng minh được job xanh khi code lành.
 
+## B-33: Thiếu `Payments__Test__HmacKey` trên Render giết container lúc boot — deploy đỏ từ `7e2d040`
+
+### Trạng thái
+OPEN
+
+### Phía
+backend
+
+### Giao cho
+opencode
+
+> `render.yaml` thuộc vùng opencode (`AGENTS.md` mục 1). claude phát hiện, dựng chứng cứ và viết mục này; phần sửa
+> `render.yaml` để opencode làm. Bước điền giá trị trong dashboard là việc của người vận hành, không agent nào làm.
+
+### Mức độ
+critical
+
+### Luồng
+thanh toán
+
+### Người phát hiện
+claude (2026-10-26 phiên 30, qua dashboard Render)
+
+### Tái hiện
+1. Dashboard Render → `tickey-api` → Environment: có đúng 9 key, **không** có `Payments__Test__HmacKey`.
+2. Merge bất kỳ commit nào chứa `7b397a1` vào `main` → auto-deploy.
+3. Build xong (25.3s, image lành), container chạy rồi chết ngay; Render ghi `Deploy failed`.
+
+### Kỳ vọng / Thực tế
+- Kỳ vọng: thiếu một key `sync: false` thì cùng lắm hỏng tính năng thanh toán test, hoặc bị chặn từ CI.
+- Thực tế: chết cả tiến trình trước khi mở cổng 8080 → `/health` không ai trả lời → **toàn bộ API không deploy được**,
+  kể cả những commit không liên quan gì tới thanh toán. Không có lớp nào ở CI bắt được vì đây là lỗi **cấu hình
+  runtime**, không phải lỗi build: B-32 làm CI build được image, nhưng image lành vẫn chết khi thiếu env.
+
+### Bằng chứng
+- Log deploy `abc5b32` (dep-dbfmu395efls73c7rttg, 2026-10-26 22:18:17 GMT+7):
+  `Unhandled exception. Microsoft.Extensions.Options.OptionsValidationException: Payments:Test:HmacKey is required for TEST gateway`
+  → `at EventPlatform.Core.Payments.TestPaymentGateway..ctor(IOptions1 options) in …/Payments/IPaymentGateway.cs:line 68`
+  → `at Program.<Main>$(String[] args) in …/EventPlatform.Api/Program.cs:line 126`.
+  Render NOTICES: `Exited with status 139 while running your code.`
+- `backend/src/EventPlatform.Core/Payments/IPaymentGateway.cs:68` — ctor:
+  `_hmacKey = options.Value.HmacKey ?? throw new InvalidOperationException("Payments:Test:HmacKey is required for TEST gateway");`
+- `render.yaml:30-32` — key khai báo `sync: false`, tức Render **không** tự tạo; phải điền tay trong dashboard.
+  Người vận hành chưa bao giờ điền.
+- Mốc thời gian chứng minh nguyên nhân là **code mới**, không phải ai xoá env:
+  `git merge-base --is-ancestor 7b397a1 9b11a97` → **không**; `… 7b397a1 7e2d040` → **có**.
+  Deploy `9b11a97` (17:0x) ✅ Live · `7e2d040` (#35, 21:4x) ❌ · `abc5b32` (#36, 22:17) ❌.
+  `7b397a1` = "fix(api): process refunds, sign test checkout, enforce gateway config (C-02, C-03, B-15, B-31)",
+  commit 2026-10-26 20:14 — chính nó thêm `?? throw` vào ctor.
+- Dashboard vẫn phục vụ bằng bản Live cũ `9b11a97`, nên không sập hẳn; nhưng mọi thay đổi từ #35 trở đi chưa lên production.
+
+### Nguyên nhân
+`TestPaymentGateway` được đăng ký bằng factory được resolve ngay trong `AddEventPlatformCore`
+(`ServiceCollectionExtensions.cs:45-46`), nên ctor chạy lúc dựng host chứ không phải lúc có request đầu tiên. Một key
+cấu hình thiếu vì thế thành lỗi chết boot thay vì lỗi 500 ở đúng endpoint thanh toán. `.ValidateOnStart()` của 4 nhóm
+options có cùng tính chất (`docs/DEPLOY_RENDER.md` mục 1).
+
+### Đề xuất sửa
+1. **Mở lại production ngay** (người vận hành, không phải agent): Dashboard → `tickey-api` → Environment → thêm
+   `Payments__Test__HmacKey` = chuỗi ngẫu nhiên đủ dài (`openssl rand -base64 32`) → Save → Render tự deploy lại.
+2. **Không để tái diễn** (`render.yaml`, vùng **opencode**): đổi `Payments__Test__HmacKey` từ `sync: false` sang
+   `generateValue: true`. Render tự sinh giá trị ngẫu nhiên khi sync blueprint, không ai phải điền tay và không có
+   secret nào vào git. Khoá này chỉ dùng để ký chữ ký thanh toán **test** nội bộ, không phải khoá của bên thứ ba, nên
+   giá trị do Render sinh là hoàn toàn hợp lệ. Cân nhắc làm tương tự cho `Qr__SigningKey` — nhưng **chỉ khi** không có
+   vé QR nào đã phát cần verify bằng khoá cũ, nếu không sẽ làm hỏng vé cũ.
+3. Nếu đổi `render.yaml` thì cập nhật bảng ở `docs/DEPLOY_RENDER.md` mục 1 (vùng claude).
+
+### Kiểm thử
+Chưa sửa. Khi sửa xong, xác nhận bằng:
+- Deploy mới trên Render đạt trạng thái `Live` và header service trỏ đúng commit mới (không còn đứng ở `9b11a97`).
+- `curl https://tickey-api.onrender.com/health` → `{"status":"ok"}` (plan free ngủ, lần gọi đầu có thể mất ~50s).
+- Dựng lại lỗi tại chỗ trước khi sửa, không dùng URL Supabase production (`AGENTS.md` mục 5):
+  `MSYS_NO_PATHCONV=1 docker run --rm -e Supabase__Url=https://example.invalid -e Supabase__AnonKey=dummy
+  -e Supabase__ServiceRoleKey=dummy -e Payments__Gateway=TEST tickey-api-repro` → ném đúng
+  `Payments:Test:HmacKey is required for TEST gateway`; thêm `-e Payments__Test__HmacKey=dummy` → boot sạch.
+
+---
+
 ---
 
 ## Summary by Severity (Sau triage)
 
 | Mức độ | Mục còn mở |
 |----------|------|
+| critical | **B-33** (Render deploy đỏ, chờ opencode) |
 | high | *(không còn)* |
 | medium | *(không còn)* |
 | Thấp | *(không còn)* |
