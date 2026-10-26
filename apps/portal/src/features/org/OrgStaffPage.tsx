@@ -36,11 +36,11 @@ const STAFF_SCREENS: FigmaScreenOption[] = [
 ];
 
 const ROLE_OPTIONS = [
-  { label: 'Check-in Staff · Nhân sự soát vé', roles: ['SCANNER'] },
-  { label: 'POS Staff · Bán vé tại quầy', roles: ['POS'] },
-  { label: 'Gate Manager · Quản lý cổng', roles: ['GATE_MANAGER'] },
-  { label: 'Event Manager · Quản lý sự kiện', roles: ['EVENT_MANAGER'] },
-  { label: 'Finance · Kế toán đối soát', roles: ['FINANCE'] },
+  { label: 'Nhân sự soát vé', roles: ['SCANNER'] },
+  { label: 'Bán vé tại quầy', roles: ['POS'] },
+  { label: 'Quản lý cổng', roles: ['GATE_MANAGER'] },
+  { label: 'Quản lý sự kiện', roles: ['EVENT_MANAGER'] },
+  { label: 'Kế toán đối soát', roles: ['FINANCE'] },
 ];
 
 // Sessions that can still get staff (assign_staff rejects ENDED / CANCELLED).
@@ -407,7 +407,7 @@ export function OrgStaffPage() {
             vé.
           </div>
           <span className="badge badge-success" style={{ marginBottom: 18 }}>
-            {inviteRole.split(' · ')[0]}
+            {inviteRole}
           </span>
           <button type="button" className="btn btn-primary" onClick={() => setScreen('o-members')}>
             Danh sách thành viên
