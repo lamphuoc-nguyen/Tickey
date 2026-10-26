@@ -23,6 +23,14 @@ public class PaymentQueryJobTests
         return (new PaymentQueryJob(rpc, gateway, NullLogger<PaymentQueryJob>.Instance), handler);
     }
 
+    private static (PaymentQueryJob Worker, FakeHttpHandler Handler) CreateWithGateway(IPaymentGateway gateway, Func<string, (HttpStatusCode, string)> byFunction)
+    {
+        var handler = new FakeHttpHandler((req, _) => byFunction(req.RequestUri!.Segments[^1]));
+        var rpc = new SupabaseRpcClient(new HttpClient(handler),
+            Options.Create(new SupabaseOptions { Url = "http://db.test", AnonKey = "a.b.c", ServiceRoleKey = "s.r.k" }));
+        return (new PaymentQueryJob(rpc, gateway, NullLogger<PaymentQueryJob>.Instance), handler);
+    }
+
     private static string Job => $$"""
         [{"booking_id":"{{BookingId}}","order_ref":"{{OrderRef}}","gateway":"VNPAY","amount":300000,"initiated_at":"2026-01-01T10:00:00Z"}]
         """;
@@ -36,6 +44,15 @@ public class PaymentQueryJobTests
         public Task<GatewayResult?> VerifyIpnAsync(IReadOnlyDictionary<string, string> fields, CancellationToken ct) => throw new NotImplementedException();
         public Task<GatewayResult?> QueryAsync(string orderRef, CancellationToken ct)
             => Task.FromResult<GatewayResult?>(new GatewayResult(orderRef, "TXN-123", 300000, _succeeded, _succeeded ? null : "not paid"));
+        public Task<GatewayResult?> RefundAsync(string idempotencyKey, long amount, string gatewayTxnId, CancellationToken ct) => throw new NotImplementedException();
+    }
+
+    private sealed class FailingGateway : IPaymentGateway
+    {
+        public string Name => "FAILING";
+        public Uri BuildPaymentUrl(PaymentOrder order, Uri returnUrl) => throw new NotImplementedException();
+        public Task<GatewayResult?> VerifyIpnAsync(IReadOnlyDictionary<string, string> fields, CancellationToken ct) => throw new NotImplementedException();
+        public Task<GatewayResult?> QueryAsync(string orderRef, CancellationToken ct) => throw new HttpRequestException("Gateway unavailable");
         public Task<GatewayResult?> RefundAsync(string idempotencyKey, long amount, string gatewayTxnId, CancellationToken ct) => throw new NotImplementedException();
     }
 
@@ -153,7 +170,84 @@ public class PaymentQueryJobTests
         }, gatewaySucceeded: true);
 
         var count = await worker.RunOnceAsync(TestContext.Current.CancellationToken);
-        // One job failed with RpcException (not counted), one succeeded (counted = 1)
+        // Both jobs are attempted, but only the second runs to completion: the count is of
+        // handled jobs, not attempted ones, so the first job's RpcException does not count.
+        Assert.Equal(2, handler.Calls.Count(c => c.Request.RequestUri!.Segments[^1] == "apply_payment_success"));
         Assert.Equal(1, count);
+    }
+
+    [Fact]
+    public async Task Gateway_HttpRequestException_does_not_stop_other_jobs()
+    {
+        var multiJob = $$"""
+            [
+                {"booking_id":"11111111-1111-1111-1111-111111111111","order_ref":"REF-1","gateway":"VNPAY","amount":300000,"initiated_at":"2026-01-01T10:00:00Z"},
+                {"booking_id":"22222222-2222-2222-2222-222222222222","order_ref":"REF-2","gateway":"VNPAY","amount":300000,"initiated_at":"2026-01-01T10:00:00Z"}
+            ]
+            """;
+
+        var (worker, handler) = CreateWithGateway(new FailingGateway(), fn => fn switch
+        {
+            "list_payment_pending_to_query" => (HttpStatusCode.OK, multiJob),
+            "get_payment_by_order_ref" => (HttpStatusCode.OK, """{"status":"INITIATED"}"""),
+            "expire_unpaid_booking" => (HttpStatusCode.OK, "null"),
+            _ => (HttpStatusCode.OK, "null"),
+        });
+
+        var count = await worker.RunOnceAsync(TestContext.Current.CancellationToken);
+        // Both jobs are attempted — the first throwing HttpRequestException does not stop the second —
+        // but neither completes, so nothing is counted as handled and ExecuteAsync backs off.
+        var queried = handler.Calls
+            .Where(c => c.Request.RequestUri!.Segments[^1] == "get_payment_by_order_ref")
+            .Select(c => c.Body)
+            .ToArray();
+        Assert.Contains(queried, b => b.Contains("REF-1"));
+        Assert.Contains(queried, b => b.Contains("REF-2"));
+        Assert.Equal(0, count);
+    }
+
+    [Fact]
+    public async Task Skips_QueryAsync_for_UnconfiguredPaymentGateway()
+    {
+        var unconfiguredGateway = new UnconfiguredPaymentGateway();
+        var (worker, handler) = CreateWithGateway(unconfiguredGateway, fn => fn switch
+        {
+            "list_payment_pending_to_query" => (HttpStatusCode.OK, Job),
+            "get_payment_by_order_ref" => (HttpStatusCode.OK, """{"status":"INITIATED"}"""),
+            _ => (HttpStatusCode.OK, "null"),
+        });
+
+        var count = await worker.RunOnceAsync(TestContext.Current.CancellationToken);
+        // The job is skipped, not handled, so the loop backs off instead of re-polling immediately.
+        Assert.Equal(0, count);
+
+        var calls = handler.Calls.Select(c => c.Request.RequestUri!.Segments[^1]).ToArray();
+        // Should NOT call QueryAsync for unconfigured gateway, just skip
+        Assert.DoesNotContain("apply_payment_success", calls);
+        Assert.DoesNotContain("expire_unpaid_booking", calls);
+    }
+
+    [Fact]
+    public async Task Returns_zero_when_every_job_throws()
+    {
+        var multiJob = $$"""
+            [
+                {"booking_id":"11111111-1111-1111-1111-111111111111","order_ref":"REF-1","gateway":"VNPAY","amount":300000,"initiated_at":"2026-01-01T10:00:00Z"},
+                {"booking_id":"22222222-2222-2222-2222-222222222222","order_ref":"REF-2","gateway":"VNPAY","amount":300000,"initiated_at":"2026-01-01T10:00:00Z"}
+            ]
+            """;
+
+        var (worker, handler) = Create(fn => fn switch
+        {
+            "list_payment_pending_to_query" => (HttpStatusCode.OK, multiJob),
+            "get_payment_by_order_ref" => (HttpStatusCode.BadRequest, """{"code":"P0001","message":"INVALID_STATE","details":""}"""),
+            _ => (HttpStatusCode.OK, "null"),
+        }, gatewaySucceeded: true);
+
+        var count = await worker.RunOnceAsync(TestContext.Current.CancellationToken);
+        // Regression for B-31: every job failing must return 0 so ExecuteAsync waits IdleDelay
+        // instead of spinning on the database and the gateway.
+        Assert.Equal(0, count);
+        Assert.Equal(2, handler.Calls.Count(c => c.Request.RequestUri!.Segments[^1] == "get_payment_by_order_ref"));
     }
 }

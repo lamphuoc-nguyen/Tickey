@@ -70,6 +70,13 @@ public sealed class PaymentQueryJob(
                 }
                 else
                 {
+                    // Skip QueryAsync for unconfigured gateway (avoids NotSupportedException and log spam)
+                    if (gateway is UnconfiguredPaymentGateway)
+                    {
+                        log.LogDebug("Skipping payment query for booking {BookingId}: gateway not configured", job.BookingId);
+                        continue;
+                    }
+
                     // For TestPaymentGateway, QueryAsync returns null (no real gateway)
                     // In real gateway mode, this would call the actual gateway
                     var result = await gateway.QueryAsync(job.OrderRef, ct);
@@ -92,11 +99,14 @@ public sealed class PaymentQueryJob(
                         log.LogInformation("Booking {BookingId} expired (no payment confirmed)", job.BookingId);
                     }
                 }
+
+                // Only a job that ran to completion counts as handled: ExecuteAsync relies on a
+                // zero return to back off for IdleDelay instead of busy-spinning on a failing gateway.
                 handledCount++;
             }
-            catch (RpcException e)
+            catch (Exception e) when (e is not OperationCanceledException)
             {
-                log.LogWarning("Payment query for booking {BookingId} failed: {Code}", job.BookingId, e.Message);
+                log.LogWarning("Payment query for booking {BookingId} failed: {Error}", job.BookingId, e.Message);
                 // Don't retry here - the DB outbox mechanism handles retries for other jobs
                 // This job is polled directly, so we just log and continue
             }

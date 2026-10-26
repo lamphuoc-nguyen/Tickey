@@ -1,6 +1,8 @@
 using System.Net;
 using System.Text.Json;
+using EventPlatform.Core.Payments;
 using EventPlatform.Core.Supabase;
+using Microsoft.Extensions.Options;
 
 namespace EventPlatform.Api;
 
@@ -15,22 +17,49 @@ public static class TestPaymentEndpoints
     {
         var group = app.MapGroup("/payments/test");
 
-        group.MapGet("/{orderRef}", (string orderRef, long amount, string @return) =>
-            Results.Content(Page(orderRef, amount, @return), "text/html; charset=utf-8"));
+        group.MapGet("/{orderRef}", (string orderRef, long amount, string @return, string? sig, 
+            TestPaymentGateway gateway) =>
+        {
+            // Verify HMAC signature
+            if (sig is null || !gateway.VerifySignature(orderRef, amount, @return, sig))
+            {
+                return Results.BadRequest(new { message = "INVALID_SIGNATURE", details = "{}" });
+            }
+            return Results.Content(Page(orderRef, amount, @return, sig), "text/html; charset=utf-8");
+        });
 
         group.MapPost("/{orderRef}", async (string orderRef, HttpRequest request, SupabaseRpcClient rpc,
-            IConfiguration config, ILogger<TestPaymentLog> log, CancellationToken ct) =>
+            IConfiguration config, ILogger<TestPaymentLog> log, CancellationToken ct,
+            TestPaymentGateway gateway) =>
         {
             var form = await request.ReadFormAsync(ct);
             var returnUrl = form["return"].ToString();
-            if (!long.TryParse(form["amount"], out var amount) || !IsOwnReturnUrl(returnUrl, config))
+            var signature = form["sig"].ToString();
+            
+            if (!long.TryParse(form["amount"], out var amount) 
+                || !IsOwnReturnUrl(returnUrl, config)
+                || !gateway.VerifySignature(orderRef, amount, returnUrl, signature))
             {
-                return Results.BadRequest();
+                return Results.BadRequest(new { message = "VALIDATION_FAILED", details = "{\"field\":\"signature\"}" });
             }
 
             var payload = JsonSerializer.SerializeToElement(new { method = "TEST", order_ref = orderRef });
+            
+            // Idempotency: check if payment already has a result
+            var existingPayment = await rpc.CallAsync<JsonElement>("get_payment_by_order_ref", 
+                new { p_order_ref = orderRef }, ct);
+            
             if (form["result"] == "success")
             {
+                // If payment already succeeded, return existing result (idempotent)
+                if (existingPayment.ValueKind != JsonValueKind.Null 
+                    && existingPayment.TryGetProperty("status", out var statusProp)
+                    && statusProp.GetString() == "SUCCEEDED")
+                {
+                    log.LogInformation("Test payment {OrderRef} already succeeded, returning existing result", orderRef);
+                    return Results.Redirect(returnUrl);
+                }
+                
                 await rpc.CallAsync("apply_payment_success", new
                 {
                     p_order_ref = orderRef, p_gateway_txn_id = $"TEST-{Guid.NewGuid():N}", p_amount = amount,
@@ -39,6 +68,15 @@ public static class TestPaymentEndpoints
             }
             else
             {
+                // If payment already failed, return existing result (idempotent)
+                if (existingPayment.ValueKind != JsonValueKind.Null 
+                    && existingPayment.TryGetProperty("status", out var statusProp)
+                    && statusProp.GetString() == "FAILED")
+                {
+                    log.LogInformation("Test payment {OrderRef} already failed, returning existing result", orderRef);
+                    return Results.Redirect(returnUrl);
+                }
+                
                 await rpc.CallAsync("apply_payment_failure", new
                 {
                     p_order_ref = orderRef, p_reason = "TEST_DECLINED", p_payload = payload,
@@ -56,10 +94,11 @@ public static class TestPaymentEndpoints
         && uri.AbsolutePath == "/payments/return"
         && Uri.Compare(uri, api, UriComponents.SchemeAndServer, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) == 0;
 
-    private static string Page(string orderRef, long amount, string returnUrl)
+    private static string Page(string orderRef, long amount, string returnUrl, string signature)
     {
         var order = WebUtility.HtmlEncode(orderRef);
         var back = WebUtility.HtmlEncode(returnUrl);
+        var sig = WebUtility.HtmlEncode(signature);
         var total = amount.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("vi-VN"));
         return $$"""
             <!doctype html>
@@ -86,6 +125,7 @@ public static class TestPaymentEndpoints
                 <form method="post">
                   <input type="hidden" name="amount" value="{{amount}}">
                   <input type="hidden" name="return" value="{{back}}">
+                  <input type="hidden" name="sig" value="{{sig}}">
                   <button class="pay" name="result" value="success">Thanh toán thành công</button>
                   <button class="fail" name="result" value="fail">Thanh toán thất bại</button>
                 </form>

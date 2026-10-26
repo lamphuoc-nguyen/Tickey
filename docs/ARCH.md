@@ -238,6 +238,7 @@ dotnet user-secrets --project src/EventPlatform.Api set "Supabase:AnonKey"      
 dotnet user-secrets --project src/EventPlatform.Api set "Supabase:ServiceRoleKey" "<service_role key>"
 # Tuỳ chọn: thanh toán thử + phát vé ngay trong API
 dotnet user-secrets --project src/EventPlatform.Api set "Payments:Gateway" "TEST"
+dotnet user-secrets --project src/EventPlatform.Api set "Payments:Test:HmacKey" "<chuỗi bí mật bất kỳ>"  # bắt buộc khi Gateway=TEST
 dotnet user-secrets --project src/EventPlatform.Api set "Qr:SigningKey"    "<ed25519 seed>"
 dotnet user-secrets --project src/EventPlatform.Api set "Qr:Kid"           "dev-1"
 # Workers dùng cùng bộ khoá với --project src/EventPlatform.Workers

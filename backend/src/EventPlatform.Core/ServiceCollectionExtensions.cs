@@ -3,6 +3,7 @@ using EventPlatform.Core.Media;
 using EventPlatform.Core.Supabase;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace EventPlatform.Core;
 
@@ -33,12 +34,25 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(TimeProvider.System);
         services.AddTransient<MediaAuthorization>();
         services.AddHttpClient<CloudinaryImageClient>(client => client.Timeout = TimeSpan.FromSeconds(60));
+        var gateway = config["Payments:Gateway"];
         if (IsTestPayments(config))
         {
-            services.AddSingleton<IPaymentGateway, TestPaymentGateway>();
+            services.AddOptions<TestPaymentOptions>()
+                .Bind(config.GetSection("Payments:Test"))
+                .Validate(o => !string.IsNullOrEmpty(o.HmacKey), "Payments:Test:HmacKey is required for TEST gateway")
+                .ValidateOnStart();
+            services.AddSingleton<TestPaymentGateway>(sp => 
+                new TestPaymentGateway(sp.GetRequiredService<IOptions<TestPaymentOptions>>()));
+            services.AddSingleton<IPaymentGateway>(sp => sp.GetRequiredService<TestPaymentGateway>());
+        }
+        else if (!string.IsNullOrEmpty(gateway))
+        {
+            // Gateway specified but not supported - fail fast at startup
+            throw new InvalidOperationException($"Unsupported payment gateway: '{gateway}'. Supported: 'TEST' (OQ-02 not decided).");
         }
         else
         {
+            // No gateway configured - register placeholder that throws at runtime with clear message
             services.AddSingleton<IPaymentGateway, UnconfiguredPaymentGateway>();
         }
         return services;

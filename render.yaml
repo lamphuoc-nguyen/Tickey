@@ -27,6 +27,9 @@ services:
       # Test mode: fake checkout page instead of a real gateway (no money moves). Remove for real payments.
       - key: Payments__Gateway
         value: TEST
+      # HMAC key for test payment signatures (required when Payments__Gateway=TEST). Set in Render dashboard.
+      - key: Payments__Test__HmacKey
+        sync: false
       # Ed25519 seed for QR tickets: the API issues tickets itself when this is set (no separate Workers host).
       - key: Qr__SigningKey
         sync: false
