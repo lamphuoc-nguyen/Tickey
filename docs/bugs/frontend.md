@@ -318,11 +318,204 @@ claude 2026-10-25: `pnpm --filter @event/agent-manager typecheck` xanh, `test` 1
 
 ---
 
+## F-06: Portal thông báo lỗi thiếu các mã lỗi trong ERROR_CODES, hiển thị mã thô cho người dùng
+
+- Trạng thái: VERIFIED (claude 2026-10-26 14:23, commit `8cc6ced`; xem "Review (claude, 2026-10-26 14:23)")
+- Phía: frontend
+- Giao cho: antigravity
+- Mức độ: low
+- Luồng: khác
+- Người phát hiện: antigravity
+
+### Tái hiện
+1. Kích hoạt một lỗi từ API/RPC có mã không nằm trong danh sách `messages` của portal (ví dụ: `RATE_LIMITED` khi gọi auth quá nhanh, `SESSION_NOT_ON_SALE`, `SEAT_CONFLICT`, `SOLD_OUT`, `BOOKING_EXPIRED`, `OTP_REQUIRED`, `LEDGER_UNBALANCED`).
+2. Quan sát thông báo lỗi toast hoặc inline notice hiển thị qua `errorMessage(error)`.
+
+### Kỳ vọng / Thực tế
+- Kỳ vọng: Người dùng nhận được thông báo lỗi tiếng Việt thân thiện, rõ ràng, hướng dẫn cách xử lý.
+- Thực tế: `messages` tại `apps/portal/src/lib/api.ts:42` chỉ map 10 mã lỗi (`NETWORK`, `UNAUTHENTICATED`, `FORBIDDEN`, `MFA_REQUIRED`, `NOT_FOUND`, `INVALID_STATE`, `VALIDATION_FAILED`, `DEVICE_REVOKED`, `IMMUTABLE_ROW`, `LIMIT_EXCEEDED`). Các mã lỗi còn lại trong `ERROR_CODES` (`packages/core/src/errors.ts`) bị thiếu. Khi gặp các mã lỗi này, `errorMessage` rơi về `(error as Error).message` - chính là chuỗi mã lỗi kỹ thuật viết hoa nguyên bản như `"RATE_LIMITED"`, `"SOLD_OUT"`, `"SEAT_CONFLICT"`, `"BOOKING_EXPIRED"`, `"OTP_REQUIRED"`.
+
+### Bằng chứng
+- `apps/portal/src/lib/api.ts:42-69`
+- `packages/core/src/errors.ts:4-23`
+- Đối chiếu với mobile đã map đầy đủ tại `apps/mobile/src/components/ui.tsx:362-375`.
+
+### Nguyên nhân
+Bảng tra cứu `messages` trong `apps/portal/src/lib/api.ts` chưa cập nhật đầy đủ các mã lỗi từ `@event/core`.
+
+### Đề xuất sửa
+Bổ sung các mã lỗi thiếu vào `messages` trong `apps/portal/src/lib/api.ts`:
+- `SESSION_NOT_ON_SALE`: 'Suất diễn hiện không mở bán.'
+- `SEAT_CONFLICT`: 'Một số ghế đã có người chọn hoặc không còn khả dụng.'
+- `SOLD_OUT`: 'Khu vực hoặc hạng vé đã hết chỗ.'
+- `BOOKING_EXPIRED`: 'Đã hết thời gian giữ chỗ.'
+- `OTP_REQUIRED`: 'Cần xác thực mã OTP trước khi tiếp tục.'
+- `RATE_LIMITED`: 'Bạn đã thực hiện quá nhiều thao tác. Vui lòng chờ giây lát rồi thử lại.'
+- `LEDGER_UNBALANCED`: 'Giao dịch sổ cái không cân bằng.'
+- `LEDGER_INVALID_LINES`: 'Bút toán sổ cái chưa hợp lệ.'
+- `UNKNOWN`: 'Không thể hoàn tất yêu cầu. Vui lòng thử lại hoặc liên hệ hỗ trợ.'
+
+### Kiểm thử
+- Đã cập nhật `messages` trong `apps/portal/src/lib/api.ts` bổ sung toàn bộ các mã lỗi thiếu (`SESSION_NOT_ON_SALE`, `SEAT_CONFLICT`, `SOLD_OUT`, `BOOKING_EXPIRED`, `OTP_REQUIRED`, `RATE_LIMITED`, `LEDGER_UNBALANCED`, `LEDGER_INVALID_LINES`, `UNKNOWN`).
+- Đổi thông điệp `MFA_REQUIRED` thành: 'Thao tác cần xác thực bổ sung. Vui lòng liên hệ hỗ trợ.' phù hợp định hướng không ép 2FA P1.
+- Xử lý `UNKNOWN` không có thông điệp kỹ thuật hữu ích hiển thị câu mặc định 'Không thể hoàn tất yêu cầu. Vui lòng thử lại hoặc liên hệ hỗ trợ.'
+- Bổ sung unit test trong `apps/portal/src/lib/api.test.ts` duyệt qua toàn bộ mảng `ERROR_CODES` từ `@event/core` và kiểm tra thông báo tiếng Việt trả về khác với mã thô, test thông điệp `MFA_REQUIRED`, `NETWORK`, `UNKNOWN`.
+- Lệnh chạy: `node "$LOCALAPPDATA/node/corepack/v1/pnpm/12.9.1/bin/pnpm.mjs" --filter @event/portal test`
+- Kết quả: PASS (7 test files, 36 tests passed).
+
+### Review (claude, 2026-10-26 14:23)
+Đạt. `api.ts` không đổi export nào. claude chạy lại portal `lint`, `typecheck`, `test` (37/37), `build`: xanh. Commit
+riêng được kiểm trong worktree tách (HEAD + chỉ file F-06/F-07/F-08, không kèm C-10): lint, `tsc -b`, vitest 37/37
+(biến `VITE_SUPABASE_*` giả), `vite build` xanh. → `VERIFIED`.
+
+---
+
+## F-07: EventCreationWizard nhân đôi hạng vé khi quay lại bước 3 từ bước 4
+
+- Trạng thái: VERIFIED (claude 2026-10-26 14:23, commit `53f3c17`; xem "Review (claude, 2026-10-26 14:23)")
+- Phía: frontend
+- Giao cho: antigravity
+- Mức độ: medium
+- Luồng: tìm suất (tạo sự kiện / suất diễn / hạng vé)
+- Người phát hiện: antigravity
+
+### Tái hiện
+1. Đăng nhập Org, mở Wizard tạo sự kiện (`EventCreationWizard.tsx`).
+2. Hoàn thành Bước 1 (Thông tin cơ bản) và Bước 2 (Thời gian & Địa điểm).
+3. Tại Bước 3 (Hạng vé & Bảng giá), giữ 2 hạng vé mặc định (hoặc thêm vé mới), bấm "Tiếp tục sang Xem trước & Công bố".
+4. Tại Bước 4, bấm "Quay lại cấu hình hạng vé" (`onClick={() => setStep(3)}`).
+5. Ở Bước 3, bấm "Tiếp tục sang Xem trước & Công bố" lần thứ hai.
+6. Kiểm tra danh sách hạng vé của suất diễn trong database hoặc trên giao diện quản lý.
+
+### Kỳ vọng / Thực tế
+- Kỳ vọng: Khi quay lại và tiếp tục, các hạng vé đã tạo phải được cập nhật (update) bằng `id` tương ứng, không tạo mới trùng lặp.
+- Thực tế: `handleNextFromStep3` (`EventCreationWizard.tsx:283-298`) lặp qua danh sách `tickets` và gọi `saveTicketType.mutateAsync(...)` mà không truyền `id` (mỗi phần tử trong `tickets` chỉ có `tempId` cục bộ). Sau khi lưu thành công, wizard không lưu `res.id` ngược lại vào state `tickets`. Do đó, mỗi lần người dùng quay lại Bước 3 và bấm Tiếp tục, toàn bộ danh sách hạng vé được `POST` lên server tạo mới lại từ đầu, gây nhân đôi hạng vé (duplicate ticket types) cho cùng một session, phân bổ trùng quota và sơ đồ ghế.
+
+### Bằng chứng
+- `apps/portal/src/features/org/events/EventCreationWizard.tsx:252-303, 1294`
+- `apps/portal/src/features/org/data/event-data.ts:173-179` (`useSaveTicketType` chỉ gọi `PUT` khi có `id`, không có `id` thì gọi `POST`).
+
+### Nguyên nhân
+State `tickets` trong `EventCreationWizard` chỉ dùng `tempId` tạm thời, không lưu lại `id` thực tế trả về từ `saveTicketType` để tái sử dụng trong các lần lưu sau.
+
+### Đề xuất sửa
+Trong `handleNextFromStep3`, sau khi gọi `const res = await saveTicketType.mutateAsync(...)`, cập nhật `id: res.id` vào từng ticket trong `tickets`. Khi gọi `saveTicketType.mutateAsync`, truyền `id: t.id ?? undefined` để nếu đã có `id` thì gọi `PUT /api/ticket-types/${id}` thay vì `POST`.
+
+### Ghi chú
+Vé đã có `id` mà bị xoá khỏi danh sách ở bước 3: không cần endpoint DELETE. Trong `wizard-tickets.ts`, so sánh danh sách `previousSavedIds` với các vé hiện tại; vé nào đã lưu mà bị xoá sẽ được gọi `PUT /api/ticket-types/{id}` với `{ status: 'INACTIVE' }` để ngừng bán, không gọi POST mới.
+
+### Kiểm thử
+- Đã sửa `apps/portal/src/features/org/events/EventCreationWizard.tsx` và `wizard-tickets.ts`: thêm `id?: string` vào `WizardTicketItem`, lưu `id` trả về vào state `tickets` ngay khi từng vé lưu thành công (giữ `id` kể cả khi lỗi giữa vòng lặp), và gửi `id` trong các lần lưu tiếp theo để gọi PUT thay vì POST.
+- Xử lý vé đã persist bị xoá khỏi danh sách: `persistWizardTickets` nhận `previousSavedIds`, phát hiện vé bị xoá và gọi `PUT /api/ticket-types/{id}` với `status: 'INACTIVE'`.
+- Chỉnh sửa thụt lề comment `// Persist ticket types` về 4 dấu cách.
+- Bổ sung unit test `apps/portal/src/features/org/events/EventCreationWizard.test.ts`:
+  - Kiểm tra lưu bước 3 lần đầu gửi không có `id` (POST), lưu lần hai gửi kèm `id` (PUT), không tạo trùng lặp.
+  - Kiểm tra nếu lỗi giữa vòng lặp, các vé đã lưu trước đó vẫn giữ nguyên `id`.
+  - Kiểm tra lưu bước 3, xoá 1 vé, lưu lại: gửi đúng một PUT `status: 'INACTIVE'` cho vé bị xoá, PUT `status: 'ACTIVE'` cho vé còn lại, không gọi POST mới.
+- Lệnh chạy: `node "$LOCALAPPDATA/node/corepack/v1/pnpm/12.9.1/bin/pnpm.mjs" --filter @event/portal test`
+- Kết quả: PASS (7 test files, 37 tests passed).
+
+### Review (claude, 2026-10-26 14:23)
+Đạt. PUT một phần `{ id, status: 'INACTIVE' }` hợp lệ: `save_ticket_type`
+(`20261026000003_fix_save_ticket_type_seat_pricing.sql`) `coalesce` mọi trường và chỉ đòi `zone_ids` khi tạo mới.
+Thụt lề `EventCreationWizard.tsx:275` đã đúng. Kiểm thử như F-06. → `VERIFIED`. Còn một chỗ hở khi lưu lỗi giữa
+vòng lặp, ghi thành F-09.
+
+---
+
+## F-08: LayoutEditor sinh trùng mã khu vực (Duplicate Zone ID) khi thêm khu mới sau khi xóa khu
+
+- Trạng thái: VERIFIED (claude 2026-10-26 14:23, commit `5ef6592`; xem "Review (claude, 2026-10-26 14:23)")
+- Phía: frontend
+- Giao cho: antigravity
+- Mức độ: medium
+- Luồng: khác (quản lý địa điểm / sơ đồ ghế)
+- Người phát hiện: antigravity
+
+### Tái hiện
+1. Đăng nhập Org, vào Quản lý địa điểm & Sơ đồ (`OrgVenuesPage.tsx`), mở trình chỉnh sửa sơ đồ (`LayoutEditor.tsx`).
+2. Chọn mẫu Sân vận động có sẵn 4 khán đài `A, B, C, D`.
+3. Bấm "Xóa" một khu ở giữa (ví dụ xóa khu `B`). Danh sách khu còn lại 3 khu: `A, C, D`.
+4. Bấm nút "+ Thêm khu mới".
+5. Bấm "Phát hành sơ đồ".
+
+### Kỳ vọng / Thực tế
+- Kỳ vọng: Khu mới được tạo với mã định danh không trùng với bất kỳ khu nào đang có (ví dụ mã `E`).
+- Thực tế: Nút "+ Thêm khu mới" tính mã khu tiếp theo bằng `const nextId = rowLabel(zones.length)` (`LayoutEditor.tsx:860`). Khi danh sách có 3 khu (`A, C, D`), `zones.length` bằng 3, nên `rowLabel(3)` trả về `'D'`. Khu mới được tạo có `id: 'D'`, trùng lặp với khu `'D'` đã tồn tại trong sơ đồ. Khi người dùng bấm lưu/phát hành sơ đồ, RPC `publish_layout_version` kiểm tra trùng lặp `group by z ->> 'id' having count(*) > 1` và ném `VALIDATION_FAILED: duplicate zone id: D`.
+
+### Bằng chứng
+- `apps/portal/src/features/org/venues/LayoutEditor.tsx:855-875`
+- `supabase/migrations/20261001000000_init_database.sql:3357-3360` (`duplicate zone id: ...`)
+
+### Nguyên nhân
+Hàm sinh `nextId` chỉ dựa trên độ dài mảng `zones.length` thay vì tìm mã ký tự chưa tồn tại trong danh sách khu hiện tại.
+
+### Đề xuất sửa
+Thay đổi cách tính `nextId`: lặp tìm mã `rowLabel(i)` đầu tiên chưa nằm trong `zones.map(z => z.id)`:
+```ts
+let idx = zones.length;
+while (zones.some((z) => z.id === rowLabel(idx))) {
+  idx++;
+}
+const nextId = rowLabel(idx);
+```
+
+### Kiểm thử
+- Đã tách hàm thuần `nextZoneId(zones: Array<{ id: string }>): string` trong `apps/portal/src/features/org/venues/layout-model.ts` để tìm mã `rowLabel(i)` đầu tiên chưa có trong danh sách khu.
+- Đã cập nhật `LayoutEditor.tsx` sử dụng `nextZoneId(zones)` thay cho `rowLabel(zones.length)`.
+- Bổ sung unit test trong `apps/portal/src/features/org/venues/layout-model.test.ts` kiểm tra kịch bản:
+  - Khởi tạo 4 khu A, B, C, D.
+  - Xoá khu giữa B (còn A, C, D).
+  - Gọi `nextZoneId` trả về 'B' (không bị trùng 'D' do `zones.length = 3`).
+  - Thêm lại 'B' vào danh sách và kiểm tra khu tiếp theo là 'E'.
+- Lệnh chạy: `node "$LOCALAPPDATA/node/corepack/v1/pnpm/12.9.1/bin/pnpm.mjs" --filter @event/portal test`
+- Kết quả: PASS (7 test files, 36 tests passed).
+
+### Review (claude, 2026-10-26 14:23)
+Đạt. JSDoc `/** A, B, …, Z, AA, AB … */` đã về ngay trên `rowLabel` (`layout-model.ts:93`). Kiểm thử như F-06.
+→ `VERIFIED`.
+
+---
+
+## F-09: Wizard bỏ sót vé bị xoá sau một lần lưu bước 3 lỗi giữa chừng
+
+- Trạng thái: OPEN
+- Phía: frontend
+- Giao cho: antigravity
+- Mức độ: low
+- Luồng: khác
+- Người phát hiện: claude
+
+### Tái hiện
+1. Wizard tạo sự kiện, bước 3 có 3 hạng vé mới (chưa lưu lần nào, `savedTicketIds = []`).
+2. Bấm Tiếp tục: vé 1 và 2 lưu được (POST, nhận `id`), vé 3 lỗi (ví dụ `VALIDATION_FAILED`). Toast lỗi, ở lại bước 3.
+3. Xoá vé 2 khỏi danh sách, sửa vé 3, bấm Tiếp tục lần nữa.
+
+### Kỳ vọng / Thực tế
+- Kỳ vọng: vé 2 (đã có `id` trên server) bị PUT `status: 'INACTIVE'`.
+- Thực tế: vé 2 vẫn `ACTIVE` trên server và không còn trên giao diện wizard. `persistWizardTickets` chỉ so với
+  `previousSavedIds`, mà `savedTicketIds` chỉ được gán sau khi **cả** vòng lưu thành công.
+
+### Bằng chứng
+- `apps/portal/src/features/org/events/EventCreationWizard.tsx:277-292`: callback `onTicketSaved` (dòng 282) chỉ gán `id` vào
+  `tickets`; `setSavedTicketIds(...)` ở dòng 292 nằm sau `await persistWizardTickets(...)`, không chạy khi hàm ném lỗi.
+- `apps/portal/src/features/org/events/wizard-tickets.ts:21-25`: `removedIds` lấy từ `previousSavedIds`.
+
+### Đề xuất sửa
+Trong `onTicketSaved` cũng thêm `id` vào `savedTicketIds` (bỏ trùng), hoặc tính `previousSavedIds` từ mọi `id` server
+từng trả về. Test: lần lưu đầu ném lỗi ở vé thứ 3 → xoá vé 2 → lưu lại → có PUT `INACTIVE` cho vé 2. Chỉ
+`apps/portal/**`.
+
+### Kiểm thử
+Chưa sửa.
+
+---
+
 ## Summary by Severity
 
 | Severity | Count | Bugs |
 |----------|-------|------|
 | Nghiêm trọng (Critical) | 0 | — |
 | Cao (High) | 1 | F-04 |
-| Trung bình (Medium) | 0 | — |
-| Thấp (Low) | 4 | F-01, F-02, F-03, F-05 |
+| Trung bình (Medium) | 2 | F-07, F-08 |
+| Thấp (Low) | 6 | F-01, F-02, F-03, F-05, F-06, F-09 |
