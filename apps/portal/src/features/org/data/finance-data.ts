@@ -128,7 +128,7 @@ export function useOrgBankAccounts(orgId: string | null) {
 
 /**
  * Gửi yêu cầu đổi tài khoản nhận tiền (request_bank_account_change). Bản mới ở trạng thái
- * PENDING chờ FINANCE_ADMIN duyệt; OWNER phải bật 2FA nên lỗi MFA_REQUIRED là bình thường.
+ * PENDING chờ FINANCE_ADMIN duyệt.
  */
 export function useRequestBankAccount(orgId: string | null) {
   const client = useQueryClient();

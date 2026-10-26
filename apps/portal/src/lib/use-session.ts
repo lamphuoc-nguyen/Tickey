@@ -7,8 +7,6 @@ export interface SessionState {
   loading: boolean;
   session: Session | null;
   workspace: ActiveWorkspace;
-  /** Signed in with the password only, while the user has a verified TOTP factor: the code is still owed. */
-  mfaPending: boolean;
 }
 
 /** Current Supabase session and the active_workspace carried by its JWT. */
@@ -17,55 +15,20 @@ export function useSession(): SessionState {
     loading: true,
     session: null,
     workspace: readActiveWorkspace(null),
-    mfaPending: false,
   });
 
   useEffect(() => {
     let mounted = true;
     let resolved = false;
-    const apply = async (session: Session | null) => {
+    const apply = (session: Session | null) => {
       resolved = true;
       if (!mounted) return;
-      let activeWs = readActiveWorkspace(session?.access_token);
-      const savedWs = localStorage.getItem('tickey_active_workspace');
-      if (savedWs) {
-        try {
-          const parsed = JSON.parse(savedWs);
-          if (parsed?.kind) {
-            activeWs = {
-              kind: parsed.kind,
-              orgId: parsed.orgId ?? null,
-              roles: parsed.roles ?? [],
-            };
-          }
-        } catch {
-          void 0;
-        }
-      }
-      if (session && !activeWs.orgId) {
-        try {
-          const { data } = await supabase.rpc('list_my_workspaces');
-          const org = (data as Array<{ kind: string; org_id: string; roles: string[] }>)?.find(
-            (w) => w.kind === 'ORG' && w.org_id,
-          );
-          if (org) {
-            activeWs = {
-              kind: 'ORG',
-              orgId: org.org_id,
-              roles: org.roles ?? [],
-            };
-            localStorage.setItem('tickey_active_workspace', JSON.stringify(activeWs));
-          }
-        } catch {
-          void 0;
-        }
-      }
+      const activeWs = readActiveWorkspace(session?.access_token);
       if (mounted) {
         setState({
           loading: false,
           session,
           workspace: activeWs,
-          mfaPending: false,
         });
       }
     };

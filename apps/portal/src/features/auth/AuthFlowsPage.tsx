@@ -1,17 +1,14 @@
 import { ApiError } from '@event/core';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { TickeyLogo } from '../../components/common/TickeyLogo';
 import { errorMessage } from '../../lib/api';
 import { repositories } from '../../lib/repositories';
 import { supabase } from '../../lib/supabase';
 
-export type AuthFlowScreen = 'w-mfa' | 'w-mfa-setup' | 'w-mfa-admin' | 'w-verify' | 'w-forgot' | 'w-reset';
+export type AuthFlowScreen = 'w-verify' | 'w-forgot' | 'w-reset';
 
 const FLOW_TABS: Array<{ id: AuthFlowScreen; path: string; label: string; nodeId: string }> = [
-  { id: 'w-mfa', path: '/mfa', label: '2FA (w-mfa)', nodeId: '1:4698' },
-  { id: 'w-mfa-setup', path: '/mfa-setup', label: 'Thiết lập 2FA (w-mfa-setup)', nodeId: '1:4726' },
-  { id: 'w-mfa-admin', path: '/mfa-admin', label: '2FA Admin (w-mfa-admin)', nodeId: '1:16827' },
   { id: 'w-verify', path: '/verify', label: 'Xác minh email (w-verify)', nodeId: '17:7451' },
   { id: 'w-forgot', path: '/forgot-password', label: 'Quên mật khẩu (w-forgot)', nodeId: '17:7477' },
   { id: 'w-reset', path: '/reset-password', label: 'Đặt lại mật khẩu (w-reset)', nodeId: '17:7501' },
@@ -23,18 +20,12 @@ const codeInput = { fontFamily: 'monospace', fontSize: '16px', letterSpacing: '0
 function authMessage(error: unknown): string {
   if (error instanceof ApiError) return errorMessage(error);
   const message = error instanceof Error ? error.message : String(error);
-  if (/invalid.*(totp|code)|expired|otp/i.test(message))
+  if (/invalid.*code|expired|otp/i.test(message))
     return 'Mã không đúng hoặc đã hết hạn. Vui lòng thử lại.';
   if (/rate limit|too many/i.test(message))
     return 'Bạn thao tác quá nhanh. Vui lòng chờ một chút rồi thử lại.';
   if (/password/i.test(message)) return 'Mật khẩu chưa đạt yêu cầu (tối thiểu 8 ký tự).';
   return 'Không thể hoàn tất. Vui lòng thử lại.';
-}
-
-interface Enrollment {
-  factorId: string;
-  qrCode: string;
-  secret: string;
 }
 
 export function AuthFlowsPage({ defaultScreen }: { defaultScreen?: AuthFlowScreen }) {
@@ -43,7 +34,7 @@ export function AuthFlowsPage({ defaultScreen }: { defaultScreen?: AuthFlowScree
   const passedEmail = (location.state as { email?: string } | null)?.email ?? '';
 
   const resolvedScreen: AuthFlowScreen =
-    defaultScreen ?? (FLOW_TABS.find((t) => location.pathname === t.path)?.id || 'w-mfa');
+    defaultScreen ?? (FLOW_TABS.find((t) => location.pathname === t.path)?.id || 'w-verify');
 
   const [otp, setOtp] = useState('');
   const [email, setEmail] = useState(passedEmail);
@@ -52,53 +43,6 @@ export function AuthFlowsPage({ defaultScreen }: { defaultScreen?: AuthFlowScree
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [factorId, setFactorId] = useState<string | null>(null);
-  const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
-  const [alreadyEnrolled, setAlreadyEnrolled] = useState(false);
-
-  const isMfaChallenge = resolvedScreen === 'w-mfa' || resolvedScreen === 'w-mfa-admin';
-
-  // 2FA challenge: the verified TOTP factor; none yet → set one up first.
-  useEffect(() => {
-    if (!isMfaChallenge) return;
-    void supabase.auth.mfa.listFactors().then(({ data, error: listError }) => {
-      if (listError) {
-        setError(authMessage(listError));
-        return;
-      }
-      const totp = data.totp[0];
-      if (totp) setFactorId(totp.id);
-      else navigate('/mfa-setup', { replace: true });
-    });
-  }, [isMfaChallenge, navigate]);
-
-  // 2FA setup: drop half-finished enrolments, then enrol a new TOTP factor and show its QR code.
-  useEffect(() => {
-    if (resolvedScreen !== 'w-mfa-setup') return;
-    let cancelled = false;
-    void (async () => {
-      const { data: factors, error: listError } = await supabase.auth.mfa.listFactors();
-      if (listError) return setError(authMessage(listError));
-      if (factors.totp.length) {
-        if (!cancelled) setAlreadyEnrolled(true);
-        return;
-      }
-      for (const factor of factors.all.filter((f) => f.factor_type === 'totp' && f.status === 'unverified')) {
-        await supabase.auth.mfa.unenroll({ factorId: factor.id });
-      }
-      const { data, error: enrollError } = await supabase.auth.mfa.enroll({
-        factorType: 'totp',
-        // Unique: friendly names must not repeat, and a re-run effect may enrol twice.
-        friendlyName: `Tickey ${new Date().toISOString()}`,
-      });
-      if (cancelled) return;
-      if (enrollError) return setError(authMessage(enrollError));
-      setEnrollment({ factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret });
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [resolvedScreen]);
 
   const run = async (action: () => Promise<void>) => {
     setBusy(true);
@@ -113,27 +57,10 @@ export function AuthFlowsPage({ defaultScreen }: { defaultScreen?: AuthFlowScree
     }
   };
 
-  const verifyTotp = async (id: string) => {
-    const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
-      factorId: id,
-      code: otp.trim(),
-    });
-    if (verifyError) throw verifyError;
-  };
-
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     void run(async () => {
-      if (isMfaChallenge) {
-        if (!factorId) throw new Error('otp');
-        await verifyTotp(factorId);
-        navigate('/workspaces');
-      } else if (resolvedScreen === 'w-mfa-setup') {
-        if (alreadyEnrolled) return navigate('/mfa');
-        if (!enrollment) return;
-        await verifyTotp(enrollment.factorId);
-        navigate('/workspaces');
-      } else if (resolvedScreen === 'w-verify') {
+      if (resolvedScreen === 'w-verify') {
         await repositories.auth.verifyOtp(email, otp, 'signup');
         navigate('/workspaces');
       } else if (resolvedScreen === 'w-forgot') {
@@ -271,180 +198,6 @@ export function AuthFlowsPage({ defaultScreen }: { defaultScreen?: AuthFlowScree
           >
             {error || notice}
           </div>
-        )}
-
-        {/* 1:4698 | w-mfa  ·  1:16827 | w-mfa-admin / Xác thực hai bước */}
-        {isMfaChallenge && (
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div>
-              {resolvedScreen === 'w-mfa-admin' && (
-                <span className="badge badge-info" style={{ marginBottom: '10px' }}>
-                  BẢO MẬT QUẢN TRỊ NỀN TẢNG
-                </span>
-              )}
-              <h1 style={{ fontSize: '28px', marginBottom: '6px' }}>Xác thực hai bước</h1>
-              <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>
-                Bắt buộc với Chủ tổ chức, Kế toán và Admin nền tảng
-              </p>
-            </div>
-
-            <label>
-              Mã xác thực
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                placeholder="Nhập mã 6 chữ số từ ứng dụng xác thực"
-                style={codeInput}
-                required
-              />
-            </label>
-
-            <button
-              type="submit"
-              className="btn btn-primary"
-              style={{ width: '100%' }}
-              disabled={busy || !factorId}
-            >
-              {busy ? 'Đang xác minh…' : 'Xác nhận'}
-            </button>
-
-            {import.meta.env.DEV && (
-              <button
-                type="button"
-                className="btn btn-outline"
-                style={{
-                  width: '100%',
-                  borderColor: '#3B82F6',
-                  color: '#2563EB',
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                }}
-                onClick={() => navigate('/workspaces')}
-              >
-                ⚡ Bỏ qua 2FA (Chế độ Dev) → Vào thẳng Workspace
-              </button>
-            )}
-
-            <div style={{ fontSize: '12px', color: 'var(--muted)' }}>
-              Mất ứng dụng xác thực? Liên hệ quản trị nền tảng để gỡ 2FA cũ, rồi thiết lập lại.
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '13px' }}>
-              <Link to="/login" style={{ color: 'var(--muted)' }}>
-                Quay lại đăng nhập
-              </Link>
-            </div>
-          </form>
-        )}
-
-        {/* 1:4726 | w-mfa-setup / Thiết lập 2FA */}
-        {resolvedScreen === 'w-mfa-setup' && (
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div>
-              <h1 style={{ fontSize: '28px', marginBottom: '6px' }}>Thiết lập xác thực hai bước</h1>
-              <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>
-                {alreadyEnrolled
-                  ? 'Tài khoản đã bật xác thực hai bước.'
-                  : 'Quét mã bằng Google Authenticator, Microsoft Authenticator hoặc ứng dụng tương tự'}
-              </p>
-            </div>
-
-            {!alreadyEnrolled && (
-              <div
-                style={{
-                  backgroundColor: 'var(--bg)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-lg)',
-                  padding: '18px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '18px',
-                }}
-              >
-                <div
-                  style={{
-                    width: '132px',
-                    height: '132px',
-                    backgroundColor: '#FFFFFF',
-                    border: '1px solid var(--border)',
-                    borderRadius: '10px',
-                    padding: '6px',
-                    flexShrink: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 12,
-                    color: 'var(--muted)',
-                  }}
-                >
-                  {enrollment ? (
-                    <img
-                      src={enrollment.qrCode}
-                      alt="Mã QR thiết lập 2FA"
-                      style={{ width: '100%', height: '100%' }}
-                    />
-                  ) : (
-                    'Đang tạo mã…'
-                  )}
-                </div>
-
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      color: 'var(--muted)',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    Khóa thiết lập (nhập tay nếu không quét được)
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '14px',
-                      fontWeight: 700,
-                      fontFamily: 'monospace',
-                      color: 'var(--primary)',
-                      marginTop: '2px',
-                      wordBreak: 'break-all',
-                    }}
-                  >
-                    {enrollment?.secret ?? '…'}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {!alreadyEnrolled && (
-              <label>
-                Mã xác nhận đầu tiên
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  placeholder="Nhập mã 6 chữ số"
-                  style={codeInput}
-                  required
-                />
-              </label>
-            )}
-
-            <button
-              type="submit"
-              className="btn btn-primary"
-              style={{ width: '100%' }}
-              disabled={busy || (!alreadyEnrolled && !enrollment)}
-            >
-              {alreadyEnrolled ? 'Xác thực để tiếp tục' : busy ? 'Đang bật…' : 'Bật xác thực hai bước'}
-            </button>
-          </form>
         )}
 
         {/* 17:7451 | w-verify / Xác minh email */}

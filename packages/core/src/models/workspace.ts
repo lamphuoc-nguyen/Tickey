@@ -19,7 +19,7 @@ export interface Workspace {
   orgName: string | null;
   orgStatus: string | null;
   roles: string[];
-  /** Enrol / verify TOTP before switching, otherwise sensitive RPCs return MFA_REQUIRED. */
+  /** Always false in P1: 2FA is not enforced. Kept so list_my_workspaces can turn it back on in P2. */
   requiresMfa: boolean;
 }
 

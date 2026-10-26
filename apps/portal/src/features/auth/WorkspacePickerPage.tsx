@@ -1,7 +1,8 @@
-import { ApiError, type Workspace } from '@event/core';
+import { type Workspace } from '@event/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { TickeyLogo } from '../../components/common/TickeyLogo';
+import { ToastViewport, useToast } from '../../components/common/ToastProvider';
 import { errorMessage } from '../../lib/api';
 import { repositories } from '../../lib/repositories';
 import { supabase } from '../../lib/supabase';
@@ -23,6 +24,7 @@ const destination = (w: Workspace) =>
 export function WorkspacePickerPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
 
   const workspaces = useQuery({
     queryKey: ['workspaces'],
@@ -32,29 +34,20 @@ export function WorkspacePickerPage() {
   // set_active_workspace + token refresh: every API call after this carries the chosen Org / Admin scope.
   const select = useMutation({
     mutationFn: async (w: Workspace) => {
-      localStorage.setItem(
-        'tickey_active_workspace',
-        JSON.stringify({ kind: w.kind, orgId: w.orgId, roles: w.roles }),
-      );
-      try {
-        await repositories.workspace.setActiveWorkspace(w.kind, w.orgId);
-      } catch (error) {
-        if (error instanceof ApiError && error.code === 'MFA_REQUIRED') {
-          return;
-        }
-        throw error;
-      }
+      await repositories.workspace.setActiveWorkspace(w.kind, w.orgId);
     },
     onSuccess: (_data, w) => {
       queryClient.clear();
       navigate(destination(w));
+    },
+    onError: (error) => {
+      showToast(errorMessage(error), 'danger');
     },
   });
 
   const portalWorkspaces = workspaces.data?.filter((w) => w.kind === 'ORG' || w.kind === 'ADMIN') ?? [];
 
   const handleLogout = async () => {
-    localStorage.removeItem('tickey_active_workspace');
     await supabase.auth.signOut();
     queryClient.clear();
     navigate('/login');
@@ -185,7 +178,6 @@ export function WorkspacePickerPage() {
                     >
                       {orgName}
                     </h3>
-                    
                   </div>
 
                   <div
@@ -227,26 +219,10 @@ export function WorkspacePickerPage() {
           })}
         </div>
 
-        {select.error && !(select.error instanceof ApiError && select.error.code === 'MFA_REQUIRED') && (
-          <div
-            style={{
-              padding: '12px 16px',
-              backgroundColor: 'var(--danger-bg)',
-              color: 'var(--danger)',
-              borderRadius: 'var(--radius-md)',
-              marginBottom: '24px',
-              fontSize: '14px',
-            }}
-          >
-            {errorMessage(select.error)}
-          </div>
-        )}
-
         {/* Action Button Below & Logout */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <button
             onClick={() => {
-              localStorage.removeItem('tickey_active_workspace');
               navigate('/org/onboarding?create=true');
             }}
             className="btn btn-outline"
@@ -264,6 +240,7 @@ export function WorkspacePickerPage() {
           </button>
         </div>
       </div>
+      <ToastViewport />
     </div>
   );
 }
