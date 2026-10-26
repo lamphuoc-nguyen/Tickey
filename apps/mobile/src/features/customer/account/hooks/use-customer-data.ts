@@ -33,12 +33,12 @@ export function useReports() {
 export function useSupport() {
   return usePaged('support', (offset, signal) => repositories.customer.supportRequests(offset, signal));
 }
-export function useProfile() {
+export function useProfile(enabled = true) {
   const { session } = useAuth();
   return useQuery({
     queryKey: ['profile', ...sessionScope(session)],
     queryFn: ({ signal }) => repositories.customer.profile(signal),
-    enabled: !!session && session.workspace.kind === 'CUSTOMER',
+    enabled: enabled && !!session && session.workspace.kind === 'CUSTOMER',
   });
 }
 export function usePreferences() {

@@ -1,11 +1,12 @@
-import { ticketStatusLabels } from '../ticket-status';
-import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, RefreshControl, View } from 'react-native';
+import { formatSessionTime } from '@event/core';
 import { Button, Copy, Heading, Notice, QueryState, Screen, c, ui } from '@/components/ui';
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import { useTickets } from '@/features/customer/account/hooks/use-customer-data';
 import { useConnection, useSavedTickets } from '../hooks/use-ticket';
+import { groupTicketsByBooking } from '../booking-pass';
 
 function Content() {
   const { bookingId } = useLocalSearchParams<{ bookingId?: string }>();
@@ -14,15 +15,23 @@ function Content() {
   const online = useConnection();
   const [showSaved, setShowSaved] = useState(false);
   const offlineList = showSaved || !online;
-  const list = (
+  const records = (
     offlineList ? (saved.data?.map((t) => t.ticket) ?? []) : (query.data?.pages.flat() ?? [])
-  ).filter((ticket) => !bookingId || ticket.bookingId === bookingId);
+  ).filter((t) => !bookingId || t.bookingId === bookingId);
+  const groups = groupTicketsByBooking(records);
   return (
-    <Screen>
-      <Heading>{offlineList ? 'Vé đã tải' : 'Vé của tôi'}</Heading>
+    <Screen
+      refreshControl={
+        <RefreshControl
+          refreshing={offlineList ? saved.isRefetching : query.isRefetching}
+          onRefresh={() => void (offlineList ? saved.refetch() : query.refetch())}
+        />
+      }
+    >
+      <Heading>Vé của tôi</Heading>
       <View style={[ui.row, { gap: 4, backgroundColor: c.tint, padding: 4, borderRadius: 12 }]}>
         {[
-          { label: 'Tất cả vé', saved: false },
+          { label: 'Theo đơn', saved: false },
           { label: 'Đã lưu', saved: true },
         ].map((tab) => (
           <Pressable
@@ -47,11 +56,7 @@ function Content() {
         ))}
       </View>
       {offlineList && (
-        <Notice warning>
-          {online
-            ? 'Bản lưu trên thiết bị. Mở vé để cập nhật trạng thái.'
-            : 'Đang offline. Kết nối mạng để kiểm tra hiệu lực vé.'}
-        </Notice>
+        <Notice warning>Bản lưu trên thiết bị. Kết nối mạng để kiểm tra hiệu lực và lượt vào cổng.</Notice>
       )}
       <QueryState
         loading={offlineList ? saved.isPending : query.isPending}
@@ -59,28 +64,43 @@ function Content() {
         retry={() => void (offlineList ? saved.refetch() : query.refetch())}
         empty={
           offlineList
-            ? !saved.isPending && !saved.error && !list.length
-            : !query.isPending && !query.error && !list.length
+            ? !saved.isPending && !saved.error && !groups.length
+            : !query.isPending && !query.error && !groups.length
         }
-        emptyText={offlineList ? 'Bạn chưa tải vé phù hợp.' : 'Chưa có vé phù hợp trong các trang đã tải.'}
+        emptyText={offlineList ? 'Bạn chưa lưu vé.' : 'Bạn chưa có vé trong danh sách đã tải.'}
       />
-      {list.map((ticket) => (
-        <Pressable
-          key={ticket.id}
-          accessibilityRole="button"
-          onPress={() => router.push({ pathname: '/tickets/[ticketId]', params: { ticketId: ticket.id } })}
-          style={ui.card}
-        >
-          <Copy style={ui.semibold}>{ticket.session?.event?.title}</Copy>
-          <Copy>
-            {ticket.seat?.seatCode ?? 'Khu đứng'} · {ticket.ticketType?.name}
-          </Copy>
-          <Copy style={ui.muted}>Trạng thái gần nhất: {ticketStatusLabels[ticket.status]}</Copy>
-        </Pressable>
-      ))}
+      {groups.map((group) => {
+        const first = group.tickets[0]!;
+        return (
+          <Pressable
+            key={group.bookingId}
+            accessibilityRole="button"
+            accessibilityLabel={`Xem đơn vé ${first.session?.event?.title ?? ''}`}
+            onPress={() =>
+              router.push(
+                offlineList
+                  ? { pathname: '/tickets/offline', params: { bookingId: group.bookingId } }
+                  : { pathname: '/booking/[bookingId]/result', params: { bookingId: group.bookingId } },
+              )
+            }
+            style={[ui.card, { gap: 8 }]}
+          >
+            <Copy style={ui.semibold}>{first.session?.event?.title ?? 'Vé của đơn'}</Copy>
+            {first.session && (
+              <Copy style={ui.muted}>
+                {formatSessionTime(first.session.startsAt, first.session.venue?.timezone)}
+              </Copy>
+            )}
+            <View style={[ui.row, { justifyContent: 'space-between', flexWrap: 'wrap' }]}>
+              <Copy style={ui.muted}>{group.tickets.length} chỗ đã tải</Copy>
+              <Copy style={{ color: c.primary }}>Xem vé của đơn</Copy>
+            </View>
+          </Pressable>
+        );
+      })}
       {!offlineList && query.hasNextPage && (
-        <Button busy={query.isFetchingNextPage} onPress={() => void query.fetchNextPage()}>
-          Xem thêm vé
+        <Button secondary busy={query.isFetchingNextPage} onPress={() => void query.fetchNextPage()}>
+          Xem thêm đơn vé
         </Button>
       )}
     </Screen>

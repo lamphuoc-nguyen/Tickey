@@ -22,6 +22,7 @@ import { useBookingTickets } from '@/features/customer/tickets/hooks/use-ticket'
 import { useBooking, useCancelBooking } from '../hooks/use-booking';
 import { bookingLabels, canCancel, canPay } from '../booking-presentation';
 import { BookingSummary } from '../components/booking-summary';
+import { BuyerInfo } from '../components/buyer-info';
 function Content() {
   const insets = useSafeAreaInsets();
   const { bookingId = '' } = useLocalSearchParams<{ bookingId: string }>();
@@ -48,14 +49,14 @@ function Content() {
               booking.status === 'CONFIRMED'
                 ? router.push({ pathname: '/booking/[bookingId]/result', params: { bookingId } })
                 : canPay(booking, query.remainingMs)
-                  ? router.push({ pathname: '/booking/[bookingId]/holder', params: { bookingId } })
+                  ? router.push({ pathname: '/booking/[bookingId]/payment', params: { bookingId } })
                   : void query.refetch()
             }
           >
             {booking.status === 'CONFIRMED'
               ? 'Xem vé của đơn'
               : booking.status === 'PENDING'
-                ? 'Thông tin người tham dự'
+                ? 'Tiếp tục thanh toán'
                 : 'Kiểm tra trạng thái'}
           </ActionFooter>
         )
@@ -105,7 +106,7 @@ function Content() {
           {booking.status === 'PAID' && (
             <ResultPanel
               title="Đang phát hành vé"
-              description="Đơn đã được thanh toán. Vé đang được phát hành."
+              description="Đơn đã được ghi nhận. Vé đang được phát hành."
             />
           )}
           {booking.status === 'EXPIRED' && (
@@ -129,7 +130,8 @@ function Content() {
             <DetailRow label="Trạng thái" value={bookingLabels[booking.status]} />
             <DetailRow label="Mã đơn" value={booking.code} />
           </Card>
-          <BookingSummary booking={booking} />
+          <BookingSummary booking={booking} compact />
+          <BuyerInfo />
           {booking.status === 'PENDING' && (
             <MenuGroup title="Tùy chọn thêm">
               <MenuRow
@@ -150,7 +152,7 @@ function Content() {
           )}
           {booking.status === 'CONFIRMED' && (
             <>
-              <Heading small>Vé của đơn</Heading>
+              <Heading small>Vé vào cổng</Heading>
               <QueryState
                 loading={tickets.isPending}
                 error={tickets.error}
@@ -158,18 +160,14 @@ function Content() {
                 empty={!tickets.isPending && !tickets.error && !tickets.data?.length}
                 emptyText="Chưa tải được vé đã phát hành."
               />
-              <MenuGroup>
-                {tickets.data?.map((t, i) => (
-                  <MenuRow
-                    key={t.id}
-                    icon="ticket"
-                    label={`Vé ${i + 1} · ${t.seat?.seatCode ?? t.ticketType?.name ?? 'Xem vé'}`}
-                    onPress={() =>
-                      router.push({ pathname: '/tickets/[ticketId]', params: { ticketId: t.id } })
-                    }
-                  />
-                ))}
-              </MenuGroup>
+              <MenuRow
+                icon="ticket"
+                label="Xem vé và mã vào cổng của đơn"
+                description={`${booking.itemCount} chỗ`}
+                onPress={() =>
+                  router.push({ pathname: '/booking/[bookingId]/result', params: { bookingId } })
+                }
+              />
               <MenuRow
                 label="Yêu cầu hoàn tiền"
                 status="Chưa hỗ trợ"

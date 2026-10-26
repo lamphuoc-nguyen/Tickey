@@ -53,14 +53,24 @@ export function EventCard({
           <Copy style={ui.muted}>Chưa có ảnh sự kiện</Copy>
         </View>
       )}
-      <View style={{ gap: 4 }}>
-        <Copy numberOfLines={small ? 2 : 3} style={ui.semibold}>
+      <View style={{ gap: 4, flex: 1 }}>
+        <Copy numberOfLines={2} style={[ui.semibold, { minHeight: 40 }]}>
           {event.title}
         </Copy>
         {event.category && (
-          <Copy style={{ color: c.muted, fontSize: 11, lineHeight: 16 }}>{event.category.name}</Copy>
+          <Copy numberOfLines={1} style={{ color: c.muted, fontSize: 11, lineHeight: 16 }}>
+            {event.category.name}
+          </Copy>
         )}
-        <Copy style={{ color: c.accent, fontFamily: 'BeVietnamPro-SemiBold', fontSize: 12 }}>
+        <Copy
+          style={{
+            color: c.accent,
+            fontFamily: 'BeVietnamPro-SemiBold',
+            fontSize: 12,
+            marginTop: 'auto',
+            paddingTop: 4,
+          }}
+        >
           Xem hạng vé
         </Copy>
       </View>

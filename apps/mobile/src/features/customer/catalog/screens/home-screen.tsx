@@ -174,12 +174,12 @@ export default function HomeScreen() {
                     opacity: 0.4,
                   }}
                 />
-                <View style={{ padding: 20, paddingTop: 24, gap: 10 }}>
+                <View style={{ flex: 1, padding: 20, gap: 8, justifyContent: 'space-between' }}>
                   <Copy style={{ fontFamily: fonts.semibold, color: 'white', fontSize: 10, lineHeight: 15 }}>
                     ĐÁNG CHỜ ĐỢI
                   </Copy>
                   <Copy
-                    numberOfLines={3}
+                    numberOfLines={2}
                     style={{ fontFamily: fonts.editorial, color: 'white', fontSize: 27, lineHeight: 40 }}
                   >
                     {event.title}
