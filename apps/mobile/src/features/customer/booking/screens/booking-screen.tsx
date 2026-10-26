@@ -55,7 +55,7 @@ function Content() {
           >
             {booking.status === 'CONFIRMED'
               ? 'Xem vé của đơn'
-              : booking.status === 'PENDING'
+              : canPay(booking, query.remainingMs)
                 ? 'Tiếp tục thanh toán'
                 : 'Kiểm tra trạng thái'}
           </ActionFooter>
@@ -97,10 +97,35 @@ function Content() {
               </Copy>
             </View>
           )}
-          {booking.status === 'PAYMENT_PENDING' && (
+          {booking.status === 'PAYMENT_PENDING' && query.remainingMs > 0 && (
+            <>
+              <View
+                style={[
+                  ui.row,
+                  {
+                    padding: 12,
+                    backgroundColor: c.tint,
+                    borderRadius: 12,
+                    flexWrap: 'wrap',
+                    justifyContent: 'space-between',
+                  },
+                ]}
+              >
+                <Copy>Thời gian thanh toán còn</Copy>
+                <Copy style={[ui.semibold, { color: c.primary }]}>
+                  {minutes}:{String(seconds).padStart(2, '0')}
+                </Copy>
+              </View>
+              <ResultPanel
+                title="Đang xác nhận thanh toán"
+                description="Chưa có kết quả cuối cùng từ cổng thanh toán. Bạn có thể tiếp tục thanh toán nếu giao dịch chưa hoàn tất."
+              />
+            </>
+          )}
+          {booking.status === 'PAYMENT_PENDING' && query.remainingMs <= 0 && (
             <ResultPanel
-              title="Đang xác nhận thanh toán"
-              description="Chưa có kết quả cuối cùng. Vui lòng không thanh toán lại."
+              title="Đang chờ xác nhận / sắp hết hạn"
+              description="Chưa có kết quả cuối cùng từ cổng thanh toán. Đang kiểm tra trạng thái..."
             />
           )}
           {booking.status === 'PAID' && (

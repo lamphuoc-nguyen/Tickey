@@ -65,7 +65,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 /** Step 1 without an Org workspace: create a DRAFT Org (caller becomes OWNER) and switch to it. */
-function CreateOrgForm({ onCreated, onNeedsMfa }: { onCreated: () => void; onNeedsMfa: () => void }) {
+function CreateOrgForm({ onCreated }: { onCreated: () => void }) {
   const navigate = useNavigate();
   const create = useCreateOrganization();
   const [name, setName] = useState('');
@@ -92,7 +92,7 @@ function CreateOrgForm({ onCreated, onNeedsMfa }: { onCreated: () => void; onNee
           e.preventDefault();
           create.mutate(
             { name: name.trim(), slug: finalSlug, businessType },
-            { onSuccess: ({ needsMfa }) => (needsMfa ? onNeedsMfa() : onCreated()) },
+            { onSuccess: () => onCreated() },
           );
         }}
       >
@@ -259,10 +259,6 @@ export function OrgOnboardingPage() {
             showToast('Đã tạo tổ chức. Tiếp tục nộp hồ sơ xác minh.', 'success');
             window.location.href = '/org/onboarding?screen=o-kyc';
           }}
-          onNeedsMfa={() => {
-            showToast('Đã tạo tổ chức. Tiếp tục nộp hồ sơ xác minh.', 'success');
-            window.location.href = '/org/onboarding?screen=o-kyc';
-          }}
         />
       )}
 
@@ -314,7 +310,6 @@ export function OrgOnboardingPage() {
                     type="button"
                     className="btn btn-outline"
                     onClick={() => {
-                      localStorage.removeItem('tickey_active_workspace');
                       window.location.href = '/org/onboarding?create=true';
                     }}
                   >

@@ -10,6 +10,7 @@ import {
   type FigmaScreenOption,
 } from '../../components/common/FigmaScreenPrimitives';
 import { errorMessage, formatDateTime, useOrgId } from '../../lib/api';
+import { toIso } from './events/datetime';
 import {
   PERMISSION_LABELS,
   ROLE_LABELS,
@@ -47,7 +48,6 @@ const ROLE_OPTIONS = [
 const OPEN_SESSION = (status: string) => status !== 'ENDED' && status !== 'CANCELLED';
 
 const roleText = (roles: string[]) => roles.map((role) => ROLE_LABELS[role] ?? role).join(', ');
-const toIso = (local: string) => (local ? new Date(local).toISOString() : null);
 
 const linkButton = {
   background: 'none',
@@ -148,8 +148,8 @@ export function OrgStaffPage() {
         userId: chosenUserId,
         permissions,
         gateId: assignGateId || null,
-        validFrom: toIso(validFrom),
-        validUntil: toIso(validUntil),
+        validFrom: toIso(validFrom, chosenSession.session.venue?.timezone),
+        validUntil: toIso(validUntil, chosenSession.session.venue?.timezone),
       },
       {
         onSuccess: () => {

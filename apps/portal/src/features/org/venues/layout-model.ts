@@ -80,6 +80,16 @@ export function createTemplateZones(type: VenueTemplateType): EditorZone[] {
   return found ? found.zones.map((z) => ({ ...z })) : [];
 }
 
+/** Finds the first rowLabel(i) not yet present in zones.id */
+export function nextZoneId(zones: Array<{ id: string }>): string {
+  const existing = new Set(zones.map((z) => z.id));
+  let idx = 0;
+  while (existing.has(rowLabel(idx))) {
+    idx++;
+  }
+  return rowLabel(idx);
+}
+
 /** A, B, …, Z, AA, AB … */
 export function rowLabel(index: number): string {
   let label = '';

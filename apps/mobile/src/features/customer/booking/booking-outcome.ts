@@ -17,7 +17,7 @@ export function bookingOutcome(booking: Pick<Booking, 'status' | 'totalAmount' |
     case 'PAYMENT_PENDING':
       return {
         title: 'Đang xác nhận thanh toán',
-        description: 'Chưa có kết quả cuối cùng. Vui lòng không thanh toán lại.',
+        description: 'Chưa có kết quả cuối cùng từ cổng thanh toán.',
         badge: 'Đang xác nhận',
         kind: 'waiting',
       };

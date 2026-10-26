@@ -4,7 +4,7 @@ import { AppState } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/features/auth/hooks/auth-context';
 import { repositories } from '@/lib/repositories';
-import { countdownRemaining, needsPolling } from '../booking-presentation';
+import { countdownRemaining, pollingInterval } from '../booking-presentation';
 import { useExclusiveMutation } from '@/features/forms/use-exclusive-mutation';
 
 export function useBooking(id: string) {
@@ -16,7 +16,11 @@ export function useBooking(id: string) {
       receivedAt: performance.now(),
     }),
     enabled: !!session && session.workspace.kind === 'CUSTOMER' && !!id,
-    refetchInterval: (q) => (q.state.data && needsPolling(q.state.data.booking.status) ? 3000 : false),
+    refetchInterval: (q) => {
+      const data = q.state.data;
+      if (!data) return false;
+      return pollingInterval(data.booking, performance.now() - data.receivedAt);
+    },
     refetchOnWindowFocus: true,
   });
   const refetch = query.refetch;

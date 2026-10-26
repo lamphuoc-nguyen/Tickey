@@ -302,8 +302,8 @@ still decides what the caller may see or do. Endpoint code lives in `backend/src
   `@event/core` already parses. Auth responses are Supabase Auth's own (`access_token`, `refresh_token`, ...).
 - **Errors** keep the RPC contract `{ message: CODE, details: "<json>" }`. Status: `UNAUTHENTICATED` 401;
   `FORBIDDEN`, `MFA_REQUIRED`, `OTP_REQUIRED`, `DEVICE_REVOKED` 403; `NOT_FOUND` 404; `INVALID_STATE`,
-  `SESSION_NOT_ON_SALE`, `SEAT_CONFLICT`, `SOLD_OUT`, `LIMIT_EXCEEDED`, `BOOKING_EXPIRED`, `IMMUTABLE_ROW` 409; other
-  codes 400. Branch on `message`, not on the status.
+  `SESSION_NOT_ON_SALE`, `SEAT_CONFLICT`, `SOLD_OUT`, `LIMIT_EXCEEDED`, `BOOKING_EXPIRED`, `IMMUTABLE_ROW` 409;
+  `RATE_LIMITED` 429 (`/api/auth/*` only, `details` `{"retry_after_seconds":N}`, plus `Retry-After`); other codes 400. Branch on `message`, not on the status.
 - Lists take `limit` (default 20, max 100) and `offset`.
 
 | Area                      | Endpoints                                                                                                                                                                                                                                                                    |

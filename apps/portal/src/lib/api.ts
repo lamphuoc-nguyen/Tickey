@@ -6,13 +6,10 @@ import { useSession } from './use-session';
 // Pages write only through the .NET API with the caller's JWT; RLS + RPCs decide what is allowed (MT §7.1).
 const json = z.unknown();
 
-const resolveApiUrl = () => {
-  const envUrl = import.meta.env.VITE_API_URL;
-  if (envUrl && envUrl.trim()) return envUrl.trim();
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return window.location.origin;
-  }
-  return 'http://localhost:5173';
+export const resolveApiUrl = (customEnvUrl?: string | null): string => {
+  const url = customEnvUrl !== undefined ? customEnvUrl : import.meta.env.VITE_API_URL;
+  if (url && url.trim()) return url.trim();
+  throw new Error('Missing API URL: VITE_API_URL environment variable is not configured.');
 };
 
 async function call<T>(method: string, path: string, body?: unknown, form?: FormData): Promise<T> {
@@ -42,17 +39,28 @@ export function useOrgId(): string | null {
   return useSession().workspace.orgId ?? null;
 }
 
-const messages: Partial<Record<ApiError['code'], string>> = {
+const DEFAULT_ERROR_MESSAGE = 'Không thể hoàn tất yêu cầu. Vui lòng thử lại hoặc liên hệ hỗ trợ.';
+
+const messages: Record<ApiError['code'], string> = {
   NETWORK: 'Không thể kết nối máy chủ. Kiểm tra mạng và thử lại.',
   UNAUTHENTICATED: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
   FORBIDDEN: 'Tài khoản không có quyền thực hiện thao tác này.',
-  MFA_REQUIRED: 'Thao tác cần xác thực hai lớp (MFA). Vui lòng bật MFA cho tài khoản.',
+  MFA_REQUIRED: 'Thao tác cần xác thực bổ sung. Vui lòng liên hệ hỗ trợ.',
   NOT_FOUND: 'Không tìm thấy dữ liệu.',
   INVALID_STATE: 'Thao tác không còn phù hợp với trạng thái hiện tại.',
   VALIDATION_FAILED: 'Thông tin chưa hợp lệ. Vui lòng kiểm tra và thử lại.',
+  SESSION_NOT_ON_SALE: 'Suất diễn hiện không mở bán.',
+  SEAT_CONFLICT: 'Một số ghế đã có người chọn hoặc không còn khả dụng.',
+  SOLD_OUT: 'Khu vực hoặc hạng vé đã hết chỗ.',
+  LIMIT_EXCEEDED: 'Vượt giới hạn cho phép.',
+  BOOKING_EXPIRED: 'Đã hết thời gian giữ chỗ.',
+  OTP_REQUIRED: 'Cần xác thực mã OTP trước khi tiếp tục.',
   DEVICE_REVOKED: 'Thiết bị đã bị thu hồi.',
   IMMUTABLE_ROW: 'Dữ liệu đã chốt, không thể sửa.',
-  LIMIT_EXCEEDED: 'Vượt giới hạn cho phép.',
+  LEDGER_UNBALANCED: 'Giao dịch sổ cái không cân bằng.',
+  LEDGER_INVALID_LINES: 'Bút toán sổ cái chưa hợp lệ.',
+  RATE_LIMITED: 'Bạn đã thực hiện quá nhiều thao tác. Vui lòng chờ giây lát rồi thử lại.',
+  UNKNOWN: DEFAULT_ERROR_MESSAGE,
 };
 
 /** Vietnamese message for an API / network error, for toasts and inline notices. */
@@ -63,9 +71,12 @@ export function errorMessage(error: unknown): string {
   ) {
     const code = (error as { code?: ApiError['code'] }).code;
     if (code && messages[code]) return messages[code];
-    return (error as Error).message || 'Không thể hoàn tất yêu cầu. Vui lòng thử lại hoặc liên hệ hỗ trợ.';
+    const msg = (error as Error).message;
+    if (msg && msg !== 'UNKNOWN' && !code) return msg;
+    return DEFAULT_ERROR_MESSAGE;
   }
   if (error instanceof Error && error.message) {
+    if (error.message === 'UNKNOWN') return DEFAULT_ERROR_MESSAGE;
     return error.message;
   }
   return 'Có lỗi xảy ra. Vui lòng thử lại.';

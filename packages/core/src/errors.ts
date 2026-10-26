@@ -18,6 +18,8 @@ export const ERROR_CODES = [
   'IMMUTABLE_ROW',
   'LEDGER_UNBALANCED',
   'LEDGER_INVALID_LINES',
+  // API-only (not raised by RPCs): HTTP 429, details { retry_after_seconds } (B-14).
+  'RATE_LIMITED',
 ] as const;
 
 export type AppErrorCode = (typeof ERROR_CODES)[number];

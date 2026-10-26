@@ -1,3 +1,7 @@
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.Extensions.Options;
+
 namespace EventPlatform.Core.Payments;
 
 /// <summary>What begin_payment returns in "payment": the server-side order to pay.</summary>
@@ -22,6 +26,10 @@ public interface IPaymentGateway
 
     /// <summary>Asks the gateway about a PAYMENT_PENDING order (payment-query job, every 2 min).</summary>
     Task<GatewayResult?> QueryAsync(string orderRef, CancellationToken ct);
+
+    /// <summary>Requests a refund from the gateway. The idempotencyKey is the refund ID (refunds.id).
+    /// Returns null if the gateway is unavailable; the worker will retry via outbox backoff.</summary>
+    Task<GatewayResult?> RefundAsync(string idempotencyKey, long amount, string gatewayTxnId, CancellationToken ct);
 }
 
 /// <summary>Placeholder until OQ-02 is decided: fails loudly instead of pretending to take money.</summary>
@@ -35,6 +43,9 @@ public sealed class UnconfiguredPaymentGateway : IPaymentGateway
         throw NotChosen();
 
     public Task<GatewayResult?> QueryAsync(string orderRef, CancellationToken ct) => throw NotChosen();
+
+    public Task<GatewayResult?> RefundAsync(string idempotencyKey, long amount, string gatewayTxnId, CancellationToken ct) =>
+        throw NotChosen();
 
     private static NotSupportedException NotChosen() =>
         new("No payment gateway configured yet (OQ-02). Implement IPaymentGateway for the chosen partner.");
@@ -50,13 +61,57 @@ public sealed class TestPaymentGateway : IPaymentGateway
 
     public string Name => Code;
 
-    public Uri BuildPaymentUrl(PaymentOrder order, Uri returnUrl) =>
-        new(returnUrl, $"/payments/test/{Uri.EscapeDataString(order.OrderRef)}?amount={order.Amount}"
-                       + $"&return={Uri.EscapeDataString(returnUrl.ToString())}");
+    private readonly string _hmacKey;
+
+    public TestPaymentGateway(IOptions<TestPaymentOptions> options)
+    {
+        _hmacKey = options.Value.HmacKey ?? throw new InvalidOperationException("Payments:Test:HmacKey is required for TEST gateway");
+    }
+
+    public Uri BuildPaymentUrl(PaymentOrder order, Uri returnUrl)
+    {
+        var signature = ComputeHmac($"{order.OrderRef}|{order.Amount}|{returnUrl}");
+        return new(returnUrl, $"/payments/test/{Uri.EscapeDataString(order.OrderRef)}?amount={order.Amount}"
+                           + $"&return={Uri.EscapeDataString(returnUrl.ToString())}"
+                           + $"&sig={Uri.EscapeDataString(signature)}");
+    }
+
+    /// <summary>Verifies the HMAC signature for a test payment request.</summary>
+    public bool VerifySignature(string orderRef, long amount, string returnUrl, string signature)
+    {
+        var expected = ComputeHmac($"{orderRef}|{amount}|{returnUrl}");
+        return CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(expected),
+            Encoding.UTF8.GetBytes(signature));
+    }
+
+    private string ComputeHmac(string data)
+    {
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_hmacKey));
+        var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(data));
+        return Convert.ToHexString(hash);
+    }
 
     // The checkout page records the result itself; nothing arrives from outside.
     public Task<GatewayResult?> VerifyIpnAsync(IReadOnlyDictionary<string, string> fields, CancellationToken ct) =>
         Task.FromResult<GatewayResult?>(null);
 
     public Task<GatewayResult?> QueryAsync(string orderRef, CancellationToken ct) => Task.FromResult<GatewayResult?>(null);
+
+    /// <summary>Test mode: always succeeds (no real money moves). Uses idempotencyKey as gateway_refund_id.</summary>
+    public Task<GatewayResult?> RefundAsync(string idempotencyKey, long amount, string gatewayTxnId, CancellationToken ct)
+    {
+        // Simulate successful refund with the idempotency key as the gateway refund ID
+        return Task.FromResult<GatewayResult?>(new GatewayResult(
+            OrderRef: "", // not used for refund
+            GatewayTxnId: idempotencyKey,
+            Amount: amount,
+            Succeeded: true,
+            Reason: null));
+    }
+}
+
+public sealed class TestPaymentOptions
+{
+    public string HmacKey { get; set; } = "";
 }

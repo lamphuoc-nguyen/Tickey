@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
@@ -7,10 +8,16 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://tickey-api.onrender.com',
+        target: 'http://localhost:5080',
         changeOrigin: true,
         secure: false,
       },
+    },
+  },
+  test: {
+    env: {
+      VITE_SUPABASE_URL: 'http://127.0.0.1:54321',
+      VITE_SUPABASE_ANON_KEY: 'test-anon-key',
     },
   },
 });

@@ -57,7 +57,7 @@ function Content() {
           >
             <Copy>{terms ? '☑' : '☐'} Tôi đồng ý điều khoản thanh toán.</Copy>
           </Pressable>
-          {booking.status !== 'PENDING' && (
+          {booking.status !== 'PENDING' && booking.status !== 'PAYMENT_PENDING' && (
             <Notice>Đơn đã đổi trạng thái. Mở đơn để xem kết quả mới nhất.</Notice>
           )}
           {!!payment.error && <ErrorNotice error={payment.error} />}

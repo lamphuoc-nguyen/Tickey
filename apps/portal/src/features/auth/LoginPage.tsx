@@ -265,12 +265,6 @@ export function LoginPage() {
                   gap: '8px',
                 }}
               >
-                <Link to="/mfa">2FA (w-mfa)</Link>
-                <span>•</span>
-                <Link to="/mfa-setup">Thiết lập 2FA (w-mfa-setup)</Link>
-                <span>•</span>
-                <Link to="/mfa-admin">2FA Admin (w-mfa-admin)</Link>
-                <span>•</span>
                 <Link to="/verify">Xác minh email (w-verify)</Link>
               </div>
             </div>

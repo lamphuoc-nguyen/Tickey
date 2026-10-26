@@ -28,13 +28,15 @@ export function SessionForm({
   const [venueId, setVenueId] = useState(session?.venue?.id ?? '');
   const chosenVenueId = venueId || venues.data?.[0]?.id || '';
   const venue = useVenue(chosenVenueId);
+  const venueTimezone = session?.venue?.timezone ?? venue.data?.timezone ?? 'Asia/Ho_Chi_Minh';
+
   const [layoutVersionId, setLayoutVersionId] = useState(session?.layoutVersionId ?? '');
   const [title, setTitle] = useState(session?.title ?? '');
-  const [startsAt, setStartsAt] = useState(toLocalInput(session?.startsAt));
-  const [endsAt, setEndsAt] = useState(toLocalInput(session?.endsAt));
-  const [doorsOpenAt, setDoorsOpenAt] = useState(toLocalInput(session?.doorsOpenAt));
-  const [salesStartAt, setSalesStartAt] = useState(toLocalInput(session?.salesStartAt));
-  const [salesEndAt, setSalesEndAt] = useState(toLocalInput(session?.salesEndAt));
+  const [startsAt, setStartsAt] = useState(() => toLocalInput(session?.startsAt, session?.venue?.timezone));
+  const [endsAt, setEndsAt] = useState(() => toLocalInput(session?.endsAt, session?.venue?.timezone));
+  const [doorsOpenAt, setDoorsOpenAt] = useState(() => toLocalInput(session?.doorsOpenAt, session?.venue?.timezone));
+  const [salesStartAt, setSalesStartAt] = useState(() => toLocalInput(session?.salesStartAt, session?.venue?.timezone));
+  const [salesEndAt, setSalesEndAt] = useState(() => toLocalInput(session?.salesEndAt, session?.venue?.timezone));
   const [maxTickets, setMaxTickets] = useState(String(session?.maxTicketsPerAccount ?? 10));
 
   const editable = !session || session.status === 'SCHEDULED';
@@ -71,11 +73,11 @@ export function SessionForm({
         venueId: chosenVenueId,
         layoutVersionId: chosenVersion,
         title: title.trim() || null,
-        startsAt: toIso(startsAt),
-        endsAt: toIso(endsAt),
-        doorsOpenAt: toIso(doorsOpenAt),
-        salesStartAt: toIso(salesStartAt),
-        salesEndAt: toIso(salesEndAt),
+        startsAt: toIso(startsAt, venueTimezone),
+        endsAt: toIso(endsAt, venueTimezone),
+        doorsOpenAt: toIso(doorsOpenAt, venueTimezone),
+        salesStartAt: toIso(salesStartAt, venueTimezone),
+        salesEndAt: toIso(salesEndAt, venueTimezone),
         maxTicketsPerAccount: Number(maxTickets) || 10,
       },
       {
@@ -90,7 +92,9 @@ export function SessionForm({
 
   const time = (label: string, value: string, set: (v: string) => void, hint?: string) => (
     <div>
-      <label className="form-label">{label}</label>
+      <label className="form-label">
+        {label} <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 400 }}>({venueTimezone})</span>
+      </label>
       <input
         className="form-input"
         type="datetime-local"

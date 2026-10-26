@@ -1,0 +1,75 @@
+{
+  "version": "1.0.0",
+  "agents": [
+    {
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "name": "Code Reviewer",
+      "version": "1.0.0",
+      "description": "An AI agent specialized in reviewing code for quality, security, and best practices",
+      "category": "coding",
+      "tags": [
+        "code-review",
+        "security",
+        "typescript",
+        "react"
+      ],
+      "configPath": "agents/coding/code-reviewer-v1.0.0.json",
+      "enabled": true,
+      "registeredAt": "2026-10-23T16:37:46.432Z",
+      "updatedAt": "2026-10-23T16:54:10.663Z"
+    },
+    {
+      "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+      "name": "General Assistant",
+      "version": "1.0.0",
+      "description": "A helpful general-purpose AI assistant for various tasks",
+      "category": "general",
+      "tags": [
+        "general",
+        "chat",
+        "assistant"
+      ],
+      "configPath": "agents/general/general-assistant-v1.0.0.json",
+      "enabled": true,
+      "registeredAt": "2026-10-23T16:37:46.434Z",
+      "updatedAt": "2026-10-23T16:54:10.664Z"
+    },
+    {
+      "id": "c3d4e5f6-a7b8-4c9d-8e1f-2a3b4c5d6e7f",
+      "name": "Data Analyst",
+      "version": "1.0.0",
+      "description": "An AI agent specialized in data analysis, SQL queries, and visualization",
+      "category": "analysis",
+      "tags": [
+        "data-analysis",
+        "sql",
+        "python",
+        "visualization",
+        "postgres"
+      ],
+      "configPath": "agents/analysis/data-analyst-v1.0.0.json",
+      "enabled": true,
+      "registeredAt": "2026-10-23T16:38:27.541Z",
+      "updatedAt": "2026-10-23T16:54:10.660Z"
+    },
+    {
+      "id": "d4e5f6a7-b8c9-4d0e-8f2a-3b4c5d6e7f8a",
+      "name": "Deployment Pipeline",
+      "version": "1.0.0",
+      "description": "An automated workflow agent for CI/CD deployment pipelines",
+      "category": "workflow",
+      "tags": [
+        "ci-cd",
+        "deployment",
+        "devops",
+        "automation",
+        "workflow"
+      ],
+      "configPath": "agents/workflow/deployment-pipeline-v1.0.0.json",
+      "enabled": true,
+      "registeredAt": "2026-10-23T16:38:27.547Z",
+      "updatedAt": "2026-10-23T16:54:10.667Z"
+    }
+  ],
+  "lastUpdated": "2026-10-23T16:54:10.667Z"
+}
