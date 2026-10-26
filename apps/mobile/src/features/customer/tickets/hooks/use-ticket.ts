@@ -7,6 +7,7 @@ import { repositories } from '@/lib/repositories';
 import { useAuth } from '@/features/auth/hooks/auth-context';
 import { ticketCache } from '../ticket-cache-instance';
 import { useExclusiveMutation } from '@/features/forms/use-exclusive-mutation';
+import type { Ticket } from '@event/core';
 
 export { ticketCache } from '../ticket-cache-instance';
 export function useConnection() {
@@ -111,11 +112,34 @@ export function useBookingTickets(id: string, enabled = true) {
     enabled: enabled && !!id && session?.workspace.kind === 'CUSTOMER',
   });
 }
-export function useOrder(id: string) {
+export function useOrder(id: string, enabled = true) {
   const { session } = useAuth();
   return useQuery({
     queryKey: ['order', ...sessionScope(session), id],
     queryFn: ({ signal }) => repositories.customer.order(id, signal),
-    enabled: !!id && session?.workspace.kind === 'CUSTOMER',
+    enabled: enabled && !!id && session?.workspace.kind === 'CUSTOMER',
+  });
+}
+
+/** Save genuine records for a whole booking; the cache enforces account generations. */
+export function useSaveBookingTickets() {
+  const { session } = useAuth();
+  const cache = useQueryClient();
+  return useExclusiveMutation('save-booking-pass', {
+    mutationFn: async (tickets: readonly Ticket[], assertCurrent) => {
+      if (!session || !tickets.length) throw new Error('Cần tải được vé trước khi lưu.');
+      const bookingId = tickets[0]!.bookingId;
+      if (tickets.some((ticket) => ticket.bookingId !== bookingId))
+        throw new Error('Các vé không cùng một đơn.');
+      const downloadedAt = new Date().toISOString();
+      for (const ticket of tickets) {
+        await assertCurrent();
+        await ticketCache.save(session.userId, ticket, downloadedAt);
+      }
+    },
+    onSuccess: () => {
+      void cache.invalidateQueries({ queryKey: ['saved-tickets', ...sessionScope(session)] });
+      void cache.invalidateQueries({ queryKey: ['offline-ticket-snapshots', ...sessionScope(session)] });
+    },
   });
 }

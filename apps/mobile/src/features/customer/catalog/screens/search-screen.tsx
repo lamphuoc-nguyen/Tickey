@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
+import { TextAction } from '@/components/customer-controls';
 import { Button, Copy, Field, Heading, QueryState, Screen, c, ui } from '@/components/ui';
 import { useCategories, useEvents } from '../hooks/use-catalog';
 import { EventCard } from '../components/event-card';
@@ -31,7 +32,7 @@ export default function SearchScreen() {
         returnKeyType="search"
         style={{ backgroundColor: 'white', borderRadius: 10, borderColor: c.border, minHeight: 48 }}
       />
-      <View style={[ui.row, { flexWrap: 'wrap' }]}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
         {[{ id: '', name: 'Tất cả' }, ...(categories.data ?? [])].map((category) => (
           <Pressable
             key={category.id}
@@ -46,10 +47,15 @@ export default function SearchScreen() {
               backgroundColor: draft.categoryId === category.id ? c.primaryContainer : c.amberTint,
             }}
           >
-            <Copy>{category.name}</Copy>
+            <Copy numberOfLines={1} style={draft.categoryId === category.id ? ui.semibold : undefined}>
+              {category.name}
+            </Copy>
           </Pressable>
         ))}
-      </View>
+      </ScrollView>
+      {(!!draft.q || !!draft.categoryId) && (
+        <TextAction onPress={() => update({ text: '', q: '', categoryId: '' })}>Xóa bộ lọc</TextAction>
+      )}
       <QueryState error={categories.error} retry={() => void categories.refetch()} compact />
       <View style={[ui.row, { alignItems: 'flex-start', flexWrap: 'wrap' }]}>
         {[
@@ -70,6 +76,7 @@ export default function SearchScreen() {
         ))}
       </View>
       <Copy style={[ui.muted, { fontSize: 12 }]}>Lọc thời gian và địa điểm chưa khả dụng.</Copy>
+      {!!events.length && <Heading small>Kết quả tìm kiếm</Heading>}
       <QueryState
         loading={query.isPending}
         error={query.error}
