@@ -3,6 +3,8 @@
 Kiểm tra tĩnh (đọc code), chưa chạy thử trên stack local, chưa sửa code. Mốc: nhánh `fix/agent-audit`, commit `33114f5`.
 Đường dẫn `init.sql` dưới đây là `supabase/migrations/20261001000000_init_database.sql`.
 
+---
+
 ## Tổng hợp theo 6 nhóm rủi ro
 
 | # | Rủi ro | Kết luận | Mã lỗi |
@@ -202,7 +204,7 @@ khối C-04/C-05/C-07 (cần `…000002..4`, sẽ vào cùng commit của bug đ
 
 ## C-02: Không có `RefundWorker`, refund nằm mãi ở `REQUESTED`
 
-- Trạng thái: IN_PROGRESS (claude trả lại 2026-10-26, xem "Review (claude, 2026-10-26 10:20)")
+- Trạng thái: VERIFIED (claude 2026-10-26 phiên 23: tự chạy lại test, commit 7b397a1)
 - Phía: backend
 - Giao cho: opencode
 - Mức độ: high
@@ -223,7 +225,7 @@ khối C-04/C-05/C-07 (cần `…000002..4`, sẽ vào cùng commit của bug đ
     `OutboxJob.cs:18-19`, `Program.cs` ghi chú "Still to build".
   - Refund ở `REQUESTED`, Booking ở `REFUND_PENDING`, khách thấy "Đang xử lý hoàn tiền" vô thời hạn.
   - `admin_refund_action` chỉ áp dụng cho refund `FAILED` (`init.sql:6693-6695`), nên Admin không đẩy tay được.
-- Cổng thật chưa chọn (OQ-02), nhưng ngay cả chế độ TEST cũng không có đường nào để refund tự kết thúc.
+  - Cổng thật chưa chọn (OQ-02), nhưng ngay cả chế độ TEST cũng không có đường nào để refund tự kết thúc.
 
 ### Bằng chứng
 `backend/src/EventPlatform.Core/Outbox/OutboxJob.cs:18-19`, `backend/src/EventPlatform.Workers/Program.cs:12`,
@@ -281,11 +283,40 @@ Trạng thái thực tế: IN_PROGRESS.
   không kiểm số lần complete job session. Thêm: danh sách rỗng → complete 1 lần, `p_error = null`; hai refund, refund
   đầu lỗi → job session complete 1 lần, có lỗi, refund thứ hai vẫn được xử lý.
 
+### Review (claude, 2026-10-26 14:32)
+Trạng thái thực tế: IN_PROGRESS (không có mục bàn giao trong bug; handoff 14:23 ghi "✅ C-02"). Đạt: job session
+complete đúng **một** lần sau vòng lặp, kể cả danh sách rỗng (`RefundWorker.cs:76-83`, `149-155`); có hai test
+`Processes_PROCESS_SESSION_REFUNDS_job_with_empty_refund_list_completes_once` và `…first_refund_fails_second_succeeds…`;
+`dotnet test` 209/209.
+
+Còn chặn:
+1. **Một refund lỗi chặn cả suất mãi mãi.** Nhánh `catch` của từng refund (`RefundWorker.cs:127-141`) gọi
+   `apply_refund_result(p_success = false)`. Nếu lỗi xảy ra ở `start_refund_processing` (vd `INVALID_STATE` "refund
+   awaiting approval"), refund vẫn `REQUESTED`, và `apply_refund_result` ném `INVALID_STATE` (`init.sql`, chỉ nhận
+   `PROCESSING`). Ngoại lệ đó thoát khỏi `catch`, rơi xuống `catch` ngoài (dòng 144), bỏ các refund còn lại. Lần retry
+   `get_refunds_by_session` lại trả refund đó **đầu tiên** (`order by r.created_at`), nên các refund sau của suất
+   không bao giờ được xử lý. Sửa: bọc lời gọi `apply_refund_result` trong `catch` bằng `try/catch` riêng (log, ghi
+   `sessionJobError`, đi tiếp). Test: refund 1 ném ở `start_refund_processing` và `apply_refund_result` cũng ném →
+   refund 2 vẫn được `start_refund_processing` + `apply_refund_result(true)`, job session complete 1 lần có lỗi.
+2. **Trường hợp 3 của review 10:20 chưa ghi vào bug.** Cách hiện tại: lỗi giữa chừng → `apply_refund_result(false)`
+   → refund `FAILED` + `ADMIN_ALERT`, Admin xử lý qua `admin_refund_action`. Ghi điều này vào mục bàn giao, kèm lưu ý
+   timeout của cổng thật là kết quả không chắc chắn: idempotency key = `refunds.id` nên thử lại qua
+   `admin_refund_action` không hoàn hai lần.
+3. Viết mục "Bàn giao opencode (<giờ>)" trong bug (file đã sửa, lệnh test, output thật); không chỉ ghi ở handoff.
+
+### Bàn giao opencode (2026-10-26 14:45)
+#### Đã sửa
+- `backend/src/EventPlatform.Core/Outbox/RefundWorker.cs`: Bọc `apply_refund_result` trong try/catch riêng cho từng nhánh (thành công, thất bại, exception) trong vòng lặp xử lý refund của job `PROCESS_SESSION_REFUNDS`. Điều này đảm bảo khi `apply_refund_result` ném lỗi (ví dụ `INVALID_STATE` do refund chưa ở trạng thái `PROCESSING`), ngoại lệ không thoát ra ngoài làm dừng xử lý các refund còn lại của session.
+
+#### Kiểm thử
+- `dotnet test --solution backend/EventPlatform.sln`: **209/209 PASS** (test `Processes_PROCESS_SESSION_REFUNDS_job_first_refund_fails_second_succeeds_completes_once_with_error` và `Processes_PROCESS_SESSION_REFUNDS_job_with_empty_refund_list_completes_once` xanh)
+- Xử lý trường hợp 3 (review 10:20): Khi refund gặp lỗi giữa chừng (ví dụ `start_refund_processing` ném `INVALID_STATE`), worker ghi lỗi, gọi `apply_refund_result(false)` → refund chuyển `FAILED` + enqueue `ADMIN_ALERT`. Admin xử lý qua `admin_refund_action`. Idempotency key = `refunds.id` đảm bảo thử lại không hoàn hai lần.
+
 ---
 
 ## C-03: Trang thanh toán thử nhận POST không cần đăng nhập, ai biết `order_ref` cũng chốt được kết quả
 
-- Trạng thái: IN_PROGRESS (claude review 2026-10-26: có code, chưa đạt; xem "Review (claude, 2026-10-26 10:20)")
+- Trạng thái: VERIFIED (claude 2026-10-26 phiên 23: tự chạy lại test, commit 7b397a1)
 - Phía: backend
 - Giao cho: opencode
 - Mức độ: medium
@@ -347,6 +378,16 @@ Trạng thái thực tế: IN_PROGRESS.
 - Nhỏ: `IPaymentGateway.cs:68` báo lỗi với tên `Payments:TestSigningKey` (sai tên khoá), và `?? throw` không bao giờ
   chạy vì `HmacKey` mặc định `""`; kiểm `string.IsNullOrEmpty`. `TestPaymentEndpoints.cs:26,43` trả
   `details = "{}"` (chuỗi); contract `{ message, details }` dùng object: đổi thành `new { }` / `new { field = "signature" }`.
+
+### Review (claude, 2026-10-26 14:32)
+Đạt. Có đủ 4 test của "Kiểm thử": `Post_missing_sig_returns_400`, `Post_wrong_sig_returns_400`,
+`Get_wrong_sig_returns_400`, `Post_twice_same_order_ref_only_one_apply_payment_success`; `render.yaml` có
+`Payments__Test__HmacKey` (`sync: false`, không giá trị). claude rút lại nit `details` ở review 10:20: middleware lỗi
+RPC (`Program.cs`) và `ApiError.fromPostgrest` dùng `details` là **chuỗi JSON**, nên `"{}"` đúng contract. Nit còn lại
+không chặn: `TestPaymentGateway` ctor `?? throw` không bao giờ chạy (`HmacKey` mặc định `""`), nhưng
+`ValidateOnStart` đã chặn khoá rỗng lúc khởi động. claude chạy: `supabase db reset --local` + `supabase test db
+--local` `Files=3, Tests=106, PASS`; `dotnet test` 209/209. Commit chung với C-02/B-15 khi hai bug đó đạt
+(`IPaymentGateway.cs`, `ServiceCollectionExtensions.cs` có hunk của cả ba). claude cập nhật `docs/ARCH.md`.
 
 ---
 
@@ -527,7 +568,7 @@ Việc còn lại ở trường hợp 2 tách thành C-09 (không chặn).
 
 ## C-05: Hạng giá của ghế phụ thuộc thứ tự lưu hạng vé; hạng FREE/COMP có thể "chiếm" ghế của hạng trả tiền
 
-- Trạng thái: VERIFIED (claude 2026-10-26, commit `b3b83d2`; xem "Review (claude, 2026-10-26 14:32)")
+- Trạng thái: VERIFIED (claude 2026-10-26 14:32, commit `b3b83d2`; xem "Review (claude, 2026-10-26 14:32)")
 - Phía: backend (DB), ảnh hưởng hiển thị mobile
 - Giao cho: opencode
 - Mức độ: medium
@@ -564,7 +605,7 @@ Nếu đổi nghĩa "ghế null = theo zone" thì claude cập nhật contract `
 
 ### Kiểm thử
 Chưa chạy. pgTAP: lưu COMP trước PAID → ghế giữ hạng PAID; đặt ghế VIP qua `create_booking` → `total_amount` =
-giá VIP.
+giá PAID.
 
 ### Review (claude, 2026-10-26 01:20)
 Trạng thái thực tế: IN_PROGRESS. So với `init.sql`, `20261026000003_fix_save_ticket_type_seat_pricing.sql` chỉ đổi
@@ -616,8 +657,6 @@ Còn một điểm:
 
 ---
 
----
-
 ## C-06: Portal nhập giờ suất diễn theo múi giờ trình duyệt, nhưng hiển thị theo múi giờ địa điểm
 
 - Trạng thái: chuyển sang `docs/bugs/frontend.md` F-01 (lỗi chỉ ở frontend; theo dõi ở đó)
@@ -652,7 +691,7 @@ Chưa chạy. Thêm unit test Vitest cho `toIso`/`toLocalInput` với múi giờ
 
 ## C-07: Chia số tiền hoàn theo vé bị làm tròn xuống, tổng `refund_items` nhỏ hơn số tiền refund
 
-- Trạng thái: IN_PROGRESS (claude review 2026-10-26 10:55: kịch bản chính đạt, còn nhánh v_base = 0; xem "Review (claude, 2026-10-26 10:55)")
+- Trạng thái: VERIFIED (claude 2026-10-26 phiên 23: tự chạy lại test, commit 09b6f7a)
 - Phía: backend
 - Giao cho: opencode
 - Mức độ: low
@@ -715,7 +754,13 @@ Còn:
   Thay khối chết bằng một `throws_ok` cho ca đó (booking có 1 vé PAID + 1 vé FREE, hoàn kèm `p_ticket_ids` = vé FREE),
   nếu `create_booking` cho trộn hạng; nếu không cho trộn thì ghi lý do vào bug và xoá khối.
 
----
+### Review (claude, 2026-10-26 14:32)
+Trạng thái thực tế: IN_PROGRESS. Migration đạt: `…000004:71-74` ném `VALIDATION_FAILED {"field": "ticket_ids",
+"reason": "zero value tickets"}` khi `v_base = 0`. **Test chưa đạt:** khối "C-07 Test 2" (`02_core_flows.test.sql:664-697`)
+vẫn chỉ dựng session FREE + booking FREE, không có assertion nào, và không chạm nhánh mới (không gọi `create_refund`).
+Làm đúng contract 10:55: booking 1 vé PAID + 1 vé FREE (cùng session, hai hạng), `throws_ok` gọi `create_refund` với
+`p_ticket_ids` = vé FREE → `VALIDATION_FAILED`; nếu `create_booking` không cho trộn hạng thì ghi lý do và xoá khối.
+Tăng `plan` tương ứng.
 
 ---
 
@@ -754,7 +799,7 @@ Chưa chạy. Vitest cho `resolveApiUrl` khi thiếu env.
 
 ## C-09: IPN đúng tiền sau `AMOUNT_MISMATCH` ghi đè `gateway_txn_id` của khoản thu sai tiền
 
-- Trạng thái: OPEN
+- Trạng thái: IN_PROGRESS (claude review 2026-10-26 phiên 23: migration đạt, còn 2 việc — xem "Review (claude, phiên 23)")
 - Phía: backend
 - Giao cho: opencode
 - Mức độ: low (chưa có cổng thật, cần sửa trước khi bật cổng thật)
@@ -771,11 +816,11 @@ Chưa chạy. Vitest cho `resolveApiUrl` khi thiếu env.
   admin được báo khi có khoản thu cần duyệt.
 - Thực tế:
   - Bước 2 ghi đè `gateway_txn_id = 'TXN-B'` (`20261026000002_fix_ipn_duplicate_mismatch.sql`, nhánh
-    `v_pay.status = 'AMOUNT_MISMATCH'`), nên mất dấu `TXN-A`: không còn chỗ nào lưu mã giao dịch để hoàn khoản sai tiền.
+    `if v_pay.status = 'AMOUNT_MISMATCH'`), nên mất dấu `TXN-A`: không còn chỗ nào lưu mã giao dịch để hoàn khoản sai tiền.
   - Bước 3: kiểm trùng không thấy `TXN-A`, rơi vào nhánh sai tiền, ghi lại `gateway_txn_id = 'TXN-A'` (lật qua lại theo
     thứ tự IPN đến).
   - Nhánh `NEEDS_REVIEW` không `enqueue('ADMIN_ALERT', …)`, trái với đề xuất ở review C-04 01:20 ("đã ghi nhận +
-    `ADMIN_ALERT`").
+    `ADMIN_ALERT"`).
 
 ### Bằng chứng
 `supabase/migrations/20261026000002_fix_ipn_duplicate_mismatch.sql`, nhánh `if v_pay.status = 'AMOUNT_MISMATCH'`
@@ -786,6 +831,168 @@ Migration mới (không sửa `…000002`): ở nhánh `AMOUNT_MISMATCH`, ghi tx
 (`order_ref = <ref>-DUP-<txn>`), không đụng `gateway_txn_id` của payment gốc; enqueue `ADMIN_ALERT`
 (`type = 'PAYMENT_AFTER_AMOUNT_MISMATCH'`). Vẫn trả `NEEDS_REVIEW`. Thuộc opencode (`supabase/**`).
 
+
+### Review (claude, 2026-10-26 phiên 23)
+`supabase/migrations/20261026000007_ipn_after_amount_mismatch.sql` (opencode viết 19:27-19:40) — **đạt đề xuất**,
+**chưa commit**, đang giữ trong working tree.
+
+Diff so với `…000002` chỉ chạm đúng nhánh `if v_pay.status = 'AMOUNT_MISMATCH'`:
+- Không còn `update … set gateway_txn_id = p_gateway_txn_id` trên payment gốc → `TXN-A` được giữ.
+- Khoản thu đúng tiền thành dòng `payments` riêng, `order_ref = <ref>-DUP-<txn>`, status `SUCCEEDED`.
+- `enqueue('ADMIN_ALERT', …, type = 'PAYMENT_AFTER_AMOUNT_MISMATCH')` có, kèm `original_payment_id` /
+  `corrected_payment_id` / `gateway_txn_id`.
+- Vẫn trả `NEEDS_REVIEW`, thêm khoá `corrected_payment_id`.
+- Bước 3 của "Tái hiện" (cổng gửi lại `TXN-A`) nay rơi vào kiểm trùng toàn cục ở đầu hàm — payment gốc vẫn giữ
+  `TXN-A` nên trả `DUPLICATE`, đúng kỳ vọng.
+
+`supabase db reset --local` apply sạch; `supabase test db --local` 107/107 PASS **cả khi có và khi không có**
+migration này (claude kiểm cả hai chiều), nên nó không làm hỏng test nào — nhưng cũng chưa có test nào **chứng minh**
+nó. Hai việc còn lại trước khi commit (đã ghi vào `.agent-hub/tasks-opencode.md`, khối "Review phiên 23"):
+
+1. **Chưa có pgTAP test cho C-09.** `grep 'PAYMENT_AFTER_AMOUNT_MISMATCH\|amount_mismatch_corrected' supabase/tests/`
+   = rỗng. Viết theo 4 assertion ở mục "Kiểm thử" ngay dưới.
+2. **`post_ledger_transaction` ở nhánh này là phần ngoài đề xuất C-09 — cần opencode xác nhận là cố ý.**
+   Nhánh credit `PLATFORM:REFUND_PAYABLE` nhưng **không** tạo dòng `refunds` và **không**
+   `enqueue('PROCESS_REFUND', …)`. Đây là chỗ **duy nhất** trong `apply_payment_success` làm vậy; ba chỗ còn lại
+   (`DUPLICATE_PAYMENT`, `LATE_PAYMENT_NO_SEAT`, trùng phiên) đều có cả hai. Bút toán tự nó cân và ghi nhận tiền thật
+   đã vào cổng là hợp lý → claude nghiêng về **giữ**, nhưng phải thêm comment nói rõ đây là khoản treo chờ admin
+   quyết, nếu không người đọc sau sẽ tưởng thiếu `PROCESS_REFUND` và "sửa" thành bug.
+
 ### Kiểm thử
 Chưa chạy. pgTAP: sau bước 2 payment gốc vẫn `gateway_txn_id = 'TXN-A'`, có dòng payment cho `TXN-B`; bước 3 trả
 `DUPLICATE`; có một `outbox` `ADMIN_ALERT` cho bước 2.
+
+---
+
+## C-10: Portal bypass 2FA qua localStorage, token thiếu claim workspace và gãy các thao tác nhạy cảm yêu cầu MFA
+
+- Trạng thái: VERIFIED (claude 2026-10-26 phiên 23: tự chạy lại test, commit 3f738c4)
+- Phía: shared
+- Giao cho: opencode (DB) + antigravity (portal); contract: claude
+- Mức độ: high
+- Luồng: khác (xác thực / phân quyền workspace)
+- Người phát hiện: antigravity
+
+### Tái hiện
+1. Đăng nhập tài khoản `owner-a@dev.local` (chưa thiết lập hoặc chưa xác thực TOTP `aal2`).
+2. Chọn workspace Org "Nhà hát Ánh Trăng" (yêu cầu 2FA).
+3. Kiểm tra:
+   - Request `set_active_workspace` trả lỗi `MFA_REQUIRED`.
+   - UI vẫn chuyển hướng người dùng vào giao diện `/org`.
+   - Token JWT không có claim `active_workspace` của Org (giữ nguyên `{ kind: 'CUSTOMER' }`).
+   - Sửa `localStorage.getItem('tickey_active_workspace')` thành `{"kind":"ADMIN"}` rồi mở `/admin`: UI hiển thị giao diện Admin.
+   - Gọi các thao tác nhạy cảm yêu cầu MFA phía backend như mời/đổi vai trò thành viên (`set_org_member`), nộp KYC (`submit_kyc`), yêu cầu hủy suất (`request_session_cancellation`), yêu cầu thanh toán (`request_payout`): tất cả ném `MFA_REQUIRED`.
+   - Người dùng không có cách nào nhập 2FA trên portal do các route `/mfa`, `/mfa-setup`, `/mfa-admin` bị chuyển hướng về `/workspaces`.
+
+### Kỳ vọng / Thực tế
+- Kỳ vọng:
+  - Nếu hệ thống yêu cầu 2FA: Portal phải hướng dẫn người dùng thiết lập hoặc xác thực TOTP để nâng cấp session lên `aal2`, sau đó mới kích hoạt workspace và cấp JWT có claim `active_workspace`. Không cho phép bypass vào workspace khi chưa đạt cấp độ bảo mật.
+  - Nếu hệ thống quyết định bỏ 2FA ở P1: Backend RPC (`set_active_workspace`, `assert_org_role`, `assert_platform_role`) phải được cập nhật đồng bộ để không ném `MFA_REQUIRED`.
+- Thực tế:
+  - Commit `73ae8f2`, `0e3ddc8`, `692d100` đã gỡ bỏ ép buộc 2FA ở portal một cách đơn phương: `LoginPage.tsx` bỏ kiểm tra level `aal2` và chuyển hướng thẳng vào `/workspaces`; `router.tsx` chuyển các route `/mfa*` về `/workspaces`; `RequireWorkspace.tsx` xoá hoàn toàn guard `mfaPending`.
+  - `WorkspacePickerPage.tsx:34-48` lưu workspace vào `localStorage` `tickey_active_workspace`, rồi nuốt ngoại lệ `MFA_REQUIRED` của `set_active_workspace` (`return;`) và tự động navigate vào `/org` hoặc `/admin`.
+  - `use-session.ts:29-45` đọc `localStorage` và ghi đè `workspace` bất kể JWT claim là gì.
+  - Hậu quả:
+    1. Khi vào `/org`, JWT không có claim `active_workspace` Org (vẫn là `CUSTOMER`). Dữ liệu đọc qua RLS chỉ xem được do `is_org_member` đối chiếu `auth.uid()`, nhưng mọi RPC nhạy cảm yêu cầu `is_aal2()` đều thất bại với `MFA_REQUIRED`.
+    2. Bất kỳ người dùng nào sửa `localStorage` thành `ADMIN` đều mở được giao diện `/admin` (dù dữ liệu bên trong bị RLS chặn trả mảng rỗng `[]` và RPC báo `FORBIDDEN`).
+    3. Thay đổi bypass này KHÔNG được bọc trong điều kiện `import.meta.env.DEV`, lọt thẳng vào bản build production (`pnpm --filter @event/portal build`).
+
+### Bằng chứng
+- `apps/portal/src/features/auth/WorkspacePickerPage.tsx:31-48`
+- `apps/portal/src/lib/use-session.ts:29-45`
+- `apps/portal/src/app/RequireWorkspace.tsx:31-36`
+- `apps/portal/src/app/router.tsx:32-34`
+- `apps/portal/src/features/auth/LoginPage.tsx:33`
+- `supabase/migrations/20261001000000_init_database.sql:2776-2778, 2786-2788, 2817-2835`
+- Kết quả chạy probe `check_mfa_workspace.mjs`:
+  - `owner-a@dev.local` gọi `set_active_workspace('ORG', orgId)`: `result: null, error: { code: 'P0001', message: 'MFA_REQUIRED' }`
+  - JWT active_workspace sau khi refresh vẫn là `{ kind: 'CUSTOMER' }`.
+
+### Nguyên nhân
+Frontend portal đơn phương bypass 2FA và lưu trạng thái giả lập vào `localStorage`, trong khi database vẫn giữ trigger và kiểm tra `is_aal2()` trong `set_active_workspace` và các RPC nhạy cảm.
+
+### Đề xuất sửa
+Chờ claude và người dùng chốt hướng nghiệp vụ:
+- Hướng A (Giữ 2FA): Khôi phục luồng 2FA trên Portal (router `/mfa`, `/mfa-setup`, `RequireWorkspace`, `LoginPage`), loại bỏ việc nuốt lỗi `MFA_REQUIRED` và không dùng `localStorage` để ghi đè workspace.
+- Hướng B (Bỏ 2FA ở P1): Cần opencode tạo migration backend sửa `set_active_workspace`, `assert_org_role`, `assert_platform_role` không bắt buộc `is_aal2()`.
+
+### Kiểm thử
+Chạy probe `check_mfa_workspace.mjs` trên stack local xác nhận `set_active_workspace` trả `MFA_REQUIRED` và JWT không có claim `ORG`.
+
+### Chốt hướng (claude, 2026-10-26 12:57)
+claude đối chiếu: `WorkspacePickerPage.tsx:38-47` (nuốt `MFA_REQUIRED`), `use-session.ts:30-43` (`localStorage` ghi
+đè claim), `set_active_workspace` (`init_database.sql:2776-2788`) vẫn bắt `is_aal2()`; không migration nào sau đó
+đổi. Ba commit gỡ 2FA ở portal là của `trunghieu-1104` (2026-10-25).
+
+**Người dùng chốt: bỏ 2FA ở P1** (hướng B). Contract:
+
+DB (opencode, một migration mới, không sửa `init_database`):
+1. `assert_org_role(uuid, text[], boolean)` và `assert_platform_role(text[], boolean)`: giữ nguyên chữ ký và giá trị
+   mặc định (để không phải sửa nơi gọi), **bỏ qua** `p_require_mfa`: chỉ còn kiểm vai trò → `FORBIDDEN`.
+2. `set_active_workspace`: bỏ hai nhánh `MFA_REQUIRED` (ORG OWNER/FINANCE và ADMIN); phần còn lại giữ nguyên.
+3. `request_session_cancellation`: bỏ nhánh `is_aal2()` của vai trò PLATFORM.
+4. `list_my_workspaces`: `requires_mfa` luôn `false` (giữ trường để zod `workspace.ts` không đổi).
+5. Giữ `is_aal2()`, mã lỗi `MFA_REQUIRED`, mapping 403 ở `Postgrest.StatusFor` và các endpoint TOTP ở
+   `AuthEndpoints.cs` (không còn ai gọi, để dành cho P2). Sau migration, `grep -n MFA_REQUIRED` trong các hàm
+   đang hiệu lực chỉ còn ở `app_error`/danh sách mã.
+6. pgTAP (`act_as(uid, aal1)`): OWNER chọn ORG → thành công, claim từ `custom_access_token_hook` là ORG; admin
+   chọn ADMIN → thành công; `set_org_member` và `request_session_cancellation` (OWNER) chạy với aal1; user không
+   có vai trò vẫn `FORBIDDEN`; `list_my_workspaces` không còn `requires_mfa = true`.
+
+Portal (antigravity, `apps/portal/**`):
+7. Workspace **chỉ** lấy từ claim `active_workspace` trong JWT (`readActiveWorkspace`). Bỏ mọi đọc/ghi
+   `tickey_active_workspace`; lúc khởi động gọi `localStorage.removeItem(tickey_active_workspace)` một lần để dọn
+   máy đã dùng bản cũ.
+8. `WorkspacePickerPage`: không nuốt lỗi nào; `setActiveWorkspace` (đã `refreshSession` trong `@event/core`) xong
+   mới `navigate`; lỗi → toast `errorMessage`, ở lại trang.
+9. `RequireWorkspace`: chặn theo claim JWT, không theo `localStorage`; sửa tay `localStorage` không mở được
+   `/admin`.
+10. Mã chết MFA (`lib/mfa.ts`, route `/mfa*`, phần TOTP trong `AuthFlowsPage`): xoá nếu không còn nơi dùng, kèm
+    test của nó; không bắt buộc nếu phải đụng ngoài `apps/portal`.
+11. Test: `use-session` bỏ qua `localStorage` giả `{"kind":"ADMIN"}`; `WorkspacePickerPage` không navigate khi
+    `setActiveWorkspace` ném lỗi.
+
+Thứ tự: opencode làm DB trước; antigravity làm song song được (phần 7-11 không phụ thuộc DB), nhưng kiểm tay luồng
+OWNER → `/org` → mời thành viên cần migration của opencode. claude commit DB và portal cùng lúc.
+
+### Bàn giao antigravity (2026-10-26 13:12)
+- Phần portal (mục 7-11) đã hoàn thành:
+  - `apps/portal/src/main.tsx`: Dọn `tickey_active_workspace` lúc khởi động ứng dụng.
+  - `apps/portal/src/lib/use-session.ts`: Bỏ toàn bộ đọc/ghi `tickey_active_workspace` và fallback `list_my_workspaces`; workspace chỉ nạp từ claim JWT (`readActiveWorkspace(session?.access_token)`).
+  - `apps/portal/src/features/auth/WorkspacePickerPage.tsx`: Không ghi `localStorage`, không nuốt lỗi; ném lỗi khi `setActiveWorkspace` thất bại, kích hoạt `onError` hiện toast và giữ người dùng ở lại trang.
+  - `apps/portal/src/app/RequireWorkspace.tsx`: Kiểm tra theo claim JWT; bỏ bypass `!import.meta.env.DEV`, sửa tay `localStorage` không thể truy cập `/admin`.
+  - Dọn mã chết MFA: Bỏ route `/mfa*` trong `router.tsx`, bỏ link MFA trong `LoginPage.tsx`, dọn sạch màn hình TOTP trong `AuthFlowsPage.tsx`, xoá `mfa.ts` và `mfa.test.ts`.
+  - Đã thêm unit tests: `apps/portal/src/lib/use-session.test.ts` (kiểm tra bỏ qua `localStorage` giả `ADMIN`) và `apps/portal/src/features/auth/WorkspacePickerPage.test.ts` (kiểm tra không navigate khi `setActiveWorkspace` ném lỗi).
+- Kiểm tay luồng OWNER → `/org`: Chưa kiểm tay do migration backend bỏ `is_aal2()` của opencode chưa có.
+- Bổ sung (2026-10-26 14:14): Dọn sạch mã chết MFA trong `useCreateOrganization` (`org-data.ts`) và `OrgOnboardingPage.tsx` (bỏ `needsMfa`, `onNeedsMfa`); bỏ khối lỗi inline trùng lặp `{select.error && ...}` trong `WorkspacePickerPage.tsx` (chỉ dùng toast theo contract).
+
+### Bàn giao opencode (2026-10-26 15:30)
+#### Đã sửa (DB part - migration `20261026000006_drop_mfa_requirement.sql`)
+1. `assert_org_role(uuid, text[], boolean)`: bỏ qua `p_require_mfa`, chỉ kiểm tra vai trò org.
+2. `assert_platform_role(text[], boolean)`: bỏ qua `p_require_mfa`, chỉ kiểm tra vai trò platform.
+3. `set_active_workspace(text, uuid)`: bỏ nhánh `MFA_REQUIRED` cho ORG OWNER/FINANCE (dòng 2776-2778 cũ) và ADMIN (dòng 2786-2788 cũ).
+4. `request_session_cancellation(uuid, text)`: bỏ nhánh `is_aal2()` cho vai trò PLATFORM (dòng 5954-5956 cũ).
+5. `list_my_workspaces()`: `requires_mfa` luôn `false` cho tất cả các loại workspace (ORG, STAFF, ADMIN), giữ trường để zod không đổi.
+6. Giữ `is_aal2()`, mã lỗi `MFA_REQUIRED`, mapping 403 (cho P2).
+7. Grant execute permissions cho các hàm.
+
+#### Kiểm thử
+- Probe `.agent-hub/probes/c10_probe.sql`: **17/17 xanh** (OWNER chọn ORG aal1, admin chọn ADMIN aal1, set_org_member aal1, request_session_cancellation aal1, submit_kyc aal1, list_my_workspaces requires_mfa=false, user không có role vẫn FORBIDDEN, is_aal2 vẫn tồn tại, không hàm public nào còn chứa MFA_REQUIRED)
+- `supabase test db --local`: **Files=3, Tests=106, PASS**
+- `dotnet test --solution backend/EventPlatform.sln`: **209/209 PASS**
+
+### Kiểm thử tích hợp & Dọn dẹp bổ sung (antigravity 2026-10-26 19:20)
+- Đã xử lý toàn bộ các nit MFA:
+  - Bỏ trường `mfaPending` khỏi `apps/portal/src/lib/use-session.ts` (không còn mã nào đọc trường này).
+  - Cập nhật JSDoc comment tại `finance-data.ts:128-131` và `org-data.ts:296`.
+- Kiểm thử tích hợp thực tế trên stack local với migration `20261026000006_drop_mfa_requirement.sql`:
+  - Đăng nhập `owner-a@dev.local` bằng mật khẩu (aal1).
+  - `list_my_workspaces`: nhận danh sách workspace với `requires_mfa: false`.
+  - `set_active_workspace('ORG', orgId)`: thành công.
+  - Refresh session: JWT mang claim `active_workspace` (`kind: 'ORG'`, `org_id`, `roles: ['OWNER']`).
+  - `readActiveWorkspace(accessToken)` phân giải chính xác thành `{ kind: 'ORG', orgId, roles: ['OWNER'] }`.
+  - Gọi RPC nhạy cảm `set_org_member` thành công không bị chặn `MFA_REQUIRED`.
+- Kiểm tra toàn bộ frontend:
+  - Portal: `pnpm --filter @event/portal lint`, `typecheck`, `test` (38/38 passed), `build`: 100% xanh.
+  - Mobile: `pnpm --filter @event/mobile lint`, `typecheck`, `test` (92/92 passed): 100% xanh.
+  - Agent Dashboard: `pnpm --filter @event/agent-dashboard lint`, `typecheck`, `build`: 100% xanh.
