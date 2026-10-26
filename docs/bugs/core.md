@@ -799,7 +799,7 @@ Chưa chạy. Vitest cho `resolveApiUrl` khi thiếu env.
 
 ## C-09: IPN đúng tiền sau `AMOUNT_MISMATCH` ghi đè `gateway_txn_id` của khoản thu sai tiền
 
-- Trạng thái: IN_PROGRESS (claude review 2026-10-26 phiên 23: migration đạt, còn 2 việc — xem "Review (claude, phiên 23)")
+- Trạng thái: VERIFIED (claude, 2026-10-26 phiên 25; commit `29c7f3a`)
 - Phía: backend
 - Giao cho: opencode
 - Mức độ: low (chưa có cổng thật, cần sửa trước khi bật cổng thật)
@@ -859,8 +859,34 @@ nó. Hai việc còn lại trước khi commit (đã ghi vào `.agent-hub/tasks-
    quyết, nếu không người đọc sau sẽ tưởng thiếu `PROCESS_REFUND` và "sửa" thành bug.
 
 ### Kiểm thử
-Chưa chạy. pgTAP: sau bước 2 payment gốc vẫn `gateway_txn_id = 'TXN-A'`, có dòng payment cho `TXN-B`; bước 3 trả
-`DUPLICATE`; có một `outbox` `ADMIN_ALERT` cho bước 2.
+`supabase/tests/database/02_core_flows.test.sql` plan **72 → 80**, 8 assertion C-09 (khối `-- C-09: IPN correct
+amount after AMOUNT_MISMATCH`): sau bước 1 payment gốc giữ `gateway_txn_id = 'TXN-A'` + status `AMOUNT_MISMATCH`;
+bước 2 trả `NEEDS_REVIEW`, đúng **một** dòng payment `gateway_txn_id = 'TXN-B'` với `order_ref` kết thúc
+`-DUP-TXN-B`; bước 3 (gửi lại `TXN-A`) trả `DUPLICATE`; đúng một `outbox` `ADMIN_ALERT` type
+`PAYMENT_AFTER_AMOUNT_MISMATCH` cho `TXN-B` (scope theo `gateway_txn_id` nên không dính dữ liệu test khác).
+
+claude tự chạy lại (không dùng số của opencode), tuần tự trên stack **local**:
+`supabase db reset --local` → `…000007` apply sạch từ đầu; `supabase test db --local` → **Files=3, Tests=115,
+Result: PASS** (baseline 107 + 8 mới).
+
+### Review phiên 25 (claude)
+Hai việc tồn của phiên 23 đã xong:
+1. pgTAP: **đạt** (xem trên).
+2. Bút toán: **giữ** `post_ledger_transaction`, có comment ở `…000007` dòng 93-99 nói rõ đây là khoản treo chờ
+   admin quyết, kèm đối chiếu với 3 nhánh kia.
+
+claude sửa trước khi commit (không đổi logic, không đổi test):
+- Comment `…000007` ban đầu ghi admin tạo refund qua `admin_refund_action` — **sai**: hàm đó mở đầu bằng
+  `select … from public.refunds where id = p_refund_id`, không thấy thì `app_error('NOT_FOUND')`, nên chỉ tác động
+  lên dòng `refunds` **đã có**; nhánh này không tạo dòng `refunds` nào. Comment nay nêu `create_refund`
+  (`20261026000004` dòng 116: chỉ `grant execute … to service_role`), và `admin_refund_action` xử lý dòng đó sau.
+- **Hỏng encoding ở cả hai file** (opencode lưu lại bằng cp1252): `…000007` có BOM + 5 dòng comment tiếng Việt
+  mojibake (`trÃ¹ng`, `tiá»n`…); `02_core_flows.test.sql` có BOM và **toàn bộ** comment/tên test tiếng Việt
+  mojibake, làm diff phình lên 128+/62- dù chỉ thêm 1 khối test. Test vẫn PASS vì tên test chỉ là string, nhưng
+  không commit được như vậy. claude dựng lại: file test `git checkout --` về bản gốc rồi áp lại đúng khối C-09
+  (ASCII thuần) + `plan(80)` → diff còn **67+/1-**; migration strip BOM và decode lại 5 dòng kia, đã đối chiếu
+  **khớp từng ký tự** với `…000002` (nguồn copy). Giữ nguyên CRLF, không BOM — khớp 9 migration còn lại.
+  Chạy lại `db reset` + `test db` sau khi sửa: vẫn **115 PASS**.
 
 ---
 
