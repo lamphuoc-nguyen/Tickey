@@ -9,7 +9,8 @@ builder.Services.Configure<QrOptions>(builder.Configuration.GetSection(QrOptions
 builder.Services.AddSingleton<QrSigner>();
 
 builder.Services.AddHostedService<IssueTicketsWorker>();
-// Still to build (DB_INSTRUCTIONS §8): PaymentQueryJob, RefundWorker (Phước);
+builder.Services.AddHostedService<PaymentQueryJob>();
+// Still to build (DB_INSTRUCTIONS §8): RefundWorker (Phước);
 // PayoutWorker, ReconciliationJob, NotificationsWorker (Khôi).
 
 builder.Build().Run();

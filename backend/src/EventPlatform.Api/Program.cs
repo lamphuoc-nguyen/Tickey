@@ -22,6 +22,17 @@ if (!string.IsNullOrEmpty(builder.Configuration["Qr:SigningKey"]))
     builder.Services.AddHostedService<IssueTicketsWorker>();
 }
 
+// PaymentQueryJob must run in API as well (render.yaml only has tickey-api service)
+// It queries gateway for PAYMENT_PENDING bookings and expires unpaid ones
+// Only register when a payment gateway is actually configured (TEST or real gateway)
+// and not in Testing environment (tests use fake HTTP handlers that don't support the RPC calls)
+var isTesting = builder.Environment.IsEnvironment("Testing");
+if (!isTesting && (ServiceCollectionExtensions.IsTestPayments(builder.Configuration) ||
+    !string.IsNullOrEmpty(builder.Configuration["Payments:Gateway"])))
+{
+    builder.Services.AddHostedService<PaymentQueryJob>();
+}
+
 var app = builder.Build();
 
 // RPC errors keep the database contract: { message: CODE, details: "<json>" } (supabase/README.md),
