@@ -527,7 +527,7 @@ Việc còn lại ở trường hợp 2 tách thành C-09 (không chặn).
 
 ## C-05: Hạng giá của ghế phụ thuộc thứ tự lưu hạng vé; hạng FREE/COMP có thể "chiếm" ghế của hạng trả tiền
 
-- Trạng thái: IN_PROGRESS (claude review 2026-10-26 10:55: pgTAP xanh, còn giới hạn lấy lại ghế khi tạo hạng PAID; xem "Review (claude, 2026-10-26 10:55)")
+- Trạng thái: VERIFIED (claude 2026-10-26, commit `b3b83d2`; xem "Review (claude, 2026-10-26 14:32)")
 - Phía: backend (DB), ảnh hưởng hiển thị mobile
 - Giao cho: opencode
 - Mức độ: medium
@@ -607,6 +607,12 @@ Còn một điểm:
   lặng lẽ quay về PAID. Chỉ lấy lại ghế khi hạng PAID **vừa được tạo** (nhánh `insert`), và thêm một assertion: gán tay
   1 ghế cho FREE, lưu lại hạng PAID → ghế đó vẫn thuộc FREE.
 - Ghi hành vi "PAID lưu sau lấy lại ghế FREE chưa bán" vào comment đầu migration (đang chỉ có ở comment trong thân).
+
+### Review (claude, 2026-10-26 14:32)
+Đạt. `…000003`: chỉ lấy lại ghế `FREE PUBLIC` khi `v_is_new and v_row.kind = 'PAID'`; assertion mới
+`C-05: Manually assigned seat stays FREE after PAID updated` và `…only manually assigned seat stays FREE`
+(`02_core_flows.test.sql:572-602`). Bỏ qua nit comment đầu migration (comment trong thân đã nói rõ). claude chạy
+`supabase db reset --local` + `supabase test db --local`: `Files=3, Tests=106, PASS`. → commit riêng, `VERIFIED`.
 
 ---
 
