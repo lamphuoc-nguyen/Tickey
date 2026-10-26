@@ -479,7 +479,7 @@ const nextId = rowLabel(idx);
 
 ## F-09: Wizard bỏ sót vé bị xoá sau một lần lưu bước 3 lỗi giữa chừng
 
-- Trạng thái: FIXED
+- Trạng thái: VERIFIED (claude 2026-10-26, commit `ef2de60`)
 - Phía: frontend
 - Giao cho: antigravity
 - Mức độ: low
@@ -516,6 +516,8 @@ từng trả về. Test: lần lưu đầu ném lỗi ở vé thứ 3 → xoá v
     - `pnpm --filter @event/portal typecheck`: exit 0 (tsc -b --noEmit).
     - `pnpm --filter @event/portal lint`: exit 0 (eslint .).
     - `pnpm --filter @event/portal build`: exit 0 (tsc -b && vite build).
+- claude 2026-10-26 (xác minh lại trên cây làm việc): `pnpm --filter @event/portal lint` exit 0,
+  `typecheck` exit 0, `test` 7 file / 38 test pass, `build` exit 0.
 
 ---
 
