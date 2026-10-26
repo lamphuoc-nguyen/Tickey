@@ -7,7 +7,7 @@
 -- ============================================================================
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(62);
+select plan(69);
 
 -- ---------------------------------------------------------------- fixture
 create temp table fx (k text primary key, v uuid);
@@ -480,6 +480,127 @@ select is((select status from public.session_seats where session_id = pg_temp.fx
           'C-01: Seat released to AVAILABLE after expire');
 reset role;
 
+-- ---------------------------------------------------------------- C-05: save_ticket_type PAID priority over FREE
+-- C-05 Test 1: COMP before PAID -> seat belongs to PAID
+-- Setup part 1: Create session, ticket types (superuser for run_session_status_transitions)
+do $$
+declare v_ses uuid; v_zone uuid; v_comp uuid; v_paid uuid; v_lv uuid;
+begin
+  select layout_version_id into v_lv from public.sessions where id = pg_temp.fx('a_ses');
+  select id into v_zone from public.zones where layout_version_id = v_lv and code = 'A';
+  perform pg_temp.act_as(pg_temp.fx('owner_a'));
+  v_ses := public.save_session(jsonb_build_object('event_id', pg_temp.fx('a_event'), 'venue_id', pg_temp.fx('a_venue'),
+            'layout_version_id', v_lv, 'starts_at', now() + interval '9 days', 'ends_at', now() + interval '9 days 2 hours',
+            'sales_start_at', now() - interval '1 hour', 'sales_end_at', now() + interval '9 days'));
+  -- Create COMP first
+  v_comp := public.save_ticket_type(jsonb_build_object('session_id', v_ses, 'name', 'Khach moi', 'kind', 'COMP',
+                  'quota', 2, 'zone_ids', jsonb_build_array(v_zone)));
+  -- Create PAID after
+  v_paid := public.save_ticket_type(jsonb_build_object('session_id', v_ses, 'name', 'VIP-C05', 'kind', 'PAID',
+                  'price_amount', 500000, 'quota', 2, 'zone_ids', jsonb_build_array(v_zone)));
+  perform public.run_session_status_transitions();
+  insert into fx values ('c05_comp_ses', v_ses), ('c05_comp_tt', v_comp), ('c05_paid_tt', v_paid);
+end $$;
+
+-- C-05 Test 1: COMP before PAID -> seat belongs to PAID
+select is((select count(*)::int from public.session_seats where session_id = pg_temp.fx('c05_comp_ses') and ticket_type_id = pg_temp.fx('c05_paid_tt') and status in ('AVAILABLE','BLOCKED','HELD')), 2,
+          'C-05: COMP before PAID -> seats assigned to PAID');
+select is((select count(*)::int from public.session_seats where session_id = pg_temp.fx('c05_comp_ses') and ticket_type_id = pg_temp.fx('c05_comp_tt')), 0,
+          'C-05: COMP does not auto-assign seats');
+
+-- C-05 Test 2: FREE PUBLIC before PAID -> seat belongs to PAID
+-- Setup part 1: Create session, ticket types (superuser for run_session_status_transitions)
+do $$
+declare v_lv uuid; v_ses uuid; v_zone uuid; v_free uuid; v_paid uuid;
+begin
+  select layout_version_id into v_lv from public.sessions where id = pg_temp.fx('a_ses');
+  select id into v_zone from public.zones where layout_version_id = v_lv and code = 'A';
+  perform pg_temp.act_as(pg_temp.fx('owner_a'));
+  v_ses := public.save_session(jsonb_build_object('event_id', pg_temp.fx('a_event'), 'venue_id', pg_temp.fx('a_venue'),
+            'layout_version_id', v_lv, 'starts_at', now() + interval '9 days', 'ends_at', now() + interval '9 days 2 hours',
+            'sales_start_at', now() - interval '1 hour', 'sales_end_at', now() + interval '9 days'));
+  -- Create FREE PUBLIC first
+  v_free := public.save_ticket_type(jsonb_build_object('session_id', v_ses, 'name', 'Mien phi', 'kind', 'FREE',
+                  'quota', 2, 'zone_ids', jsonb_build_array(v_zone)));
+  -- Create PAID after
+  v_paid := public.save_ticket_type(jsonb_build_object('session_id', v_ses, 'name', 'VIP-C05-FREE', 'kind', 'PAID',
+                  'price_amount', 500000, 'quota', 2, 'zone_ids', jsonb_build_array(v_zone)));
+  perform public.run_session_status_transitions();
+  insert into fx values ('c05_free_ses', v_ses), ('c05_free_tt', v_free), ('c05_free_paid_tt', v_paid);
+end $$;
+
+select is((select count(*)::int from public.session_seats where session_id = pg_temp.fx('c05_free_ses') and ticket_type_id = pg_temp.fx('c05_free_paid_tt') and status in ('AVAILABLE','BLOCKED','HELD')), 2,
+          'C-05: FREE before PAID -> seats assigned to PAID');
+select is((select count(*)::int from public.session_seats where session_id = pg_temp.fx('c05_free_ses') and ticket_type_id = pg_temp.fx('c05_free_tt')), 0,
+          'C-05: FREE PUBLIC does not take seats when PAID exists in zone');
+
+-- C-05 Test 3: create_booking with PAID seat -> total_amount = PAID price
+-- Setup part 1: Create session, ticket types (superuser for run_session_status_transitions)
+do $$
+declare v_lv uuid; v_ses uuid; v_zone uuid; v_free uuid; v_paid uuid;
+begin
+  select layout_version_id into v_lv from public.sessions where id = pg_temp.fx('a_ses');
+  select id into v_zone from public.zones where layout_version_id = v_lv and code = 'A';
+  perform pg_temp.act_as(pg_temp.fx('owner_a'));
+  v_ses := public.save_session(jsonb_build_object('event_id', pg_temp.fx('a_event'), 'venue_id', pg_temp.fx('a_venue'),
+            'layout_version_id', v_lv, 'starts_at', now() + interval '10 days', 'ends_at', now() + interval '10 days 2 hours',
+            'sales_start_at', now() - interval '1 hour', 'sales_end_at', now() + interval '10 days'));
+  v_free := public.save_ticket_type(jsonb_build_object('session_id', v_ses, 'name', 'Mien phi 2', 'kind', 'FREE',
+                  'quota', 2, 'zone_ids', jsonb_build_array(v_zone)));
+  v_paid := public.save_ticket_type(jsonb_build_object('session_id', v_ses, 'name', 'VIP-C05-BOOK', 'kind', 'PAID',
+                  'price_amount', 750000, 'quota', 2, 'zone_ids', jsonb_build_array(v_zone)));
+  perform public.run_session_status_transitions();
+  insert into fx values ('c05_book_ses', v_ses), ('c05_book_free_tt', v_free), ('c05_book_paid_tt', v_paid), ('c05_book_lv', v_lv);
+end $$;
+
+-- Setup part 2: Create booking (authenticated)
+set local role authenticated;
+do $$
+declare v_booking uuid;
+begin
+  perform pg_temp.act_as(pg_temp.fx('c1'), 'aal1');
+  v_booking := (public.create_booking(pg_temp.fx('c05_book_ses'),
+    jsonb_build_array(jsonb_build_object('ticket_type_id', pg_temp.fx('c05_book_paid_tt'), 'seat_id', (select id from public.seats where layout_version_id = pg_temp.fx('c05_book_lv') and seat_code = 'A-1'))),
+    'c05-book-001') ->> 'id')::uuid;
+  insert into fx values ('c05_book_booking', v_booking);
+end $$;
+reset role;
+
+select is((select total_amount from public.bookings where id = pg_temp.fx('c05_book_booking')), 750000::bigint,
+          'C-05: Booking total_amount = PAID price (not 0)');
+
+-- C-05 Test 4: Manually assign seat to FREE, then UPDATE PAID -> seat stays FREE
+-- Setup: Create PAID first (gets seats), manually assign one seat to FREE, then UPDATE PAID
+do $$
+declare v_lv uuid; v_ses uuid; v_zone uuid; v_free uuid; v_paid uuid; v_seat uuid;
+begin
+  select layout_version_id into v_lv from public.sessions where id = pg_temp.fx('a_ses');
+  select id into v_zone from public.zones where layout_version_id = v_lv and code = 'A';
+  perform pg_temp.act_as(pg_temp.fx('owner_a'));
+  v_ses := public.save_session(jsonb_build_object('event_id', pg_temp.fx('a_event'), 'venue_id', pg_temp.fx('a_venue'),
+            'layout_version_id', v_lv, 'starts_at', now() + interval '12 days', 'ends_at', now() + interval '12 days 2 hours',
+            'sales_start_at', now() - interval '1 hour', 'sales_end_at', now() + interval '12 days'));
+  -- Create PAID first (gets all seats in zone)
+  v_paid := public.save_ticket_type(jsonb_build_object('session_id', v_ses, 'name', 'VIP-C05-UPDATE', 'kind', 'PAID',
+                  'price_amount', 500000, 'quota', 2, 'zone_ids', jsonb_build_array(v_zone)));
+  -- Create FREE after (should not auto-assign since PAID exists)
+  v_free := public.save_ticket_type(jsonb_build_object('session_id', v_ses, 'name', 'Mien phi 4', 'kind', 'FREE',
+                  'quota', 2, 'zone_ids', jsonb_build_array(v_zone)));
+  perform public.run_session_status_transitions();
+  -- Manually assign seat A-1 to FREE
+  v_seat := (select id from public.seats where layout_version_id = v_lv and seat_code = 'A-1');
+  perform public.assign_seats_ticket_type(v_ses, array[v_seat]::uuid[], v_free);
+  -- Now UPDATE PAID (change price) - should NOT reassign the manually assigned FREE seat
+  perform public.save_ticket_type(jsonb_build_object('id', v_paid, 'price_amount', 600000));
+  insert into fx values ('c05_update_ses', v_ses), ('c05_update_free_tt', v_free), ('c05_update_paid_tt', v_paid), ('c05_update_seat', v_seat);
+end $$;
+
+-- Verify manually assigned seat stays FREE after PAID UPDATE
+select is((select ticket_type_id from public.session_seats where session_id = pg_temp.fx('c05_update_ses') and seat_id = pg_temp.fx('c05_update_seat')), pg_temp.fx('c05_update_free_tt'),
+          'C-05: Manually assigned seat stays FREE after PAID updated');
+select is((select count(*)::int from public.session_seats where session_id = pg_temp.fx('c05_update_ses') and ticket_type_id = pg_temp.fx('c05_update_paid_tt') and status in ('AVAILABLE','BLOCKED','HELD')), 1,
+          'C-05: PAID keeps other seats, only manually assigned seat stays FREE');
+
 -- ---------------------------------------------------------------- C-01: INITIATED hết hạn → thanh toán lại
 -- Setup part 1: Create session, ticket type (superuser for run_session_status_transitions)
 do $$
@@ -599,4 +720,3 @@ select is((select sum(case direction when 'DEBIT' then amount else -amount end) 
           'Sổ cái cân: tổng Nợ = tổng Có');
 
 select * from finish();
-rollback;
