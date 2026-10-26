@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { definitionErrors, fromDefinition, rowLabel, toDefinition, type EditorZone } from './layout-model';
+import { definitionErrors, fromDefinition, rowLabel, nextZoneId, toDefinition, type EditorZone } from './layout-model';
 
 const seated = (id: string, rows: number, seatsPerRow: number): EditorZone => ({
   id,
@@ -19,6 +19,25 @@ const standing = (id: string, capacity: number): EditorZone => ({
 });
 
 describe('layout model', () => {
+  it('generates a unique next zone id even when a middle zone is removed (F-08)', () => {
+    // 1. Initial 4 zones A, B, C, D
+    const stadium = [{ id: 'A' }, { id: 'B' }, { id: 'C' }, { id: 'D' }];
+    expect(nextZoneId(stadium)).toBe('E');
+
+    // 2. Remove middle zone B -> remaining: A, C, D
+    const remaining = stadium.filter((z) => z.id !== 'B');
+    expect(remaining.map((z) => z.id)).toEqual(['A', 'C', 'D']);
+
+    // 3. Adding next zone must NOT return 'D' (which would duplicate existing zone 'D' because length is 3)
+    const nextId = nextZoneId(remaining);
+    expect(nextId).toBe('B');
+    expect(remaining.some((z) => z.id === nextId)).toBe(false);
+
+    // 4. After adding 'B' back, next should be 'E'
+    const updated = [...remaining, { id: nextId }];
+    expect(nextZoneId(updated)).toBe('E');
+  });
+
   it('labels rows A..Z then AA', () => {
     expect([0, 25, 26, 27].map(rowLabel)).toEqual(['A', 'Z', 'AA', 'AB']);
   });

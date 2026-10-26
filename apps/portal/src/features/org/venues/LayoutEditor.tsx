@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import {
   detectTemplateType,
   createTemplateZones,
+  nextZoneId,
   rowLabel,
   zoneCapacity,
   SPACING,
@@ -857,7 +858,7 @@ export function LayoutEditor({
                         className="btn btn-secondary"
                         style={{ fontSize: 11.5, padding: '4px 8px' }}
                         onClick={() => {
-                          const nextId = rowLabel(zones.length);
+                          const nextId = nextZoneId(zones);
                           onChange([
                             ...zones,
                             {
