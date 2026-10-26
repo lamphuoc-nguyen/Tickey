@@ -1,0 +1,23 @@
+# Build context for ./Dockerfile (B-32).
+#
+# The Dockerfile only ever COPYs from backend/, so this is an allow-list: exclude
+# everything at the root, then add backend/ back. That keeps node_modules/, .git/,
+# apps/, assets/ and .env.local out of the context entirely — the context went from
+# the whole monorepo to just the .NET sources.
+#
+# If the Dockerfile ever needs another path, re-include it here with a `!` line;
+# otherwise the COPY fails with "file not found" even though the file is committed.
+*
+
+!backend/
+
+# .NET build output from local `dotnet build` / `dotnet test` runs. Leaving these in
+# makes the image build pick up host artifacts instead of restoring cleanly, and on
+# Windows hosts they can carry locked or wrong-RID DLLs.
+backend/**/bin/
+backend/**/obj/
+backend/**/TestResults/
+
+# Local-only configuration never belongs in an image.
+backend/**/appsettings.*.local.json
+backend/**/*.user

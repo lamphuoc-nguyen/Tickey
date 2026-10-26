@@ -32,6 +32,18 @@ jobs:
         with:
           global-json-file: global.json
       - run: dotnet test --solution backend/EventPlatform.sln
+      # B-32: dotnet test only builds Debug, so a Release-only warning (the solution
+      # sets TreatWarningsAsErrors) would reach Render as a failed image build.
+      - run: dotnet build --configuration Release backend/EventPlatform.sln
+
+  docker:
+    name: API image (Dockerfile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # B-32: Render builds from this Dockerfile, so CI builds it too. Keep the
+      # context at the repo root — .dockerignore is what keeps it small.
+      - run: docker build -f Dockerfile -t tickey-api:ci .
 
   database:
     name: Database (pgTAP)

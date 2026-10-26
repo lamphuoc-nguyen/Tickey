@@ -2,7 +2,8 @@
 
 Nền tảng bán vé sự kiện nhiều tenant (Phase 1 MVP). Tài liệu này là bản đồ để các agent đọc trước khi sửa code.
 Nguồn chi tiết: `README.md` (gốc), `supabase/README.md` (contract RPC + mã lỗi), `docs/DB_INSTRUCTIONS.md`,
-`docs/MOBILE_ARCHITECTURE.md`. Khi tài liệu và code lệch nhau, **code là đúng**; ghi lại chỗ lệch vào `docs/bugs/`.
+`docs/MOBILE_ARCHITECTURE.md`, `docs/DEPLOY_RENDER.md` (deploy API + env var Render). Khi tài liệu và code
+lệch nhau, **code là đúng**; ghi lại chỗ lệch vào `docs/bugs/`.
 
 Thuật ngữ: "chuyến/suất" trong yêu cầu = **Event** (sự kiện) và **Session** (suất diễn). Một Event có nhiều Session;
 mỗi Session có Ticket Type (hạng vé), sơ đồ ghế (Layout Version) và tồn kho riêng.

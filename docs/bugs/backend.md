@@ -1477,15 +1477,104 @@ trong/ trước `catch`. Bản sửa 19:18 dời `handledCount++` lên đầu v�
 
 `dotnet test --solution backend/EventPlatform.sln` (**có build**): **212/212 PASS**, exit 0 (trước đó 211, +1 test mới).
 
+## B-32: CI không bao giờ build Release/Docker image — lỗi build của Render không có cửa bị bắt
+
+### Trạng thái
+VERIFIED
+
+### Phía
+backend
+
+### Giao cho
+claude
+
+> Ghi chú phân vùng: `.dockerignore` đi cùng `Dockerfile` nên theo `AGENTS.md` mục 1 thuộc **opencode**. Người dùng
+> giao trực tiếp cho claude làm cả hai phần (2026-10-26 phiên 29), nên claude viết `.dockerignore` thay vì chuyển
+> cho opencode. Không coi đây là tiền lệ đổi chủ vùng.
+
+### Mức độ
+medium
+
+### Luồng
+khác
+
+### Người phát hiện
+claude (2026-10-26 phiên 28)
+
+### Tái hiện
+1. Mở `.github/workflows/ci.yml`: job `backend` chỉ có một bước chạy lệnh ở dòng 34.
+2. Không job nào chạy `dotnet publish -c Release`, cũng không job nào chạy `docker build -f ./Dockerfile .`.
+3. Đẩy một commit làm vỡ `dotnet publish -c Release` hoặc vỡ `Dockerfile` (ví dụ sai `COPY`, sai đường dẫn
+   project, hoặc lỗi chỉ xuất hiện ở cấu hình `Release`) → **CI vẫn xanh**, Render mới là chỗ fail.
+
+### Kỳ vọng / Thực tế
+- Kỳ vọng: CI xanh ⇒ Render build được. Pipeline deploy duy nhất của backend là `Dockerfile` + `dotnet publish -c Release`,
+  nên CI phải chạy đúng hai thứ đó.
+- Thực tế: CI chỉ chạy `dotnet test` (mặc định cấu hình **Debug**, không publish). `Dockerfile` và `render.yaml`
+  **không được build hay validate ở bất kỳ job nào**. Lỗi build chỉ lộ ra trên Render, sau khi đã merge vào `main`.
+
+### Bằng chứng
+- `.github/workflows/ci.yml:26-34` — job `Backend (.NET)`, bước duy nhất là
+  `dotnet test --solution backend/EventPlatform.sln`. Không có `publish`, không có `docker build`.
+- `.github/workflows/ci.yml:10-24`, `:36-45` — hai job còn lại là TypeScript và pgTAP; không job nào đụng `Dockerfile`.
+- `render.yaml:9-10` — Render build `dockerfilePath: ./Dockerfile` với `dockerContext: .`, tức đúng thứ CI bỏ qua.
+- Repo **không có `.dockerignore`** (`ls .dockerignore` → No such file or directory). Hệ quả: `docker build` tại chỗ
+  repo trên máy dev copy `obj/`/`bin/` của Windows vào context, nên build local **không trung thực** so với Render
+  (Render clone sạch từ git). Phiên 27 phải dùng `git archive HEAD` ra thư mục sạch mới dựng lại được đúng điều kiện.
+
+### Nguyên nhân
+CI được viết theo `AGENTS.md` mục 6 (lint/typecheck/test/pgTAP) — là bộ kiểm tra trước khi **bàn giao**, không phải
+bộ kiểm tra trước khi **deploy**. Artifact deploy (image Docker) chưa bao giờ nằm trong phạm vi CI.
+
+### Ghi chú: không phải nguyên nhân sự cố Render 2026-10-26
+Sự cố Render của phiên 27 fail ở bước **Deploy / health check**, không phải Build (người dùng xác nhận 2026-10-26
+phiên 28). Nguyên nhân là thiếu env var `sync: false` trong Render dashboard làm `.ValidateOnStart()` giết container
+lúc boot — xem `docs/DEPLOY_RENDER.md`. B-32 là **khoảng trống phòng ngừa**: lần sau nếu lỗi *thật sự* ở build thì CI
+vẫn sẽ không bắt được. Đừng ghi B-32 là nguyên nhân sự cố đó.
+
+### Đã sửa (2026-10-26 phiên 29)
+1. **`.dockerignore` ở gốc repo (mới).** Viết theo kiểu **allow-list** chứ không phải deny-list như đề xuất ban đầu:
+   `*` loại mọi thứ ở gốc, rồi `!backend/` thêm lại đúng phần `Dockerfile` cần, sau đó loại tiếp
+   `backend/**/{bin,obj,TestResults}/` và `appsettings.*.local.json`, `*.user`. Allow-list an toàn hơn vì mọi thư mục
+   gốc thêm về sau (kể cả `.env.local` đang nằm ở gốc) tự động nằm ngoài context mà không cần sửa file.
+2. **`.github/workflows/ci.yml`** — thêm job `docker` (`docker build -f Dockerfile -t tickey-api:ci .`, không push) và
+   thêm bước `dotnet build --configuration Release backend/EventPlatform.sln` vào job `backend`. Bước Release là cần
+   thiết riêng: job `docker` chỉ publish `EventPlatform.Api`, nên một cảnh báo Release trong `Workers` hay `Tests`
+   (`TreatWarningsAsErrors`) vẫn lọt nếu chỉ dựa vào image.
+
+### Kiểm thử
+Đã chạy (2026-10-26 phiên 29):
+- `docker build -f ./Dockerfile -t tickey-api-dockerignore .` **ngay tại chỗ repo** (không cần `git archive`):
+  exit 0, publish `EventPlatform.Api -> /app/publish/`, export image thành công.
+- Đối chứng rằng artifact của host thật sự bị loại, chạy trong stage `build` của image:
+  `ls /src/backend/src/EventPlatform.Api/bin` → chỉ `Release` (do publish trong container tạo), **không có** `Debug`
+  của host; `grep -c -i "C:\\Users" .../obj/project.assets.json` → **0**, tức `obj/` trong image do
+  `dotnet restore` của container sinh ra, không phải copy từ Windows.
+- Context gửi lên daemon: `transferring context: 343.24kB` cho `COPY backend/` (đọc từ log CI, lần build **sạch**),
+  cộng `955B` cho layer `.csproj`. Trước đây context là cả monorepo kèm `node_modules/` và `.git/`.
+  (Lần build local ban đầu in `5.41kB` — đó chỉ là layer `.csproj`, vì bước `COPY backend/` đã cache; đừng dùng số đó.)
+- `dotnet build --configuration Release backend/EventPlatform.sln`: **Build succeeded, 0 Warning(s), 0 Error(s)**.
+- `ci.yml` parse được, 4 job: `web`, `backend`, `docker`, `database`.
+
+Trên GitHub Actions, PR #36 (run `40346141725`): **4/4 job xanh** — `API image (Dockerfile)` 25s,
+`Apps and packages (TypeScript)` 1m6s, `Backend (.NET)` 1m25s, `Database (pgTAP)` 2m32s. Đã đọc log job `docker` để
+chắc nó build thật chứ không no-op: có `EventPlatform.Core -> …/bin/Release/net10.0/…`,
+`EventPlatform.Api -> /app/publish/` và `naming to docker.io/library/tickey-api:ci`.
+
+**Chưa kiểm (không chặn):** chưa thử PR nháp làm vỡ `Dockerfile` có chủ ý để chứng minh job mới **đỏ** đúng lúc. Mới
+chỉ chứng minh được job xanh khi code lành.
+
+---
+
 ## Summary by Severity (Sau triage)
 
 | Mức độ | Mục còn mở |
 |----------|------|
 | high | *(không còn)* |
-| Trung bình | B-29 |
+| medium | *(không còn)* |
 | Thấp | *(không còn)* |
 | Trùng `core.md` | B-09 (C-01) |
-| VERIFIED | B-14, B-15, B-18, B-26, B-28, B-31 |
+| VERIFIED | B-14, B-15, B-18, B-26, B-28, B-29, B-31, B-32 |
 | WONTFIX | B-01..B-08, B-10..B-13, B-16, B-17, B-19..B-25, B-30 |
 
 ---
