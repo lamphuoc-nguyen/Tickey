@@ -160,4 +160,131 @@ describe('EventCreationWizard ticket persistence (F-07)', () => {
     expect(secondSaveResult).toHaveLength(1);
     expect(secondSaveResult[0].id).toBe('server-tt-1');
   });
+
+  it('deactivates tickets removed after a previous save failed mid-loop (F-09)', async () => {
+    let callCount = 0;
+    const calls: Array<{ id?: string; status?: string; isPost: boolean }> = [];
+
+    const mockSaveFn = vi.fn(async (payload: Record<string, unknown> & { id?: string }) => {
+      callCount++;
+      const isPost = !payload.id;
+      const assignedId = payload.id ?? `server-tt-${callCount}`;
+      calls.push({
+        id: payload.id ?? assignedId,
+        status: payload.status as string,
+        isPost,
+      });
+
+      // Simulate failure on third ticket during initial save
+      if (payload.name === 'Vé Thử Nghiệm Lỗi') {
+        throw new Error('VALIDATION_FAILED: Invalid configuration for ticket 3');
+      }
+
+      return { id: assignedId };
+    });
+
+    let currentTickets: WizardTicketItem[] = [
+      {
+        tempId: 't1',
+        name: 'Vé VIP',
+        kind: 'PAID',
+        price: 500000,
+        quota: 50,
+        zoneIds: ['zone-1'],
+        refundPolicy: 'ONLY_IF_CANCELLED',
+      },
+      {
+        tempId: 't2',
+        name: 'Vé Tiêu Chuẩn',
+        kind: 'PAID',
+        price: 250000,
+        quota: 200,
+        zoneIds: ['zone-2'],
+        refundPolicy: 'ONLY_IF_CANCELLED',
+      },
+      {
+        tempId: 't3',
+        name: 'Vé Thử Nghiệm Lỗi',
+        kind: 'PAID',
+        price: 100000,
+        quota: 50,
+        zoneIds: ['zone-1'],
+        refundPolicy: 'ONLY_IF_CANCELLED',
+      },
+    ];
+
+    let savedTicketIds: string[] = [];
+
+    const onTicketSaved = (idx: number, id: string) => {
+      currentTickets = currentTickets.map((t, i) => (i === idx ? { ...t, id } : t));
+      if (!savedTicketIds.includes(id)) {
+        savedTicketIds.push(id);
+      }
+    };
+
+    const onTicketDeactivated = (deactivatedId: string) => {
+      savedTicketIds = savedTicketIds.filter((id) => id !== deactivatedId);
+    };
+
+    // 1. First save attempt - fails on ticket 3
+    await expect(
+      persistWizardTickets(
+        currentTickets,
+        'session-abc',
+        zones,
+        mockSaveFn,
+        onTicketSaved,
+        savedTicketIds,
+        onTicketDeactivated,
+      ),
+    ).rejects.toThrow('VALIDATION_FAILED');
+
+    // First two tickets succeeded and their IDs were saved
+    expect(currentTickets[0].id).toBe('server-tt-1');
+    expect(currentTickets[1].id).toBe('server-tt-2');
+    expect(currentTickets[2].id).toBeUndefined();
+    expect(savedTicketIds).toEqual(['server-tt-1', 'server-tt-2']);
+
+    // 2. User removes ticket 2 (server-tt-2) and fixes ticket 3 name
+    currentTickets = [
+      currentTickets[0],
+      { ...currentTickets[2], name: 'Vé Khuyến Mãi Đã Sửa' },
+    ];
+    calls.length = 0;
+
+    // 3. Second save attempt
+    const secondSaveResult = await persistWizardTickets(
+      currentTickets,
+      'session-abc',
+      zones,
+      mockSaveFn,
+      onTicketSaved,
+      savedTicketIds,
+      onTicketDeactivated,
+    );
+
+    // Assertions for F-09:
+    // - Ticket 2 must have been deactivated with PUT status INACTIVE
+    const inactiveCalls = calls.filter((c) => c.id === 'server-tt-2');
+    expect(inactiveCalls).toHaveLength(1);
+    expect(inactiveCalls[0].status).toBe('INACTIVE');
+    expect(inactiveCalls[0].isPost).toBe(false);
+
+    // - Ticket 1 was updated with PUT status ACTIVE
+    const activeTicket1Calls = calls.filter((c) => c.id === 'server-tt-1');
+    expect(activeTicket1Calls).toHaveLength(1);
+    expect(activeTicket1Calls[0].status).toBe('ACTIVE');
+    expect(activeTicket1Calls[0].isPost).toBe(false);
+
+    // - Ticket 3 (new) was created with POST
+    const newTicketCalls = calls.filter((c) => c.isPost);
+    expect(newTicketCalls).toHaveLength(1);
+    expect(newTicketCalls[0].id).toBe('server-tt-6');
+
+    // - Resulting ticket list has 2 tickets with correct IDs
+    expect(secondSaveResult).toHaveLength(2);
+    expect(secondSaveResult[0].id).toBe('server-tt-1');
+    expect(secondSaveResult[1].id).toBe('server-tt-6');
+    expect(savedTicketIds).toEqual(['server-tt-1', 'server-tt-6']);
+  });
 });

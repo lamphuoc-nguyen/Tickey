@@ -479,7 +479,7 @@ const nextId = rowLabel(idx);
 
 ## F-09: Wizard bỏ sót vé bị xoá sau một lần lưu bước 3 lỗi giữa chừng
 
-- Trạng thái: OPEN
+- Trạng thái: FIXED
 - Phía: frontend
 - Giao cho: antigravity
 - Mức độ: low
@@ -507,7 +507,15 @@ từng trả về. Test: lần lưu đầu ném lỗi ở vé thứ 3 → xoá v
 `apps/portal/**`.
 
 ### Kiểm thử
-Chưa sửa.
+- antigravity 2026-10-26:
+  - `apps/portal/src/features/org/events/wizard-tickets.ts`: thêm `onTicketDeactivated?: (id: string) => void` callback để đồng bộ trạng thái khi vé bị vô hiệu hoá.
+  - `apps/portal/src/features/org/events/EventCreationWizard.tsx`: trong `onTicketSaved` thêm `id` vào `savedTicketIds` ngay khi từng vé lưu thành công (giữ `id` kể cả khi lỗi giữa vòng lặp); truyền callback `onTicketDeactivated` để lọc bỏ ID đã deactivate.
+  - Bổ sung unit test `apps/portal/src/features/org/events/EventCreationWizard.test.ts` (test case `deactivates tickets removed after a previous save failed mid-loop (F-09)`): kiểm tra kịch bản lần lưu đầu vé 1 và 2 thành công, vé 3 ném `VALIDATION_FAILED` -> xoá vé 2 -> lần lưu thứ 2 gửi đúng một PUT `status: 'INACTIVE'` cho vé 2, PUT `status: 'ACTIVE'` cho vé 1, POST cho vé 3 mới.
+  - Kết quả kiểm thử:
+    - `pnpm --filter @event/portal test`: 7 test files, 38 tests passed.
+    - `pnpm --filter @event/portal typecheck`: exit 0 (tsc -b --noEmit).
+    - `pnpm --filter @event/portal lint`: exit 0 (eslint .).
+    - `pnpm --filter @event/portal build`: exit 0 (tsc -b && vite build).
 
 ---
 

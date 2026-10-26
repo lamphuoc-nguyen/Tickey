@@ -16,12 +16,14 @@ export async function persistWizardTickets(
   saveFn: (payload: Record<string, unknown> & { id?: string }) => Promise<{ id: string }>,
   onTicketSaved?: (index: number, id: string) => void,
   previousSavedIds: string[] = [],
+  onTicketDeactivated?: (id: string) => void,
 ): Promise<WizardTicketItem[]> {
   const currentIds = new Set(tickets.map((t) => t.id).filter(Boolean));
   const removedIds = previousSavedIds.filter((id) => !currentIds.has(id));
 
   for (const removedId of removedIds) {
     await saveFn({ id: removedId, status: 'INACTIVE' });
+    onTicketDeactivated?.(removedId);
   }
 
   const updatedTickets = [...tickets];

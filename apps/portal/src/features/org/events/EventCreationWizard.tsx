@@ -285,8 +285,12 @@ export function EventCreationWizard({
             if (next[idx]) next[idx] = { ...next[idx], id };
             return next;
           });
+          setSavedTicketIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
         },
         savedTicketIds,
+        (deactivatedId) => {
+          setSavedTicketIds((prev) => prev.filter((id) => id !== deactivatedId));
+        },
       );
       setTickets(updatedTickets);
       setSavedTicketIds(updatedTickets.map((t) => t.id).filter((id): id is string => Boolean(id)));
