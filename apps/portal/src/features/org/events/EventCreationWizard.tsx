@@ -29,16 +29,8 @@ import {
 import { useOrgVenues, useLayoutZones } from '../data/org-data';
 import { useVenue } from '../data/venue-data';
 import { toIso, toLocalInput } from './datetime';
+import { type WizardTicketItem, persistWizardTickets } from './wizard-tickets';
 
-interface WizardTicketItem {
-  tempId: string;
-  name: string;
-  kind: 'PAID' | 'FREE' | 'COMP';
-  price: number;
-  quota: number;
-  zoneIds: string[];
-  refundPolicy: 'ONLY_IF_CANCELLED' | 'REFUNDABLE_BEFORE_DEADLINE' | 'NO_REFUNDS';
-}
 
 function getDefaultDates(timeZone = 'Asia/Ho_Chi_Minh') {
   const tomorrow = new Date();
@@ -149,6 +141,7 @@ export function EventCreationWizard({
       refundPolicy: 'ONLY_IF_CANCELLED',
     },
   ]);
+  const [savedTicketIds, setSavedTicketIds] = useState<string[]>([]);
 
 
 
@@ -281,20 +274,22 @@ export function EventCreationWizard({
 
     // Persist ticket types
     try {
-      for (const t of tickets) {
-        const effectiveZones = t.zoneIds.length > 0 ? t.zoneIds : (zones[0]?.id ? [zones[0].id] : []);
-        await saveTicketType.mutateAsync({
-          sessionId: createdSessionId,
-          name: t.name.trim(),
-          kind: t.kind,
-          priceAmount: t.kind === 'PAID' ? t.price : 0,
-          quota: t.quota,
-          zoneIds: effectiveZones,
-          refundPolicy: t.refundPolicy,
-          visibility: 'PUBLIC',
-          status: 'ACTIVE',
-        });
-      }
+      const updatedTickets = await persistWizardTickets(
+        tickets,
+        createdSessionId,
+        zones,
+        (payload) => saveTicketType.mutateAsync(payload),
+        (idx, id) => {
+          setTickets((prev) => {
+            const next = [...prev];
+            if (next[idx]) next[idx] = { ...next[idx], id };
+            return next;
+          });
+        },
+        savedTicketIds,
+      );
+      setTickets(updatedTickets);
+      setSavedTicketIds(updatedTickets.map((t) => t.id).filter((id): id is string => Boolean(id)));
       showToast('Đã lưu danh sách hạng vé thành công.', 'success');
       setStep(4);
     } catch (error) {
