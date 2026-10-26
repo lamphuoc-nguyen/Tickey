@@ -1480,13 +1480,17 @@ trong/ trước `catch`. Bản sửa 19:18 dời `handledCount++` lên đầu v�
 ## B-32: CI không bao giờ build Release/Docker image — lỗi build của Render không có cửa bị bắt
 
 ### Trạng thái
-OPEN
+FIXED
 
 ### Phía
 backend
 
 ### Giao cho
-opencode
+claude
+
+> Ghi chú phân vùng: `.dockerignore` đi cùng `Dockerfile` nên theo `AGENTS.md` mục 1 thuộc **opencode**. Người dùng
+> giao trực tiếp cho claude làm cả hai phần (2026-10-26 phiên 29), nên claude viết `.dockerignore` thay vì chuyển
+> cho opencode. Không coi đây là tiền lệ đổi chủ vùng.
 
 ### Mức độ
 medium
@@ -1528,19 +1532,31 @@ phiên 28). Nguyên nhân là thiếu env var `sync: false` trong Render dashboa
 lúc boot — xem `docs/DEPLOY_RENDER.md`. B-32 là **khoảng trống phòng ngừa**: lần sau nếu lỗi *thật sự* ở build thì CI
 vẫn sẽ không bắt được. Đừng ghi B-32 là nguyên nhân sự cố đó.
 
-### Đề xuất sửa
-Việc nằm ở hai vùng (`AGENTS.md` mục 1): `.dockerignore` đi cùng `Dockerfile` → **opencode**;
-`.github/**` → **claude**. opencode soạn `.dockerignore` và nội dung job, claude đưa job vào `ci.yml` và commit:
-- Thêm `.dockerignore` ở gốc repo, ít nhất: `**/bin`, `**/obj`, `node_modules`, `.git`, `apps`, `packages`,
-  `supabase`, `docs`. Kiểm bằng `docker build` ngay tại chỗ repo rồi so với `git archive HEAD` → hai bên phải giống.
-- Thêm một job vào `.github/workflows/ci.yml` chạy `docker build -f ./Dockerfile -t tickey-api:ci .` (không push).
-  Job này tự nhiên bao luôn `dotnet publish -c Release` vì `Dockerfile` đã làm việc đó.
-- Không cần job khởi động container trong CI: thiếu env var là lỗi cấu hình dashboard, không phải lỗi repo.
+### Đã sửa (2026-10-26 phiên 29)
+1. **`.dockerignore` ở gốc repo (mới).** Viết theo kiểu **allow-list** chứ không phải deny-list như đề xuất ban đầu:
+   `*` loại mọi thứ ở gốc, rồi `!backend/` thêm lại đúng phần `Dockerfile` cần, sau đó loại tiếp
+   `backend/**/{bin,obj,TestResults}/` và `appsettings.*.local.json`, `*.user`. Allow-list an toàn hơn vì mọi thư mục
+   gốc thêm về sau (kể cả `.env.local` đang nằm ở gốc) tự động nằm ngoài context mà không cần sửa file.
+2. **`.github/workflows/ci.yml`** — thêm job `docker` (`docker build -f Dockerfile -t tickey-api:ci .`, không push) và
+   thêm bước `dotnet build --configuration Release backend/EventPlatform.sln` vào job `backend`. Bước Release là cần
+   thiết riêng: job `docker` chỉ publish `EventPlatform.Api`, nên một cảnh báo Release trong `Workers` hay `Tests`
+   (`TreatWarningsAsErrors`) vẫn lọt nếu chỉ dựa vào image.
 
 ### Kiểm thử
-Chưa chạy — bug mới ghi, chưa giao xong việc. Khi sửa, tối thiểu:
-- `git archive HEAD | tar -x -C <dir sạch>` rồi `docker build -f ./Dockerfile .` → exit 0 (đối chứng cho `.dockerignore`).
-- Mở một PR nháp làm vỡ `Dockerfile` có chủ ý → job mới phải **đỏ**.
+Đã chạy (2026-10-26 phiên 29):
+- `docker build -f ./Dockerfile -t tickey-api-dockerignore .` **ngay tại chỗ repo** (không cần `git archive`):
+  exit 0, publish `EventPlatform.Api -> /app/publish/`, export image thành công.
+- Đối chứng rằng artifact của host thật sự bị loại, chạy trong stage `build` của image:
+  `ls /src/backend/src/EventPlatform.Api/bin` → chỉ `Release` (do publish trong container tạo), **không có** `Debug`
+  của host; `grep -c -i "C:\\Users" .../obj/project.assets.json` → **0**, tức `obj/` trong image do
+  `dotnet restore` của container sinh ra, không phải copy từ Windows.
+- Context gửi lên daemon: `transferring context: 5.41kB` (trước đây là cả monorepo kèm `node_modules/`, `.git/`).
+- `dotnet build --configuration Release backend/EventPlatform.sln`: **Build succeeded, 0 Warning(s), 0 Error(s)**.
+- `ci.yml` parse được, 4 job: `web`, `backend`, `docker`, `database`.
+
+**Chưa kiểm:** hai job mới chưa từng chạy trên GitHub Actions, và chưa thử PR nháp làm vỡ `Dockerfile` có chủ ý để
+chứng minh job mới **đỏ** đúng lúc. Vì vậy trạng thái để `FIXED`, chưa `VERIFIED` — chuyển `VERIFIED` khi thấy job
+`docker` xanh trên một PR thật.
 
 ---
 
@@ -1549,8 +1565,9 @@ Chưa chạy — bug mới ghi, chưa giao xong việc. Khi sửa, tối thiểu
 | Mức độ | Mục còn mở |
 |----------|------|
 | high | *(không còn)* |
-| medium | B-32 |
+| medium | *(không còn)* |
 | Thấp | *(không còn)* |
+| FIXED, chờ CI thật xanh | B-32 |
 | Trùng `core.md` | B-09 (C-01) |
 | VERIFIED | B-14, B-15, B-18, B-26, B-28, B-29, B-31 |
 | WONTFIX | B-01..B-08, B-10..B-13, B-16, B-17, B-19..B-25, B-30 |
