@@ -29,7 +29,7 @@ public static class AuthEndpoints
 {
     public static void MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
-        var auth = app.MapGroup("/api/auth");
+        var auth = app.MapGroup("/api/auth").RequireRateLimiting("auth");
 
         auth.MapPost("/register", async (RegisterRequest body, SupabaseAuthClient gotrue, CancellationToken ct) =>
         {
