@@ -1,91 +1,133 @@
-import { formatMoney } from '@event/core';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActionFooter, Button, Card, Heading, Notice, QueryState, Screen } from '@/components/ui';
-import { DetailRow, ResultPanel, UnavailableAction } from '@/components/detail';
+import { ActionFooter, ErrorNotice, Heading, QueryState, Screen } from '@/components/ui';
+import { Disclosure, MenuGroup, MenuRow } from '@/components/customer-controls';
+import { DetailRow, UnavailableAction } from '@/components/detail';
 import { AuthGate } from '@/features/auth/components/auth-gate';
-import { useBookingTickets } from '@/features/customer/tickets/hooks/use-ticket';
+import {
+  useBookingTickets,
+  useOrder,
+  useSaveBookingTickets,
+} from '@/features/customer/tickets/hooks/use-ticket';
+import { BookingPassPresentation } from '@/features/customer/tickets/components/booking-pass-presentation';
 import { useBooking } from '../hooks/use-booking';
-import { bookingOutcome } from '../booking-outcome';
+import { BuyerInfo } from '../components/buyer-info';
+
 function Content() {
   const { bookingId = '' } = useLocalSearchParams<{ bookingId: string }>();
-  const query = useBooking(bookingId),
-    tickets = useBookingTickets(bookingId, query.data?.status === 'CONFIRMED');
+  const query = useBooking(bookingId);
+  const order = useOrder(bookingId);
   const booking = query.data;
-  const confirmed = booking?.status === 'CONFIRMED';
+  const issued =
+    !!booking && ['CONFIRMED', 'REFUND_PENDING', 'PARTIALLY_REFUNDED', 'REFUNDED'].includes(booking.status);
+  const tickets = useBookingTickets(bookingId, issued);
+  const save = useSaveBookingTickets();
+  const firstTicket = tickets.data?.[0];
+  const cancelledTicket = tickets.data?.find((ticket) => ticket.session?.status === 'CANCELLED');
+  const canSave = issued && !!tickets.data?.length && !tickets.error && !query.error && !order.error;
   return (
     <Screen
       footer={
         <ActionFooter
           busy={query.isRefetching}
           onPress={() =>
-            confirmed ? router.replace({ pathname: '/tickets', params: { bookingId } }) : void query.refetch()
+            issued
+              ? router.replace({ pathname: '/booking/[bookingId]', params: { bookingId } })
+              : void query.refetch()
           }
         >
-          {confirmed ? 'Mở vé của tôi' : 'Kiểm tra trạng thái'}
+          {issued ? 'Chi tiết đơn' : 'Kiểm tra trạng thái'}
         </ActionFooter>
       }
     >
+      <Heading>Vé vào cổng</Heading>
       <QueryState loading={query.isPending} error={query.error} retry={() => void query.refetch()} />
       {booking && (
         <>
-          {!!query.error && (
-            <Notice warning>
-              Đang hiển thị thông tin từ lần tải trước. Chưa xác nhận được trạng thái mới.
-            </Notice>
+          <QueryState error={order.error} retry={() => void order.refetch()} compact />
+          {issued && (
+            <QueryState
+              loading={tickets.isPending}
+              error={tickets.error}
+              retry={() => void tickets.refetch()}
+              empty={!tickets.isPending && !tickets.error && !tickets.data?.length}
+              emptyText="Chưa tải được thông tin các chỗ trong đơn."
+              compact
+            />
           )}
-          {confirmed ? (
-            <>
-              <Heading>{bookingOutcome(booking).title}</Heading>
-              <Notice success>{bookingOutcome(booking).description}</Notice>
-            </>
-          ) : (
-            <ResultPanel {...bookingOutcome(booking)} />
-          )}
-          {confirmed && (
-            <>
-              <Card>
-                <Heading small>{booking.code}</Heading>
-                <DetailRow label="Số vé" value={String(booking.itemCount)} />
-                <DetailRow label="Đã trả" value={formatMoney(booking.totalAmount)} />
-              </Card>
-              <QueryState
-                loading={tickets.isPending}
-                error={tickets.error}
-                retry={() => void tickets.refetch()}
-                empty={!tickets.isPending && !tickets.error && !tickets.data?.length}
-                emptyText="Chưa thể tải vé đã phát hành."
+          <BookingPassPresentation
+            booking={booking}
+            order={order.data}
+            tickets={tickets.data ?? []}
+            online
+            stale={!!query.error || !!order.error || !!tickets.error}
+          />
+          <BuyerInfo />
+          <MenuGroup title="Thông tin đơn">
+            {firstTicket && (
+              <MenuRow
+                icon="venue"
+                label="Địa điểm tổ chức"
+                onPress={() =>
+                  router.push({ pathname: '/tickets/[ticketId]/venue', params: { ticketId: firstTicket.id } })
+                }
               />
-              {tickets.data?.map((t, i) => (
-                <Button
-                  key={t.id}
-                  secondary
-                  onPress={() => router.push({ pathname: '/tickets/[ticketId]', params: { ticketId: t.id } })}
-                >
-                  Vé {i + 1} · {t.holderName ?? t.seat?.seatCode ?? t.ticketType?.name ?? 'Xem vé'}
-                </Button>
-              ))}
-            </>
-          )}
+            )}
+            {cancelledTicket && (
+              <MenuRow
+                label="Suất hủy và hoàn tiền"
+                onPress={() =>
+                  router.push({
+                    pathname: '/tickets/[ticketId]/cancelled',
+                    params: { ticketId: cancelledTicket.id },
+                  })
+                }
+              />
+            )}
+            {firstTicket && (
+              <MenuRow
+                label="Gửi phản ánh"
+                onPress={() =>
+                  router.push({ pathname: '/reports/new', params: { ticketId: firstTicket.id } })
+                }
+              />
+            )}
+            <MenuRow
+              navigation={false}
+              label="Cập nhật thông tin vé"
+              busy={query.isRefetching || tickets.isRefetching || order.isRefetching}
+              onPress={() => {
+                void query.refetch();
+                void order.refetch();
+                if (issued) void tickets.refetch();
+              }}
+            />
+            <MenuRow
+              icon="ticket"
+              navigation={false}
+              label={save.isSuccess ? 'Đã lưu thông tin vé trên thiết bị' : 'Lưu đơn để xem offline'}
+              busy={save.isPending}
+              disabled={!canSave}
+              disabledReason="Cần tải được các vé đã phát hành trước khi lưu đơn."
+              onPress={() => save.mutate(tickets.data ?? [])}
+            />
+            <MenuRow
+              label="Liên hệ hỗ trợ"
+              onPress={() => router.push({ pathname: '/support', params: { bookingId } })}
+            />
+            <MenuRow label="Đơn của tôi" onPress={() => router.replace('/orders')} />
+          </MenuGroup>
+          {!!save.error && <ErrorNotice error={save.error} />}
           {booking.bookingType === 'BUSINESS' && (
-            <>
-              <Heading small>Thông tin hóa đơn</Heading>
-              <Card>
-                <DetailRow label="Doanh nghiệp" />
-                <DetailRow label="Mã số thuế" />
-                <DetailRow label="Email nhận hóa đơn" />
-              </Card>
+            <Disclosure title="Thông tin hóa đơn">
+              <DetailRow label="Doanh nghiệp" />
+              <DetailRow label="Mã số thuế" />
+              <DetailRow label="Email nhận hóa đơn" />
               <UnavailableAction
                 label="Xem hóa đơn"
                 reason="Chưa thể tải thông tin hóa đơn của đơn doanh nghiệp."
               />
-            </>
+            </Disclosure>
           )}
-          {booking.status === 'REFUND_PENDING' && (
-            <Notice warning>Đang xử lý hoàn tiền. Chưa có xác nhận đã hoàn tất.</Notice>
-          )}
-          <Button secondary onPress={() => router.replace('/orders')}>
-            Về Đơn của tôi
-          </Button>
         </>
       )}
     </Screen>

@@ -45,7 +45,7 @@ export default function SessionScreen() {
             });
           }}
         >
-          Tiếp tục{selected?.title ? ` · ${selected.title}` : ''}
+          Chọn chỗ
         </ActionFooter>
       }
     >
@@ -85,15 +85,21 @@ export default function SessionScreen() {
                 {s.venue?.name} · {s.venue?.city}
               </Copy>
               <Copy style={{ color: available ? c.accent : c.muted, fontSize: 11 }}>
-                {s.salesPaused
-                  ? 'Tạm dừng bán'
-                  : s.status === 'CANCELLED'
-                    ? 'Suất diễn đã bị hủy'
-                    : !available
-                      ? 'Chưa mở hoặc đã đóng bán'
-                      : active
-                        ? 'Đã chọn · Đang mở bán'
-                        : 'Đang mở bán'}
+                {s.status === 'CANCELLED'
+                  ? 'Suất diễn đã bị hủy'
+                  : s.salesPaused
+                    ? 'Tạm dừng bán'
+                    : s.status === 'SALES_CLOSED' || s.status === 'ENDED'
+                      ? 'Đã đóng bán'
+                      : s.status === 'ONGOING'
+                        ? 'Đang diễn ra'
+                        : s.status === 'POSTPONED'
+                          ? 'Đã hoãn'
+                          : !available
+                            ? 'Chưa mở bán'
+                            : active
+                              ? 'Đã chọn · Đang mở bán'
+                              : 'Đang mở bán'}
               </Copy>
             </Pressable>
             {!available && (

@@ -11,7 +11,9 @@ export default function EventScreen() {
   const { eventId = '' } = useLocalSearchParams<{ eventId: string }>();
   const event = useEvent(eventId);
   const sessions = useSessions(eventId);
-  const first = sessions.data?.[0];
+  const first =
+    sessions.data?.find((session) => session.status === 'ON_SALE' && !session.salesPaused) ??
+    sessions.data?.[0];
   return (
     <Screen
       contentStyle={{ padding: 0, gap: 0 }}
@@ -100,7 +102,9 @@ export default function EventScreen() {
                 <Copy>{event.data.terms}</Copy>
               </Disclosure>
             )}
-            <Copy style={ui.muted}>Đơn vị tổ chức: Chưa có thông tin</Copy>
+            <Disclosure title="Đơn vị tổ chức">
+              <Copy style={ui.muted}>Chưa có thông tin đơn vị tổ chức.</Copy>
+            </Disclosure>
           </View>
         </>
       )}

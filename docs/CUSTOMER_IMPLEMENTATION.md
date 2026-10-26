@@ -1,5 +1,7 @@
 # Customer mobile — triển khai và bàn giao
 
+**Cập nhật UX hiện tại:** bỏ nhập tên người tham dự, thanh toán trực tiếp và gom vé/QR theo đơn; xem [phạm vi, màn đã sửa và contract còn thiếu](CUSTOMER_GROUP_ADMISSION_UI.md). Nội dung holder/QR từng Ticket trong các lượt audit cũ bên dưới là lịch sử, được yêu cầu mới này thay thế.
+
 Cập nhật UI 21/10/2026 theo phản hồi ảnh menu: [thu gọn điều hướng và ghi chú Customer](CUSTOMER_UI_REFINEMENT.md). Search/Orders mở chi tiết bằng một lần chạm; menu nhóm gọn, ít banner hơn. Giữ các hạn chế backend và không nâng trạng thái kiểm chứng toàn bộ 79 frame.
 
 Rà soát mới nhất ngày **21/10/2026**: [đối chiếu backend, thay đổi Customer và kết quả kiểm tra](CUSTOMER_BACKEND_AUDIT.md). Mobile 76 tests, Core 61, backend 81 qua; kiểm tra GET thật trả catalog rỗng. Android phiên này chỉ xác nhận Home/Search lỗi kết nối và Staff guest guard; không xác nhận flow đơn/vé hoặc UI/UX hoàn chỉnh. Chưa có staging, chỉ kiểm thử cục bộ và đọc hosted.
@@ -27,9 +29,9 @@ Phạm vi theo phân công Customer mới: `apps/mobile` và package chung cần
 | Ghế/khu đứng | LayoutData/SeatState thật; renderer chung Skia native + SVG web, pan/pinch/zoom/culling; zone và ticket type chọn tường minh. Nhiều khu đứng thiếu mapping vẫn hiện khu nhưng khóa đặt. |
 | Booking/hold/conflict | useCreateBooking retry:false; UUID cho một ý định/payload; NETWORK/UNKNOWN giữ ý định để replay; conflict giữ lựa chọn khác nhưng không coi đã giữ. Exclusive lock chặn request lặp. |
 | Giữ chỗ/hủy | Countdown từ lockExpiresAt/serverNow và thời gian trôi; refresh foreground; hủy native Modal chỉ PENDING theo server. PAYMENT_PENDING không tự EXPIRED theo đồng hồ. |
-| Vé miễn phí | Form và số lượng thật; create_booking không gửi giá; PAID hiện Đang phát hành vé, chờ CONFIRMED. Không tạo Ticket client hoặc tự báo phát hành thành công. |
+| Vé miễn phí | Chọn số lượng/chỗ thật và dùng người mua từ tài khoản; không form tên từng người. create_booking giữ nguyên; PAID chờ CONFIRMED từ server. |
 | Thanh toán/return | UI đầy đủ summary, phương thức, điều khoản/footer; nút checkout khóa do gateway chưa sẵn sàng. HttpPaymentApi/WebBrowser/return handler có code, return chỉ điều hướng và getBooking kiểm kết quả. |
-| Đơn/vé/offline | List/chi tiết trạng thái thật, link theo record ID, một Ticket một vùng QR; tải snapshot thật theo tài khoản, thời điểm cập nhật, refresh online. QR chưa có encoding nên hiện Mã QR chưa khả dụng. |
+| Đơn/vé/offline | Vé gom theo Booking; một vùng QR chung còn unavailable, lượt check-in/còn lại chưa có dữ liệu. Snapshot thật lưu theo tài khoản, hiển thị chỗ đã tải và thời điểm; không suy ra hiệu lực hoặc số lượt từ Ticket.status. |
 | Hồ sơ/nhắc lịch/thông báo | GET/PUT profile; preferences RLS qua core; lịch sử notification/mark read; nhắc cục bộ, tap notification kiểm UUID và điều hướng record thật. Không hứa đã gửi push/email. |
 | Suất hủy/hoàn tiền/bank OTP | Chỉ Session CANCELLED mới nói đã hủy; trạng thái refund đọc server; chỉ AWAITING_BANK_INFO nhận bank form, OTP trước gửi; REFUND_PENDING chưa phải đã hoàn. |
 | Report/support | Form, validation, chọn vé thật, evidence picker/upload, gửi phản ánh; support list/create/messages, CLOSED khóa gửi. Success chỉ sau response server. |
@@ -39,7 +41,7 @@ Tất cả các flow nghiệp vụ trên chưa chạy E2E live/native. Các nhá
 ## Màn chưa có contract và tính liên tục
 
 - Dựng P1 refund request/ineligible, business form/review, audience pricing, report supplement, payment detail và invoice information bằng component thật. Form có thể nhập/kiểm tra cục bộ; submit unsupported khóa và ghi lý do gần nút. Các kết quả submitted/failed/late/business-paid chỉ có thể được xác nhận bằng record/server contract; không có nút giả để mở thành công hoặc mã đơn/vé mẫu.
-- Holder trước payment giữ tên/email/phone cục bộ, ghi rõ chưa gửi. Contract hiện chỉ gán lần đầu cho Ticket ISSUED; holder thật ở chi tiết vé dùng endpoint hiện có.
+- Đã bỏ form holder trước payment và ghi tên trên vé trong trải nghiệm Customer. BuyerInfo đọc GET /api/me và phiên tài khoản; link holder cũ mở PaymentScreen/TicketScreen. Không gọi assignHolder trong flow mua.
 - Không tạo sự kiện/đơn/vé/công ty/nhóm giá/QR demo. Khung vé/đơn/venue/form vẫn hiện khi thiếu dữ liệu, với trường chưa tải/chưa cung cấp.
 - Response [] thành công là empty; lỗi mạng có retry; 401 yêu cầu login; 403 báo quyền; chưa hỗ trợ dùng unavailable; giao dịch pending dùng trạng thái server. Missing env chặn khởi tạo live và hiện lỗi cấu hình.
 - Draft trong bộ nhớ theo form/record, giữ khi back/lỗi; không lưu password/OTP/bank vào AsyncStorage. Clear khi đổi tài khoản/logout. Query cache cancel/clear khi đổi account/workspace. Offline cache tách tài khoản, có chống ghi muộn từ tài khoản cũ.
