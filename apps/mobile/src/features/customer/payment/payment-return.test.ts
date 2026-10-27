@@ -11,6 +11,6 @@ describe('retained payment callback route', () => {
   });
   it('rejects incomplete/traversal IDs without inferring payment success', () => {
     for (const id of [undefined, '', '------------------------------------', 'orders/../staff', 'paid=true'])
-      expect(paymentReturnDestination(id)).toBe('/orders');
+      expect(paymentReturnDestination(id)).toEqual({ pathname: '/orders', params: { view: 'all' } });
   });
 });

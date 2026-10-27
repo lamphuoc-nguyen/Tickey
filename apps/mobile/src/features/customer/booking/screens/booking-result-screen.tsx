@@ -11,6 +11,7 @@ import {
 import { BookingPassPresentation } from '@/features/customer/tickets/components/booking-pass-presentation';
 import { useBooking } from '../hooks/use-booking';
 import { BuyerInfo } from '../components/buyer-info';
+import { orderHistoryRoute } from '@/features/customer/tickets/order-presentation';
 
 function Content() {
   const { bookingId = '' } = useLocalSearchParams<{ bookingId: string }>();
@@ -114,7 +115,7 @@ function Content() {
               label="Liên hệ hỗ trợ"
               onPress={() => router.push({ pathname: '/support', params: { bookingId } })}
             />
-            <MenuRow label="Đơn của tôi" onPress={() => router.replace('/orders')} />
+            <MenuRow label="Đơn của tôi" onPress={() => router.replace(orderHistoryRoute)} />
           </MenuGroup>
           {!!save.error && <ErrorNotice error={save.error} />}
           {booking.bookingType === 'BUSINESS' && (

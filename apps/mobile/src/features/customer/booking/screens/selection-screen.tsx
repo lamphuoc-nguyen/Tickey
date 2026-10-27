@@ -10,7 +10,6 @@ import {
   Card,
   Copy,
   ErrorNotice,
-  Field,
   Heading,
   Notice,
   QueryState,
@@ -20,7 +19,7 @@ import {
   Select,
   errorMessage,
 } from '@/components/ui';
-import { DetailRow, ResultPanel } from '@/components/detail';
+import { DetailRow } from '@/components/detail';
 import { Badge, Disclosure, TextAction } from '@/components/customer-controls';
 import {
   useAvailability,
@@ -32,6 +31,10 @@ import {
 import { useBookingDraft } from '../draft-store';
 import { useSelectionBooking } from '../hooks/use-selection-booking';
 import { BuyerInfo } from '../components/buyer-info';
+import { QuantityControl } from '../components/quantity-control';
+import { BookingStatusCard } from '../components/booking-status-card';
+import { usePaymentAvailability } from '@/features/customer/payment/hooks/use-payment-availability';
+import { orderHistoryRoute } from '@/features/customer/tickets/order-presentation';
 import { selectedSeatItems, selectionLimit, ticketTypeSaleState } from '../selection-rules';
 import { selectionMapHeight } from '../seat-map-viewport';
 
@@ -110,6 +113,8 @@ export default function SelectionScreen() {
         draft.selected.every((id) => activeTypes.some((type) => type.id === seatsToType.get(id)));
   const isFree =
     items.length > 0 && items.every((i) => activeTypes.find((t) => t.id === i.ticketTypeId)?.kind === 'FREE');
+  const paymentAvailable = usePaymentAvailability();
+  const checkoutUnavailable = priceReady && items.length > 0 && !isFree && !paymentAvailable;
   const freeUnavailable =
     isFree &&
     booking.error instanceof ApiError &&
@@ -127,7 +132,6 @@ export default function SelectionScreen() {
     (id) => !seatById.has(id) || (seatStates[id] && seatStates[id] !== 'AVAILABLE'),
   );
   const error = layout.error ?? availability.error ?? pricing.error ?? types.error ?? sessions.error;
-  const refreshing = availability.isRefetching;
   const layoutData: LayoutData = useMemo(
     () => ({
       version: layout.data?.version ?? 1,
@@ -150,6 +154,7 @@ export default function SelectionScreen() {
       !items.length ||
       !zone ||
       standingContractMissing ||
+      checkoutUnavailable ||
       mixedSelection ||
       seated.missing.length > 0 ||
       !!limit ||
@@ -183,7 +188,7 @@ export default function SelectionScreen() {
         >
           Về lựa chọn đang kiểm tra
         </Button>
-        <Button secondary onPress={() => router.push('/orders')}>
+        <Button secondary onPress={() => router.push(orderHistoryRoute)}>
           Kiểm tra Đơn của tôi
         </Button>
       </Screen>
@@ -193,10 +198,19 @@ export default function SelectionScreen() {
       footer={
         <>
           <View style={[ui.row, { justifyContent: 'space-between' }]}>
-            <Copy style={ui.semibold}>{draft.unresolved ? 'Yêu cầu đang kiểm tra' : 'Tạm tính'}</Copy>
-            <Copy style={{ color: c.accent, fontFamily: 'Outfit-Bold', fontSize: 17 }}>
-              {items.length ? (priceReady ? formatMoney(total) : 'Cần cập nhật giá') : 'Chưa chọn vé'}
+            <Copy style={[ui.semibold, { flex: 1 }]}>
+              {draft.unresolved
+                ? 'Đang kiểm tra đơn'
+                : items.length
+                  ? `Đã chọn ${items.reduce((sum, item) => sum + ('quantity' in item ? item.quantity : 1), 0)} chỗ`
+                  : 'Chưa chọn vé'}
             </Copy>
+            <View style={{ alignItems: 'flex-end', flexShrink: 1, maxWidth: '60%', gap: 2 }}>
+              <Copy style={[ui.muted, { fontSize: 12 }]}>Tạm tính</Copy>
+              <Copy style={{ color: c.accent, fontFamily: 'Outfit-Bold', fontSize: 17, textAlign: 'right' }}>
+                {items.length ? (priceReady ? formatMoney(total) : 'Cần cập nhật giá') : '—'}
+              </Copy>
+            </View>
           </View>
           <ActionFooter
             disabled={disabled}
@@ -214,18 +228,22 @@ export default function SelectionScreen() {
                     ? 'Suất diễn hiện không bán vé.'
                     : standingContractMissing
                       ? 'Chưa xác định được hạng vé cho khu này. Vui lòng chọn khu hoặc suất khác.'
-                      : !zone
-                        ? 'Chọn khu vực để tiếp tục.'
-                        : !items.length
-                          ? 'Chọn ghế hoặc số lượng vé để tiếp tục.'
-                          : changed
-                            ? 'Một số ghế không còn trống. Vui lòng chọn lại.'
-                            : `Số lượng vé phải từ 1 đến ${maxQuantity}.`)
+                      : checkoutUnavailable
+                        ? 'Thanh toán vé trả phí hiện chưa khả dụng.'
+                        : !zone
+                          ? 'Chọn khu vực để tiếp tục.'
+                          : !items.length
+                            ? 'Chọn ghế hoặc số lượng vé để tiếp tục.'
+                            : changed
+                              ? 'Một số ghế không còn trống. Vui lòng chọn lại.'
+                              : maxQuantity < 1
+                                ? 'Hạng vé này đã hết chỗ.'
+                                : `Số lượng vé phải từ 1 đến ${maxQuantity}.`)
             }
             busy={booking.isPending}
             onPress={() => void booking.hold(items)}
           >
-            {draft.unresolved ? 'Thử lại cùng yêu cầu' : isFree ? 'Xác nhận đăng ký' : 'Giữ chỗ'}
+            {draft.unresolved ? 'Kiểm tra lại đơn' : isFree ? 'Đăng ký miễn phí' : 'Tiếp tục'}
           </ActionFooter>
         </>
       }
@@ -237,7 +255,9 @@ export default function SelectionScreen() {
             ? 'Đăng ký vé miễn phí'
             : zone?.type === 'standing'
               ? 'Vé khu đứng'
-              : 'Chọn ghế'}
+              : zone
+                ? 'Chọn ghế'
+                : 'Chọn vé'}
       </Heading>
       <QueryState
         loading={!isReady && !error}
@@ -252,7 +272,10 @@ export default function SelectionScreen() {
         empty={!!isReady && !layout.data?.zones.length}
         emptyText="Chưa có sơ đồ hoặc khu vé."
       />
-      {!!booking.error && <ErrorNotice error={booking.error} />}
+      {!!booking.error && !freeUnavailable && <ErrorNotice error={booking.error} />}
+      {!paymentAvailable && activeTypes.some((type) => type.kind === 'PAID') && !checkoutUnavailable && (
+        <Copy style={[ui.muted, { fontSize: 12 }]}>Thanh toán vé trả phí hiện chưa khả dụng.</Copy>
+      )}
       {!!listedTypes.length && (
         <Disclosure title="Hạng vé và thời gian mở bán">
           {listedTypes.map((type) => {
@@ -285,8 +308,12 @@ export default function SelectionScreen() {
       )}
       {freeUnavailable && (
         <>
-          <ResultPanel title="Chưa thể đăng ký" description={errorMessage(booking.error)} kind="warning" />
-          <Button secondary onPress={() => router.push('/orders')}>
+          <BookingStatusCard
+            title="Chưa thể đăng ký"
+            description={errorMessage(booking.error)}
+            kind="warning"
+          />
+          <Button secondary onPress={() => router.push(orderHistoryRoute)}>
             Đơn của tôi
           </Button>
         </>
@@ -297,7 +324,7 @@ export default function SelectionScreen() {
         </Notice>
       )}
       {draft.unresolved && (
-        <Button secondary onPress={() => router.push('/orders')}>
+        <Button secondary onPress={() => router.push(orderHistoryRoute)}>
           Kiểm tra đơn của tôi
         </Button>
       )}
@@ -368,16 +395,17 @@ export default function SelectionScreen() {
                 }))}
                 onChange={(ticketTypeId) => draft.setStanding({ ticketTypeId })}
               />
-              <Field
-                label="Số lượng"
-                value={String(draft.quantity)}
-                editable={!draft.unresolved}
-                keyboardType="number-pad"
-                onChangeText={(text) => {
-                  if (/^\d{0,3}$/.test(text)) draft.setStanding({ quantity: Number(text) });
-                }}
+              <QuantityControl
+                value={draft.quantity}
+                max={maxQuantity}
+                disabled={draft.unresolved || booking.isPending || standingContractMissing || !selectedType}
+                onChange={(quantity) => draft.setStanding({ quantity })}
               />
-              <Copy style={ui.muted}>{selectedType ? `Tối đa ${maxQuantity} vé` : 'Chưa chọn hạng vé'}</Copy>
+              {selectedType && (
+                <Copy style={ui.muted}>
+                  {maxQuantity < 1 ? 'Hạng vé đã hết chỗ' : `Tối đa ${maxQuantity} vé mỗi đơn`}
+                </Copy>
+              )}
             </>
           ) : zone ? (
             <>
@@ -390,7 +418,7 @@ export default function SelectionScreen() {
                   padding: 8,
                 }}
               >
-                <Copy style={{ textAlign: 'center', fontSize: 11 }}>SÂN KHẤU</Copy>
+                <Copy style={{ textAlign: 'center', fontSize: 12 }}>SƠ ĐỒ GHẾ</Copy>
               </View>
               <NativeSeatMap
                 key={zone.id}
@@ -406,15 +434,15 @@ export default function SelectionScreen() {
                 }}
               />
               <View style={[ui.row, { flexWrap: 'wrap', gap: 8 }]}>
-                {['○ Còn trống', '✓ Đang chọn', '! Xung đột', '× Chặn bán'].map((label) => (
+                {['○ Còn trống', '✓ Đang chọn', '! Vừa được đặt', '× Không thể chọn'].map((label) => (
                   <Copy key={label} style={[ui.muted, { fontSize: 11 }]}>
                     {label}
                   </Copy>
                 ))}
               </View>
-              <Copy style={[ui.muted, { fontSize: 11 }]}>
-                Xám: đã bán · Vàng: khóa tạm · Xanh nhạt: ban tổ chức giữ
-              </Copy>
+              <Disclosure title="Chú thích ghế">
+                <Copy style={ui.muted}>Xám: đã bán · Vàng: đang được giữ · Xanh nhạt: ban tổ chức giữ</Copy>
+              </Disclosure>
               <TextAction expanded={accessible} onPress={() => setAccessible((p) => !p)}>
                 {accessible ? 'Ẩn danh sách ghế' : 'Chọn ghế dạng danh sách'}
               </TextAction>
@@ -501,7 +529,6 @@ export default function SelectionScreen() {
               Bỏ chọn tất cả
             </TextAction>
           )}
-          {refreshing && <Copy style={ui.muted}>Đang cập nhật tình trạng chỗ…</Copy>}
         </>
       )}
     </Screen>

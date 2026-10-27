@@ -6,6 +6,7 @@ import { Button, Copy, Heading, Icon, QueryState, Screen, c, fonts, ui } from '@
 import { TabBar } from '@/components/tab-bar';
 import { useCategories, useEvents } from '../hooks/use-catalog';
 import { EventCard } from '../components/event-card';
+import { homeSections } from '../catalog-presentation';
 
 export default function HomeScreen() {
   const events = useEvents(),
@@ -17,15 +18,18 @@ export default function HomeScreen() {
   const [eventRailWidth, setEventRailWidth] = useState(0);
   const eventCardGap = 10;
   const eventCardWidth = Math.max(1, ((eventRailWidth || width) - 2 * eventCardGap) / 2.3);
-  const data = events.data?.pages.flat() ?? [],
-    banners = featured.data?.pages.flat() ?? [];
+  const { discovery: data, banners } = homeSections(
+    events.data?.pages.flat() ?? [],
+    featured.data?.pages.flat() ?? [],
+  );
+  const activePage = Math.min(page, Math.max(0, banners.length - 1));
   return (
     <Screen
       back={false}
       footer={<TabBar current="/" />}
       refreshControl={
         <RefreshControl
-          refreshing={events.isRefetching}
+          refreshing={events.isRefetching || featured.isRefetching || categories.isRefetching}
           onRefresh={() => {
             void events.refetch();
             void featured.refetch();
@@ -36,14 +40,11 @@ export default function HomeScreen() {
       }
       contentStyle={{ paddingTop: 8, gap: 0 }}
     >
-      <View style={[ui.row, { marginBottom: 8 }]}>
-        <Copy style={{ color: c.muted, fontFamily: fonts.semibold, fontSize: 12 }}>Khám phá sự kiện</Copy>
-      </View>
       <Copy
         accessibilityRole="header"
-        style={{ fontFamily: fonts.editorial, fontSize: 30, lineHeight: 44, marginBottom: 10 }}
+        style={{ fontFamily: fonts.editorial, fontSize: 26, lineHeight: 38, marginBottom: 16 }}
       >
-        {'Cuối tuần này,\nbạn có hẹn.'}
+        Khám phá sự kiện
       </Copy>
       <Pressable
         accessibilityRole="button"
@@ -125,12 +126,13 @@ export default function HomeScreen() {
         </Pressable>
       </ScrollView>
       <QueryState error={categories.error} retry={() => void categories.refetch()} />
+      {(featured.isPending || !!featured.error || !!banners.length) && (
+        <Heading small>Sự kiện nổi bật</Heading>
+      )}
       <QueryState
         loading={featured.isPending}
         error={featured.error}
         retry={() => void featured.refetch()}
-        empty={!featured.isPending && !featured.error && !banners.length}
-        emptyText="Chưa có sự kiện nổi bật."
         compact
       />
       {!!banners.length && (
@@ -141,7 +143,14 @@ export default function HomeScreen() {
             showsHorizontalScrollIndicator={false}
             snapToInterval={width + 12}
             decelerationRate="fast"
-            onMomentumScrollEnd={(e) => setPage(Math.round(e.nativeEvent.contentOffset.x / (width + 12)))}
+            onMomentumScrollEnd={(e) =>
+              setPage(
+                Math.max(
+                  0,
+                  Math.min(banners.length - 1, Math.round(e.nativeEvent.contentOffset.x / (width + 12))),
+                ),
+              )
+            }
           >
             {banners.map((event) => (
               <Pressable
@@ -176,7 +185,7 @@ export default function HomeScreen() {
                 />
                 <View style={{ flex: 1, padding: 20, gap: 8, justifyContent: 'space-between' }}>
                   <Copy style={{ fontFamily: fonts.semibold, color: 'white', fontSize: 10, lineHeight: 15 }}>
-                    ĐÁNG CHỜ ĐỢI
+                    NỔI BẬT
                   </Copy>
                   <Copy
                     numberOfLines={2}
@@ -184,53 +193,70 @@ export default function HomeScreen() {
                   >
                     {event.title}
                   </Copy>
-                  <Copy style={{ fontFamily: fonts.semibold, color: 'white' }}>Xem các suất diễn</Copy>
+                  <Copy style={{ fontFamily: fonts.semibold, color: 'white' }}>Khám phá sự kiện →</Copy>
                 </View>
               </Pressable>
             ))}
           </ScrollView>
-          <View
-            style={{ flexDirection: 'row', justifyContent: 'center', gap: 4, flexWrap: 'wrap', marginTop: 4 }}
-          >
-            {banners.map((e, i) => (
-              <Pressable
-                key={e.id}
-                accessibilityRole="button"
-                accessibilityState={{ selected: i === page }}
-                accessibilityLabel={`Sự kiện nổi bật ${i + 1}`}
-                onPress={() => {
-                  slider.current?.scrollTo({ x: i * (width + 12), animated: true });
-                  setPage(i);
-                }}
-                style={{ height: 48, width: 48, justifyContent: 'center', alignItems: 'center' }}
-              >
-                <View
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: 3,
-                    backgroundColor: i === page ? c.accent : c.gray,
+          {banners.length > 1 && (
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'center',
+                gap: 4,
+                flexWrap: 'wrap',
+                marginTop: 4,
+              }}
+            >
+              {banners.map((e, i) => (
+                <Pressable
+                  key={e.id}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: i === activePage }}
+                  accessibilityLabel={`Sự kiện nổi bật ${i + 1}`}
+                  onPress={() => {
+                    slider.current?.scrollTo({ x: i * (width + 12), animated: true });
+                    setPage(i);
                   }}
-                />
-              </Pressable>
-            ))}
-          </View>
+                  style={{ height: 48, width: 48, justifyContent: 'center', alignItems: 'center' }}
+                >
+                  <View
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: i === activePage ? c.accent : c.gray,
+                    }}
+                  />
+                </Pressable>
+              ))}
+            </View>
+          )}
         </>
       )}
-      <View style={[ui.row, { justifyContent: 'space-between', marginTop: 2, marginBottom: 8 }]}>
-        <Heading small>Một lịch hẹn khác</Heading>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push('/search')}
-          style={{ minHeight: 48, justifyContent: 'center' }}
-        >
-          <Copy style={{ fontSize: 12, color: c.primary, fontFamily: fonts.semibold }}>Xem tất cả</Copy>
-        </Pressable>
-      </View>
+      {(!!data.length || events.isPending || !!events.error || events.hasNextPage) && (
+        <View style={[ui.row, { justifyContent: 'space-between', marginTop: 12, marginBottom: 8 }]}>
+          <Heading small>Khám phá thêm</Heading>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/search')}
+            style={{ minHeight: 48, justifyContent: 'center' }}
+          >
+            <Copy style={{ fontSize: 12, color: c.primary, fontFamily: fonts.semibold }}>Xem tất cả</Copy>
+          </Pressable>
+        </View>
+      )}
       <QueryState
         loading={events.isPending}
         error={events.error}
-        empty={!events.isPending && !events.error && !data.length}
+        empty={
+          !events.isPending &&
+          !events.error &&
+          !featured.isPending &&
+          !featured.error &&
+          !data.length &&
+          !banners.length
+        }
         retry={() => void events.refetch()}
         emptyText="Chưa có sự kiện được công bố."
       />

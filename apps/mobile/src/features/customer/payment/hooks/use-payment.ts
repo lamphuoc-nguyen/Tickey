@@ -6,6 +6,7 @@ import { repositories } from '@/lib/repositories';
 import { useAuth } from '@/features/auth/hooks/auth-context';
 import { router } from 'expo-router';
 import { customerCapabilities } from '@/lib/capabilities';
+import { paidCheckoutAvailable } from '../payment-availability';
 
 export function usePayment(bookingId: string) {
   const cache = useQueryClient();
@@ -14,8 +15,9 @@ export function usePayment(bookingId: string) {
     retry: false,
     mutationFn: async () => {
       const gateway = process.env.EXPO_PUBLIC_PAYMENT_GATEWAY;
-      if (!customerCapabilities.gatewayPayment) throw new Error('Thanh toán trực tuyến chưa khả dụng.');
-      if (!gateway) throw new Error('Chưa cấu hình cổng thanh toán.');
+      if (!paidCheckoutAvailable(customerCapabilities.gatewayPayment, gateway))
+        throw new Error('Thanh toán trực tuyến chưa khả dụng.');
+      if (!gateway) throw new Error('Thanh toán trực tuyến chưa khả dụng.');
       try {
         const payment = await repositories.payment.createPaymentSession(bookingId, gateway);
         await WebBrowser.openAuthSessionAsync(payment.paymentUrl, Linking.createURL('/payment-result'));
