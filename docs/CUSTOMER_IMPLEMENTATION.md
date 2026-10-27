@@ -1,5 +1,7 @@
 # Customer mobile — triển khai và bàn giao
 
+**UX mới nhất:** [Customer cho người dùng lần đầu](CUSTOMER_FIRST_USE_UX.md) ghi thay đổi Home/Search, chọn ngày giờ, checkout và màn Vé của tôi chung; các ghi chú UX cũ bên dưới cần đọc theo cập nhật này.
+
 **Cập nhật UX hiện tại:** bỏ nhập tên người tham dự, thanh toán trực tiếp và gom vé/QR theo đơn; xem [phạm vi, màn đã sửa và contract còn thiếu](CUSTOMER_GROUP_ADMISSION_UI.md). Nội dung holder/QR từng Ticket trong các lượt audit cũ bên dưới là lịch sử, được yêu cầu mới này thay thế.
 
 Cập nhật UI 21/10/2026 theo phản hồi ảnh menu: [thu gọn điều hướng và ghi chú Customer](CUSTOMER_UI_REFINEMENT.md). Search/Orders mở chi tiết bằng một lần chạm; menu nhóm gọn, ít banner hơn. Giữ các hạn chế backend và không nâng trạng thái kiểm chứng toàn bộ 79 frame.

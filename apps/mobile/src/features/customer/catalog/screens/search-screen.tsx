@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
-import { TextAction } from '@/components/customer-controls';
-import { Button, Copy, Field, Heading, QueryState, Screen, c, ui } from '@/components/ui';
+import { Disclosure, TextAction } from '@/components/customer-controls';
+import { Button, Copy, Heading, QueryState, Screen, c, ui } from '@/components/ui';
 import { useCategories, useEvents } from '../hooks/use-catalog';
 import { EventCard } from '../components/event-card';
+import { EventSearchField } from '../components/event-search-field';
 import { useFormDraft } from '@/features/forms/use-form-draft';
 export default function SearchScreen() {
   const params = useLocalSearchParams<{ categoryId?: string }>();
@@ -23,14 +24,9 @@ export default function SearchScreen() {
   return (
     <Screen>
       <Heading>Tìm sự kiện</Heading>
-      <Field
-        label="Tên sự kiện"
-        placeholder="Tìm sự kiện"
+      <EventSearchField
         value={draft.text}
-        onChangeText={(text) => update({ text })}
-        autoCorrect={false}
-        returnKeyType="search"
-        style={{ backgroundColor: 'white', borderRadius: 10, borderColor: c.border, minHeight: 48 }}
+        onChange={(text) => update({ text, ...(!text ? { q: '' } : {}) })}
       />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
         {[{ id: '', name: 'Tất cả' }, ...(categories.data ?? [])].map((category) => (
@@ -57,25 +53,27 @@ export default function SearchScreen() {
         <TextAction onPress={() => update({ text: '', q: '', categoryId: '' })}>Xóa bộ lọc</TextAction>
       )}
       <QueryState error={categories.error} retry={() => void categories.refetch()} compact />
-      <View style={[ui.row, { alignItems: 'flex-start', flexWrap: 'wrap' }]}>
-        {[
-          { label: 'Thời gian', reason: 'Lọc theo tháng chưa được hỗ trợ.' },
-          { label: 'Địa điểm', reason: 'Lọc theo địa điểm chưa được hỗ trợ.' },
-        ].map((filter) => (
-          <View key={filter.label} style={{ flex: 1, minWidth: 120 }}>
-            <Pressable
-              disabled
-              accessibilityRole="button"
-              accessibilityState={{ disabled: true }}
-              accessibilityHint={filter.reason}
-              style={{ minHeight: 48, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: c.border }}
-            >
-              <Copy style={ui.muted}>{filter.label}</Copy>
-            </Pressable>
-          </View>
-        ))}
-      </View>
-      <Copy style={[ui.muted, { fontSize: 12 }]}>Lọc thời gian và địa điểm chưa khả dụng.</Copy>
+      <Disclosure title="Bộ lọc khác">
+        <View style={[ui.row, { alignItems: 'flex-start', flexWrap: 'wrap' }]}>
+          {[
+            { label: 'Thời gian', reason: 'Lọc theo tháng chưa được hỗ trợ.' },
+            { label: 'Địa điểm', reason: 'Lọc theo địa điểm chưa được hỗ trợ.' },
+          ].map((filter) => (
+            <View key={filter.label} style={{ flex: 1, minWidth: 120 }}>
+              <Pressable
+                disabled
+                accessibilityRole="button"
+                accessibilityState={{ disabled: true }}
+                accessibilityHint={filter.reason}
+                style={{ minHeight: 48, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: c.border }}
+              >
+                <Copy style={ui.muted}>{filter.label}</Copy>
+              </Pressable>
+            </View>
+          ))}
+        </View>
+        <Copy style={[ui.muted, { fontSize: 12 }]}>Lọc thời gian và địa điểm chưa khả dụng.</Copy>
+      </Disclosure>
       {!!events.length && <Heading small>Kết quả tìm kiếm</Heading>}
       <QueryState
         loading={query.isPending}

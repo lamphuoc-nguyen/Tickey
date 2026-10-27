@@ -3,35 +3,35 @@ import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { View } from 'react-native';
 import { ActionFooter, Copy, Heading, Icon, QueryState, Screen, c, ui } from '@/components/ui';
-import { Badge, Disclosure, MenuRow } from '@/components/customer-controls';
+import { Badge, Disclosure, MenuRow, TextAction } from '@/components/customer-controls';
 import { useEvent, useSessions } from '../hooks/use-catalog';
 import { eventPhoto } from '../components/event-card';
+import { sessionChoices } from '../catalog-presentation';
 
 export default function EventScreen() {
   const { eventId = '' } = useLocalSearchParams<{ eventId: string }>();
   const event = useEvent(eventId);
   const sessions = useSessions(eventId);
-  const first =
-    sessions.data?.find((session) => session.status === 'ON_SALE' && !session.salesPaused) ??
-    sessions.data?.[0];
+  const choices = sessionChoices(sessions.data ?? []);
+  const first = choices.available[0] ?? choices.other[0];
+  const openDates = () => router.push({ pathname: '/events/[eventId]/sessions', params: { eventId } });
   return (
     <Screen
       contentStyle={{ padding: 0, gap: 0 }}
       footer={
         event.data && (
-          <View style={ui.row}>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Copy style={{ fontSize: 10, color: c.muted }}>Giá vé</Copy>
-              <Heading small>Xem hạng vé</Heading>
-            </View>
-            <View style={{ flex: 1.2, minWidth: 0 }}>
-              <ActionFooter
-                onPress={() => router.push({ pathname: '/events/[eventId]/sessions', params: { eventId } })}
-              >
-                Chọn suất diễn
-              </ActionFooter>
-            </View>
-          </View>
+          <ActionFooter
+            onPress={openDates}
+            busy={sessions.isPending}
+            disabled={!!sessions.error || (!sessions.isPending && !sessions.data?.length)}
+            disabledReason={
+              sessions.error
+                ? 'Chưa tải được lịch diễn. Vui lòng thử lại.'
+                : 'Sự kiện chưa công bố lịch diễn.'
+            }
+          >
+            {choices.available.length ? 'Đặt vé' : 'Xem lịch diễn'}
+          </ActionFooter>
         )
       }
     >
@@ -75,7 +75,12 @@ export default function EventScreen() {
               <>
                 <View style={ui.row}>
                   <Icon name="calendarAccent" />
-                  <Copy style={{ flex: 1 }}>{formatSessionTime(first.startsAt, first.venue?.timezone)}</Copy>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Copy style={[ui.muted, { fontSize: 12 }]}>
+                      Ngày và giờ{(sessions.data?.length ?? 0) > 1 ? ' · một trong các lịch diễn' : ''}
+                    </Copy>
+                    <Copy>{formatSessionTime(first.startsAt, first.venue?.timezone)}</Copy>
+                  </View>
                 </View>
                 {first.venue && (
                   <MenuRow
@@ -90,6 +95,10 @@ export default function EventScreen() {
                     }
                   />
                 )}
+                {(sessions.data?.length ?? 0) > 1 && (
+                  <TextAction onPress={openDates}>Xem tất cả {sessions.data?.length} lịch diễn</TextAction>
+                )}
+                <Copy style={ui.muted}>Giá vé theo ngày diễn và hạng vé.</Copy>
               </>
             )}
             {!!event.data.summary && <Heading small>{event.data.summary}</Heading>}

@@ -2,20 +2,24 @@ import { formatSessionTime } from '@event/core';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, View } from 'react-native';
 import { ActionFooter, Copy, Heading, QueryState, Screen, c, ui } from '@/components/ui';
-import { TextAction } from '@/components/customer-controls';
+import { Disclosure, TextAction } from '@/components/customer-controls';
 import { useSessions } from '../hooks/use-catalog';
 import { useBookingDraft } from '@/features/customer/booking/draft-store';
 import { useFormDraft } from '@/features/forms/use-form-draft';
+import { sessionChoices } from '../catalog-presentation';
+import { usePaymentAvailability } from '@/features/customer/payment/hooks/use-payment-availability';
 
 export default function SessionScreen() {
   const { eventId = '' } = useLocalSearchParams<{ eventId: string }>();
   const query = useSessions(eventId);
+  const choices = sessionChoices(query.data ?? []);
+  const paymentAvailable = usePaymentAvailability();
   const { draft, update } = useFormDraft(`sessions:${eventId}`, { selectedId: null as string | null });
   const selectedId = draft.selectedId;
   const select = (selectedId: string) => update({ selectedId });
   const pending = useBookingDraft((s) => s.unresolved);
   const pendingSession = useBookingDraft((s) => s.sessionId);
-  const firstAvailable = query.data?.find((s) => s.status === 'ON_SALE' && !s.salesPaused);
+  const firstAvailable = choices.available[0];
   const selected = query.data?.find((s) => s.id === (selectedId ?? firstAvailable?.id));
   const canContinue =
     !query.error &&
@@ -33,7 +37,9 @@ export default function SessionScreen() {
               : query.error
                 ? 'Chưa tải được suất diễn. Vui lòng thử lại.'
                 : !selected
-                  ? 'Chưa có suất diễn đang bán.'
+                  ? choices.available.length
+                    ? 'Chọn ngày và giờ để tiếp tục.'
+                    : 'Chưa có lịch diễn đang bán.'
                   : 'Suất diễn này hiện không bán vé.'
           }
           onPress={() => {
@@ -45,11 +51,11 @@ export default function SessionScreen() {
             });
           }}
         >
-          Chọn chỗ
+          Chọn vé
         </ActionFooter>
       }
     >
-      <Heading>Chọn suất diễn</Heading>
+      <Heading>Chọn ngày và giờ</Heading>
       <QueryState
         loading={query.isPending}
         error={query.error}
@@ -57,16 +63,19 @@ export default function SessionScreen() {
         empty={!query.isPending && !query.error && !query.data?.length}
         emptyText="Sự kiện chưa có suất diễn."
       />
-      {query.data?.map((s) => {
+      {!paymentAvailable && !!choices.available.length && (
+        <Copy style={[ui.muted, { fontSize: 12 }]}>
+          Thanh toán vé trả phí hiện chưa khả dụng. Vé miễn phí vẫn có thể đăng ký nếu sự kiện có hỗ trợ.
+        </Copy>
+      )}
+      {choices.available.map((s) => {
         const active = s.id === selected?.id;
-        const available = s.status === 'ON_SALE' && !s.salesPaused;
         return (
           <View key={s.id} style={{ gap: 8 }}>
             <Pressable
               accessibilityRole="radio"
-              accessibilityLabel={`${s.title}, ${formatSessionTime(s.startsAt, s.venue?.timezone)}`}
-              accessibilityState={{ checked: active, disabled: !available }}
-              disabled={!available}
+              accessibilityLabel={`${s.title ?? 'Lịch diễn'}, ${formatSessionTime(s.startsAt, s.venue?.timezone)}`}
+              accessibilityState={{ checked: active }}
               key={s.id}
               onPress={() => select(s.id)}
               style={[
@@ -74,50 +83,55 @@ export default function SessionScreen() {
                 {
                   backgroundColor: active ? c.tint : 'white',
                   borderColor: active ? c.accent : c.border,
-                  opacity: available ? 1 : 0.6,
+                  borderWidth: active ? 2 : 1,
                 },
               ]}
             >
-              <Copy style={ui.semibold}>
-                {s.title ?? 'Suất diễn'} · {formatSessionTime(s.startsAt, s.venue?.timezone)}
-              </Copy>
+              <Copy style={ui.semibold}>{formatSessionTime(s.startsAt, s.venue?.timezone)}</Copy>
+              {s.title && <Copy>{s.title}</Copy>}
               <Copy style={ui.muted}>
-                {s.venue?.name} · {s.venue?.city}
+                {[s.venue?.name, s.venue?.city].filter(Boolean).join(' · ') || 'Chưa có địa điểm'}
               </Copy>
-              <Copy style={{ color: available ? c.accent : c.muted, fontSize: 11 }}>
-                {s.status === 'CANCELLED'
-                  ? 'Suất diễn đã bị hủy'
-                  : s.salesPaused
-                    ? 'Tạm dừng bán'
-                    : s.status === 'SALES_CLOSED' || s.status === 'ENDED'
-                      ? 'Đã đóng bán'
-                      : s.status === 'ONGOING'
-                        ? 'Đang diễn ra'
-                        : s.status === 'POSTPONED'
-                          ? 'Đã hoãn'
-                          : !available
-                            ? 'Chưa mở bán'
-                            : active
-                              ? 'Đã chọn · Đang mở bán'
-                              : 'Đang mở bán'}
-              </Copy>
+              <Copy style={{ color: c.accent, fontSize: 12 }}>{active ? '✓ Đã chọn' : 'Đang mở bán'}</Copy>
             </Pressable>
-            {!available && (
+          </View>
+        );
+      })}
+      {!!choices.other.length && (
+        <Disclosure title={`Lịch diễn khác · ${choices.other.length}`}>
+          {choices.other.map((session) => (
+            <View key={session.id} style={{ paddingVertical: 8, gap: 4 }}>
+              <Copy style={ui.semibold}>{formatSessionTime(session.startsAt, session.venue?.timezone)}</Copy>
+              {session.title && <Copy>{session.title}</Copy>}
+              <Copy style={ui.muted}>
+                {session.status === 'CANCELLED'
+                  ? 'Đã hủy'
+                  : session.salesPaused
+                    ? 'Tạm dừng bán'
+                    : session.status === 'POSTPONED'
+                      ? 'Đã hoãn'
+                      : session.status === 'SCHEDULED'
+                        ? 'Chưa mở bán'
+                        : session.status === 'ONGOING'
+                          ? 'Đang diễn ra'
+                          : session.status === 'ENDED'
+                            ? 'Đã kết thúc'
+                            : 'Đã đóng bán'}
+              </Copy>
               <TextAction
                 onPress={() =>
                   router.push({
                     pathname: '/sessions/[sessionId]/status',
-                    params: { sessionId: s.id, eventId },
+                    params: { sessionId: session.id, eventId },
                   })
                 }
               >
-                Xem thông tin suất diễn
+                Xem thông tin
               </TextAction>
-            )}
-          </View>
-        );
-      })}
-      {!!query.data?.length && <Copy style={ui.muted}>Giờ địa phương tại nơi tổ chức</Copy>}
+            </View>
+          ))}
+        </Disclosure>
+      )}
     </Screen>
   );
 }

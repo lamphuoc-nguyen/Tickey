@@ -1,8 +1,10 @@
-import type { Event } from '@event/core';
+import { formatSessionTime, type Event } from '@event/core';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Pressable, View } from 'react-native';
 import { Copy, c, ui } from '@/components/ui';
+import { nextEventDate } from '../catalog-presentation';
+import { useCatalogClock } from '../hooks/use-catalog-clock';
 export function eventPhoto(event: Event) {
   return event.coverImageUrl;
 }
@@ -19,6 +21,8 @@ export function EventCard({
   onSelect?: () => void;
   selected?: boolean;
 }) {
+  const now = useCatalogClock();
+  const startsAt = nextEventDate(event, now);
   return (
     <Pressable
       accessibilityRole={onSelect ? 'radio' : 'button'}
@@ -62,6 +66,9 @@ export function EventCard({
             {event.category.name}
           </Copy>
         )}
+        <Copy numberOfLines={small ? 2 : 1} style={{ color: c.muted, fontSize: 12, lineHeight: 18 }}>
+          {startsAt ? formatSessionTime(startsAt) : 'Xem lịch diễn'}
+        </Copy>
         <Copy
           style={{
             color: c.accent,
@@ -71,7 +78,7 @@ export function EventCard({
             paddingTop: 4,
           }}
         >
-          Xem hạng vé
+          Xem chi tiết
         </Copy>
       </View>
     </Pressable>

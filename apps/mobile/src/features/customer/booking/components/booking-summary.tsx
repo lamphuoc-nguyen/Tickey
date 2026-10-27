@@ -1,7 +1,8 @@
 import { formatMoney, formatSessionTime, type Booking } from '@event/core';
 import { Image } from 'expo-image';
+import { View } from 'react-native';
 import { Disclosure } from '@/components/customer-controls';
-import { Card, Copy, Heading, QueryState, ui } from '@/components/ui';
+import { Card, Copy, Heading, QueryState, c, ui } from '@/components/ui';
 import { DetailRow } from '@/components/detail';
 import { useOrder } from '@/features/customer/tickets/hooks/use-ticket';
 import { useSessions, useTicketTypes } from '@/features/customer/catalog/hooks/use-catalog';
@@ -14,24 +15,23 @@ export function BookingSummary({ booking, compact = false }: { booking?: Booking
   const ticketDetails = (
     <>
       {booking?.items.map((item, i) => (
-        <Card key={`${item.seatId ?? item.zoneId}:${i}`}>
-          <Heading small>
-            Vé {i + 1}
-            {item.quantity > 1 ? ` · ${item.quantity} vé` : ''}
-          </Heading>
-          <DetailRow label="Ghế / khu" value={item.seatCode ?? 'Khu đứng'} />
+        <View
+          key={`${item.seatId ?? item.zoneId}:${i}`}
+          style={{ gap: 6, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.border }}
+        >
+          <Copy style={ui.semibold}>
+            {item.seatCode ?? (item.seatId ? 'Chưa có thông tin ghế' : 'Khu đứng')} · {item.quantity} chỗ
+          </Copy>
           <DetailRow label="Hạng" value={types.data?.find((t) => t.id === item.ticketTypeId)?.name} />
-          <DetailRow label="Cổng" />
-          <DetailRow label="Giá" value={formatMoney(item.unitPrice)} />
+          <DetailRow label="Đơn giá" value={formatMoney(item.unitPrice)} />
           {item.unitDiscount > 0 && <DetailRow label="Giảm giá" value={formatMoney(item.unitDiscount)} />}
-        </Card>
+        </View>
       ))}
       {!booking && (
         <Card>
           <Heading small>Thông tin vé</Heading>
           <DetailRow label="Ghế / khu" />
           <DetailRow label="Hạng" />
-          <DetailRow label="Cổng" />
           <DetailRow label="Giá" />
         </Card>
       )}
@@ -65,11 +65,23 @@ export function BookingSummary({ booking, compact = false }: { booking?: Booking
         compact
       />
       {compact ? (
-        <Disclosure
-          title={booking ? `${booking.itemCount} vé · ${formatMoney(booking.totalAmount)}` : 'Chi tiết vé'}
-        >
-          {ticketDetails}
-        </Disclosure>
+        <>
+          {booking && (
+            <View style={{ gap: 8, paddingVertical: 12 }}>
+              <DetailRow label="Số lượng" value={`${booking.itemCount} chỗ`} />
+              <View style={[ui.row, { justifyContent: 'space-between', flexWrap: 'wrap' }]}>
+                <Copy style={ui.semibold}>Tổng tiền</Copy>
+                <Copy style={[ui.semibold, { fontSize: 22, color: c.primary }]}>
+                  {formatMoney(booking.totalAmount)}
+                </Copy>
+              </View>
+            </View>
+          )}
+          <Disclosure title="Ghế và hạng vé">
+            {ticketDetails}
+            <DetailRow label="Cổng vào" />
+          </Disclosure>
+        </>
       ) : (
         <>
           {ticketDetails}

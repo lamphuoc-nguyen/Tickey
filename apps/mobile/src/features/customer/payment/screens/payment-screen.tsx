@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable } from 'react-native';
 import { ActionFooter, Copy, ErrorNotice, Heading, Notice, QueryState, Screen, ui } from '@/components/ui';
@@ -7,7 +6,8 @@ import { AuthGate } from '@/features/auth/components/auth-gate';
 import { useBooking } from '@/features/customer/booking/hooks/use-booking';
 import { canPay } from '@/features/customer/booking/booking-presentation';
 import { usePayment } from '../hooks/use-payment';
-import { customerCapabilities } from '@/lib/capabilities';
+import { usePaymentAvailability } from '../hooks/use-payment-availability';
+import { useFormDraft } from '@/features/forms/use-form-draft';
 import { BookingSummary } from '@/features/customer/booking/components/booking-summary';
 import { BuyerInfo } from '@/features/customer/booking/components/buyer-info';
 
@@ -15,9 +15,10 @@ function Content() {
   const { bookingId = '' } = useLocalSearchParams<{ bookingId: string }>();
   const query = useBooking(bookingId);
   const payment = usePayment(bookingId);
-  const [terms, setTerms] = useState(false);
+  const { draft, update } = useFormDraft(`payment:${bookingId}`, { terms: false });
+  const terms = draft.terms;
   const booking = query.data;
-  const configured = customerCapabilities.gatewayPayment && Boolean(process.env.EXPO_PUBLIC_PAYMENT_GATEWAY);
+  const configured = usePaymentAvailability();
   return (
     <Screen
       footer={
@@ -37,7 +38,7 @@ function Content() {
           }
           onPress={() => payment.mutate()}
         >
-          Đến cổng thanh toán
+          Thanh toán
         </ActionFooter>
       }
     >
@@ -46,13 +47,13 @@ function Content() {
       {!booking && <BookingSummary />}
       {booking && (
         <>
-          <Heading small>{booking.code}</Heading>
+          <Copy style={ui.muted}>Mã đơn: {booking.code}</Copy>
           <BookingSummary booking={booking} compact />
           <BuyerInfo />
           <Pressable
             accessibilityRole="checkbox"
             accessibilityState={{ checked: terms }}
-            onPress={() => setTerms((p) => !p)}
+            onPress={() => update({ terms: !terms })}
             style={[ui.card, { minHeight: 56 }]}
           >
             <Copy>{terms ? '☑' : '☐'} Tôi đồng ý điều khoản thanh toán.</Copy>

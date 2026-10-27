@@ -66,10 +66,15 @@ export function BookingPassPresentation({
             <Copy style={ui.muted}>{cancelled ? 'Vé không dùng để vào cổng.' : state.description}</Copy>
           </>
         )}
-        <View style={[ui.row, { alignItems: 'stretch', gap: 8, paddingTop: 8 }]}>
+        <View style={[ui.row, { justifyContent: 'space-between', flexWrap: 'wrap', paddingTop: 12 }]}>
+          <Copy style={ui.muted}>{count === undefined ? 'Chỗ đã lưu / tải' : 'Số chỗ trong đơn'}</Copy>
+          <Copy style={[ui.semibold, { fontSize: 22 }]}>{count ?? tickets.length}</Copy>
+        </View>
+      </Card>
+      <Disclosure title="Lượt vào cổng">
+        <View style={[ui.row, { alignItems: 'stretch', gap: 8 }]}>
           {[
-            { label: count === undefined ? 'Chỗ đã tải' : 'Số chỗ', value: String(count ?? tickets.length) },
-            { label: 'Đã check-in', value: '—' },
+            { label: 'Đã vào cổng', value: '—' },
             { label: 'Lượt còn lại', value: '—' },
           ].map((item) => (
             <View
@@ -89,8 +94,8 @@ export function BookingPassPresentation({
             </View>
           ))}
         </View>
-        <Copy style={[ui.muted, { fontSize: 11 }]}>Chưa có thông tin lượt check-in.</Copy>
-      </Card>
+        <Copy style={ui.muted}>Chưa có thông tin lượt sử dụng.</Copy>
+      </Disclosure>
       {!!tickets.length && (
         <Disclosure title={`Ghế và hạng vé · ${tickets.length} chỗ đã tải`}>
           {tickets.map((ticket) => (
