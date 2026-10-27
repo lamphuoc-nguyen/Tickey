@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { View } from 'react-native';
-import { bankInputSchema } from '@event/core';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ActionFooter, Copy, ErrorNotice, Heading, Notice, QueryState, Screen, ui } from '@/components/ui';
 import { TextAction } from '@/components/customer-controls';
@@ -12,6 +11,7 @@ import { useAuthActions } from '@/features/auth/hooks/use-auth-actions';
 import { useRefund, useSupportActions } from '@/features/customer/support/hooks/use-support-actions';
 import { useFormDraft } from '@/features/forms/use-form-draft';
 import { submitVerifiedBankInfo } from '../bank-submission';
+import { validateBankDraft } from '../bank-form';
 function Content() {
   const { refundId = '' } = useLocalSearchParams<{ refundId: string }>();
   const refund = useRefund(refundId);
@@ -21,20 +21,24 @@ function Content() {
   const bank = useFormDraft(`bank:${refundId}`, { bankCode: '', accountNumber: '', accountHolder: '' });
   const verification = useFormDraft(`bank-otp:${refundId}`, { otp: '', sent: false });
   const { otp, sent } = verification.draft;
-  const setOtp = (otp: string) => verification.update({ otp });
+  const setOtp = (otp: string) => {
+    verification.update({ otp });
+    setError('');
+  };
   const [error, setError] = useState('');
   const verificationScope = `${auth.session?.userId ?? ''}:${refundId}`;
   const [verifiedScope, setVerifiedScope] = useState<string | null>(null);
   const verified = verifiedScope === verificationScope;
   const setVerified = (value: boolean) => setVerifiedScope(value ? verificationScope : null);
   const busy = actions.otp.isPending || actions.verify.isPending || bankInfo.isPending;
+  const validatedBank = validateBankDraft(bank.draft).result;
   const allowed =
     refund.data?.status === 'AWAITING_BANK_INFO' &&
     !refund.error &&
     !!auth.session?.email &&
-    bankInputSchema.safeParse(bank.draft).success;
+    validatedBank.success;
   async function submit() {
-    if (!allowed || busy || !auth.session) return;
+    if (!allowed || busy || !auth.session || !validatedBank.success) return;
     if (!verified && !isCompleteOtp(otp)) {
       setError('Nhập đủ mã xác thực 8 số trong email.');
       return;
@@ -46,7 +50,7 @@ function Content() {
         verified,
         setVerified,
         verify: () => actions.verify.mutateAsync({ email, token: otp.trim() }),
-        submit: () => bankInfo.mutateAsync({ id: refundId, input: bank.draft }),
+        submit: () => bankInfo.mutateAsync({ id: refundId, input: validatedBank.data }),
       });
       bank.clear();
       verification.clear();
@@ -61,9 +65,19 @@ function Content() {
         <ActionFooter
           disabled={!allowed || !sent || bankInfo.isSuccess}
           disabledReason={
-            !allowed
-              ? 'Cần yêu cầu hoàn đang chờ tài khoản ngân hàng và thông tin tài khoản hợp lệ.'
-              : 'Gửi mã xác thực đến email trước khi xác nhận.'
+            refund.error
+              ? 'Cần tải được yêu cầu hoàn trước khi xác nhận.'
+              : refund.isPending
+                ? 'Đang tải yêu cầu hoàn.'
+                : refund.data?.status !== 'AWAITING_BANK_INFO'
+                  ? 'Yêu cầu hiện không cần bổ sung tài khoản ngân hàng.'
+                  : !auth.session?.email
+                    ? 'Chưa xác định được email để nhận mã xác thực.'
+                    : !validatedBank.success
+                      ? 'Kiểm tra lại thông tin tài khoản nhận hoàn.'
+                      : bankInfo.isSuccess
+                        ? 'Thông tin tài khoản đã được gửi.'
+                        : 'Gửi mã xác thực đến email trước khi xác nhận.'
           }
           busy={busy}
           onPress={() => void submit()}

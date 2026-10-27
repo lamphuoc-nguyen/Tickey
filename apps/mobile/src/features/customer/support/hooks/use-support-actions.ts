@@ -8,6 +8,7 @@ import type { z } from 'zod';
 import { repositories } from '@/lib/repositories';
 import { useAuth } from '@/features/auth/hooks/auth-context';
 import { useExclusiveMutation } from '@/features/forms/use-exclusive-mutation';
+import { evidenceMimeType, validateEvidence } from '../evidence-file';
 
 export function useRefund(id: string) {
   const { session } = useAuth();
@@ -48,8 +49,7 @@ export function useSupportActions() {
           copyToCacheDirectory: true,
         });
         if (result.canceled) return [];
-        if (result.assets.some((asset) => (asset.size ?? 0) > 10 * 1024 * 1024))
-          throw new Error('Mỗi bằng chứng tối đa 10 MB.');
+        validateEvidence(result.assets);
         return result.assets;
       },
     }),
@@ -63,6 +63,7 @@ export function useSupportActions() {
         assertCurrent,
       ) => {
         reportInputSchema.parse({ ...p.input, attachmentPaths: [] });
+        validateEvidence(p.assets);
         const paths: string[] = [];
         for (const asset of p.assets) {
           await assertCurrent();
@@ -74,12 +75,17 @@ export function useSupportActions() {
           }
           const form = new FormData();
           form.append('purpose', 'REPORT_EVIDENCE');
-          if (Platform.OS === 'web' && asset.file) form.append('file', asset.file, asset.name);
+          if (Platform.OS === 'web' && asset.file)
+            form.append(
+              'file',
+              asset.file.type ? asset.file : new Blob([asset.file], { type: evidenceMimeType(asset) }),
+              asset.name,
+            );
           else
             form.append('file', {
               uri: asset.uri,
               name: asset.name,
-              type: asset.mimeType ?? 'application/octet-stream',
+              type: evidenceMimeType(asset),
             } as unknown as Blob);
           const upload = await repositories.customer.uploadEvidence(form);
           uploaded.current.set(key, upload.path);

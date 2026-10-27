@@ -12,10 +12,12 @@ function OfflineContent({ bookingId }: { bookingId?: string }) {
   const query = useOfflineTickets();
   const online = useConnection();
   const [id, setId] = useState<string | null>(bookingId ?? null);
-  const groups = groupTicketsByBooking(query.data?.map((entry) => entry.ticket) ?? []);
+  const groups = groupTicketsByBooking(query.data?.map((entry) => entry.ticket) ?? []).filter(
+    (group) => !bookingId || group.bookingId === bookingId,
+  );
   return (
     <Screen>
-      <Heading>Vé đã tải</Heading>
+      <Heading>Vé đã lưu</Heading>
       {!groups.some((group) => group.bookingId === id) && (
         <Notice warning>Bản lưu trên thiết bị. Kết nối mạng để kiểm tra hiệu lực và lượt vào cổng.</Notice>
       )}
@@ -24,7 +26,7 @@ function OfflineContent({ bookingId }: { bookingId?: string }) {
         error={query.error}
         retry={() => void query.refetch()}
         empty={!query.isPending && !query.error && !groups.length}
-        emptyText="Chưa có đơn vé đã tải."
+        emptyText={bookingId ? 'Chưa có vé đã lưu cho đơn này.' : 'Chưa có vé đã lưu trên thiết bị.'}
       />
       {groups.map((group) => (
         <Card key={group.bookingId}>
@@ -49,8 +51,13 @@ function OfflineContent({ bookingId }: { bookingId?: string }) {
         </Card>
       ))}
       {online && (
-        <Button secondary onPress={() => router.replace('/tickets')}>
-          Cập nhật vé từ máy chủ
+        <Button
+          secondary
+          onPress={() =>
+            router.replace({ pathname: '/tickets', params: { ...(bookingId ? { bookingId } : {}) } })
+          }
+        >
+          Xem vé trực tuyến
         </Button>
       )}
     </Screen>

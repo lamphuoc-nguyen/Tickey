@@ -26,10 +26,10 @@ export function useBooking(id: string) {
   const refetch = query.refetch;
   useEffect(() => {
     const listener = AppState.addEventListener('change', (state) => {
-      if (state === 'active' && session?.workspace.kind === 'CUSTOMER') void refetch();
+      if (state === 'active' && id && session?.workspace.kind === 'CUSTOMER') void refetch();
     });
     return () => listener.remove();
-  }, [refetch, session?.workspace.kind]);
+  }, [refetch, id, session?.workspace.kind]);
   const [clock, setClock] = useState(() => performance.now());
   useEffect(() => {
     const timer = setInterval(() => setClock(performance.now()), 500);

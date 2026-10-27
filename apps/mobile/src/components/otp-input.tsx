@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { TextInput, View } from 'react-native';
+import { Keyboard, TextInput, View } from 'react-native';
 import { Copy, c, fonts, ui } from './ui';
 import { backspaceOtp, editOtp, OTP_LENGTH } from './otp-input-state';
 
@@ -52,6 +52,11 @@ export function OtpInput({
                 autoComplete={index === 0 ? 'one-time-code' : 'off'}
                 autoCorrect={false}
                 autoCapitalize="none"
+                returnKeyType={index === count - 1 ? 'done' : 'next'}
+                submitBehavior="submit"
+                onSubmitEditing={() =>
+                  index === count - 1 ? Keyboard.dismiss() : inputs.current[index + 1]?.focus()
+                }
                 // Allow separators in pasted codes; editOtp keeps only eight digits.
                 maxLength={OTP_LENGTH * 2}
                 selectTextOnFocus
@@ -73,6 +78,7 @@ export function OtpInput({
                   fontFamily: fonts.medium,
                   fontSize: 22,
                   textAlign: 'center',
+                  textAlignVertical: 'center',
                   padding: 0,
                   opacity: editable ? 1 : 0.5,
                 }}

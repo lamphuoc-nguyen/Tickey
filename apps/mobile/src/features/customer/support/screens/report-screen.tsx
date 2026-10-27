@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import type { DocumentPickerAsset } from 'expo-document-picker';
-import { reportInputSchema } from '@event/core';
+import { Image } from 'expo-image';
+import { View } from 'react-native';
+import { formatSessionTime, reportInputSchema } from '@event/core';
 import {
   ActionFooter,
   Button,
@@ -13,6 +15,7 @@ import {
   QueryState,
   Screen,
   Select,
+  ui,
 } from '@/components/ui';
 import { MenuGroup, MenuRow, TextAction } from '@/components/customer-controls';
 import { AuthGate } from '@/features/auth/components/auth-gate';
@@ -21,6 +24,8 @@ import { useTicket } from '@/features/customer/tickets/hooks/use-ticket';
 import { useFormDraft } from '@/features/forms/use-form-draft';
 import { useSupportActions } from '../hooks/use-support-actions';
 import { reportCategoryLabels } from '../presentation';
+import { EvidenceFileCard } from '../components/evidence-file-card';
+import { EvidenceValidationError } from '../evidence-file';
 type Category = 'NOT_AS_DESCRIBED' | 'EVENT_NOT_HELD' | 'ENTRY_DENIED' | 'SAFETY' | 'SEAT_ISSUE' | 'OTHER';
 function Content() {
   const { ticketId = '' } = useLocalSearchParams<{ ticketId?: string }>();
@@ -34,7 +39,8 @@ function Content() {
   });
   const [checked, setChecked] = useState(false);
   async function submit() {
-    if (actions.report.isPending || !ticket || !online || query.error) return;
+    if (actions.report.isPending || actions.pickEvidence.isPending || !ticket || !online || query.error)
+      return;
     setChecked(true);
     const input = { ticketId, category: draft.category, description: draft.description };
     if (!reportInputSchema.safeParse({ ...input, attachmentPaths: [] }).success) return;
@@ -50,15 +56,19 @@ function Content() {
     <Screen
       footer={
         <ActionFooter
-          disabled={!online || !ticket || !!query.error || actions.report.isSuccess}
+          disabled={
+            !online || !ticket || !!query.error || actions.report.isSuccess || actions.pickEvidence.isPending
+          }
           disabledReason={
             !online
               ? 'Cần kết nối mạng để gửi phản ánh.'
               : query.error
                 ? 'Cần tải được vé trước khi gửi.'
-                : !ticket
-                  ? 'Chọn vé liên quan để gửi phản ánh.'
-                  : 'Phản ánh đã được tiếp nhận.'
+                : actions.pickEvidence.isPending
+                  ? 'Đang chọn tệp minh chứng.'
+                  : !ticket
+                    ? 'Chọn vé liên quan để gửi phản ánh.'
+                    : 'Phản ánh đã được tiếp nhận.'
           }
           busy={actions.report.isPending}
           onPress={() => void submit()}
@@ -74,14 +84,40 @@ function Content() {
         retry={() => void query.refetch()}
       />
       <Card>
-        <Heading small>Vé liên quan</Heading>
-        <Copy>{ticket?.session?.event?.title ?? 'Chưa chọn được vé'}</Copy>
-        <Copy>{ticket?.seat?.seatCode ?? (ticket ? 'Khu đứng' : 'Chưa có thông tin vị trí')}</Copy>
+        <View style={[ui.row, { alignItems: 'flex-start' }]}>
+          {ticket?.session?.event?.coverImageUrl && (
+            <Image
+              source={ticket.session.event.coverImageUrl}
+              contentFit="cover"
+              style={{ width: 72, height: 80, borderRadius: 8 }}
+            />
+          )}
+          <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
+            <Copy style={ui.semibold}>{ticket?.session?.event?.title ?? 'Chọn vé liên quan'}</Copy>
+            {ticket?.session && (
+              <Copy style={ui.muted}>
+                {formatSessionTime(ticket.session.startsAt, ticket.session.venue?.timezone)}
+              </Copy>
+            )}
+            {ticket?.session?.venue?.name && <Copy style={ui.muted}>{ticket.session.venue.name}</Copy>}
+            {ticket && <Copy>{ticket.seat?.seatCode ?? ticket.ticketType?.name ?? 'Khu đứng'}</Copy>}
+          </View>
+        </View>
+        {!!ticketId && (
+          <TextAction
+            disabled={actions.report.isPending}
+            disabledReason="Đang gửi phản ánh."
+            onPress={() => router.setParams({ ticketId: '' })}
+          >
+            Đổi vé liên quan
+          </TextAction>
+        )}
         {!ticketId && (
           <>
             <Select
               label="Chọn vé của tôi"
               value=""
+              disabled={tickets.isPending || !!tickets.error || !tickets.data?.pages.flat().length}
               options={(tickets.data?.pages.flat() ?? []).map((t) => ({
                 value: t.id,
                 label: `${t.session?.event?.title ?? 'Vé Tickey'} · ${t.seat?.seatCode ?? t.ticketType?.name ?? 'Khu đứng'}`,
@@ -153,22 +189,26 @@ function Content() {
         />
       </MenuGroup>
       {draft.assets.map((asset) => (
-        <Card key={asset.uri}>
-          <Copy>{asset.name}</Copy>
-          <TextAction
-            accessibilityLabel={`Bỏ bằng chứng ${asset.name}`}
-            disabled={actions.report.isPending}
-            disabledReason="Đang gửi phản ánh."
-            onPress={() => update({ assets: draft.assets.filter((a) => a.uri !== asset.uri) })}
-          >
-            Bỏ bằng chứng
-          </TextAction>
-        </Card>
+        <EvidenceFileCard
+          key={asset.uri}
+          asset={asset}
+          disabled={actions.report.isPending}
+          onRemove={() => update({ assets: draft.assets.filter((a) => a.uri !== asset.uri) })}
+        />
       ))}
-      {!!actions.pickEvidence.error && <ErrorNotice error={actions.pickEvidence.error} />}
+      {!!actions.pickEvidence.error &&
+        (actions.pickEvidence.error instanceof EvidenceValidationError ? (
+          <Copy accessibilityRole="alert">{actions.pickEvidence.error.message}</Copy>
+        ) : (
+          <ErrorNotice error={actions.pickEvidence.error} />
+        ))}
       {!!actions.report.error && (
         <>
-          <ErrorNotice error={actions.report.error} />
+          {actions.report.error instanceof EvidenceValidationError ? (
+            <Copy accessibilityRole="alert">{actions.report.error.message}</Copy>
+          ) : (
+            <ErrorNotice error={actions.report.error} />
+          )}
           <TextAction onPress={() => router.push('/reports')}>Kiểm tra phản ánh đã gửi</TextAction>
         </>
       )}

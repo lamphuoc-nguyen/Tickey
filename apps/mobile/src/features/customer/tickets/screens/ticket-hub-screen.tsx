@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
@@ -10,15 +10,25 @@ import { AuthGate } from '@/features/auth/components/auth-gate';
 import { useOrders } from '@/features/customer/account/hooks/use-customer-data';
 import { BookingStatusBadge } from '@/features/customer/booking/components/booking-status';
 import { useConnection, useSavedTickets } from '../hooks/use-ticket';
-import { groupTicketsByBooking } from '../booking-pass';
+import { groupTicketsByBooking, oldestDownload } from '../booking-pass';
 import { orderHasTickets, orderInView, orderView, type OrderView } from '../order-presentation';
 
-function Content({ initialView, bookingId }: { initialView: OrderView; bookingId?: string }) {
+function Content({ view, bookingId }: { view: OrderView; bookingId?: string }) {
   const orders = useOrders();
   const saved = useSavedTickets();
   const online = useConnection();
-  const [view, setView] = useState(initialView);
+  const setView = (view: OrderView) => router.setParams({ view });
   const current = online ? view : 'saved';
+  const tabStrip = useRef<ScrollView>(null);
+  const tabPositions = useRef(new Map<OrderView, number>());
+  const revealCurrentTab = useCallback(() => {
+    const x = tabPositions.current.get(current);
+    if (x !== undefined) tabStrip.current?.scrollTo({ x: Math.max(0, x - 8), animated: false });
+  }, [current]);
+  useEffect(() => {
+    const frame = requestAnimationFrame(revealCurrentTab);
+    return () => cancelAnimationFrame(frame);
+  }, [revealCurrentTab]);
   const offlineList = current === 'saved';
   const loaded = (orders.data?.pages.flat() ?? []).filter((order) => !bookingId || order.id === bookingId);
   const visible = loaded.filter((order) => orderInView(order, current));
@@ -43,7 +53,13 @@ function Content({ initialView, bookingId }: { initialView: OrderView; bookingId
       }
     >
       <Heading>{bookingId ? 'Vé của đơn' : 'Vé của tôi'}</Heading>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+      <ScrollView
+        ref={tabStrip}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: 8 }}
+        onContentSizeChange={revealCurrentTab}
+      >
         {(
           [
             { id: 'tickets', label: 'Vé đã mua' },
@@ -54,6 +70,10 @@ function Content({ initialView, bookingId }: { initialView: OrderView; bookingId
         ).map((tab) => (
           <Pressable
             key={tab.id}
+            onLayout={(event) => {
+              tabPositions.current.set(tab.id, event.nativeEvent.layout.x);
+              if (tab.id === current) revealCurrentTab();
+            }}
             accessibilityRole="tab"
             accessibilityState={{ selected: current === tab.id, disabled: !online && tab.id !== 'saved' }}
             disabled={!online && tab.id !== 'saved'}
@@ -148,6 +168,7 @@ function Content({ initialView, bookingId }: { initialView: OrderView; bookingId
       {offlineList &&
         savedGroups.map((group) => {
           const first = group.tickets[0]!;
+          const updatedAt = oldestDownload(saved.data ?? [], group.bookingId);
           return (
             <Pressable
               key={group.bookingId}
@@ -168,6 +189,11 @@ function Content({ initialView, bookingId }: { initialView: OrderView; bookingId
                 </Copy>
               )}
               <Copy style={ui.muted}>{group.tickets.length} chỗ đã lưu</Copy>
+              <Copy style={[ui.muted, { fontSize: 12 }]}>
+                {updatedAt
+                  ? `Cập nhật: ${new Date(updatedAt).toLocaleString('vi-VN')}`
+                  : 'Chưa có thời điểm cập nhật'}
+              </Copy>
               <Copy style={{ color: c.primary }}>Xem bản lưu →</Copy>
             </Pressable>
           );
@@ -187,7 +213,7 @@ export default function TicketHubScreen() {
   const bookingId = typeof params.bookingId === 'string' ? params.bookingId : undefined;
   return (
     <AuthGate>
-      <Content key={`${view}:${bookingId ?? 'all'}`} initialView={view} bookingId={bookingId} />
+      <Content key={bookingId ?? 'all'} view={view} bookingId={bookingId} />
     </AuthGate>
   );
 }
