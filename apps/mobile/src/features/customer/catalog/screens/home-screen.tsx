@@ -14,7 +14,9 @@ export default function HomeScreen() {
     categories = useCategories();
   const [page, setPage] = useState(0);
   const slider = useRef<ScrollView>(null);
-  const width = useWindowDimensions().width - 40;
+  const { width: windowWidth, fontScale } = useWindowDimensions();
+  const width = windowWidth - 40;
+  const bannerHeight = Math.max(210, Math.ceil(56 + 115 * fontScale));
   const [eventRailWidth, setEventRailWidth] = useState(0);
   const eventCardGap = 10;
   const eventCardWidth = Math.max(1, ((eventRailWidth || width) - 2 * eventCardGap) / 2.3);
@@ -160,7 +162,7 @@ export default function HomeScreen() {
                 onPress={() => router.push({ pathname: '/events/[eventId]', params: { eventId: event.id } })}
                 style={{
                   width,
-                  height: 210,
+                  height: bannerHeight,
                   marginRight: 12,
                   borderRadius: 16,
                   overflow: 'hidden',
@@ -235,12 +237,17 @@ export default function HomeScreen() {
         </>
       )}
       {(!!data.length || events.isPending || !!events.error || events.hasNextPage) && (
-        <View style={[ui.row, { justifyContent: 'space-between', marginTop: 12, marginBottom: 8 }]}>
+        <View
+          style={[
+            ui.row,
+            { flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 12, marginBottom: 8 },
+          ]}
+        >
           <Heading small>Khám phá thêm</Heading>
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push('/search')}
-            style={{ minHeight: 48, justifyContent: 'center' }}
+            style={{ minHeight: 48, justifyContent: 'center', marginLeft: 'auto' }}
           >
             <Copy style={{ fontSize: 12, color: c.primary, fontFamily: fonts.semibold }}>Xem tất cả</Copy>
           </Pressable>

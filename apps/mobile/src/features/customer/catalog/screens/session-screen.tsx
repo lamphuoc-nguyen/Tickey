@@ -64,9 +64,7 @@ export default function SessionScreen() {
         emptyText="Sự kiện chưa có suất diễn."
       />
       {!paymentAvailable && !!choices.available.length && (
-        <Copy style={[ui.muted, { fontSize: 12 }]}>
-          Thanh toán vé trả phí hiện chưa khả dụng. Vé miễn phí vẫn có thể đăng ký nếu sự kiện có hỗ trợ.
-        </Copy>
+        <Copy style={[ui.muted, { fontSize: 12 }]}>Thanh toán vé trả phí hiện chưa khả dụng.</Copy>
       )}
       {choices.available.map((s) => {
         const active = s.id === selected?.id;

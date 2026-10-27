@@ -1,13 +1,16 @@
 import { useLocalSearchParams, router } from 'expo-router';
 import { Button, Card, Heading, QueryState, Screen } from '@/components/ui';
-import { DetailRow, Unavailable, UnavailableAction } from '@/components/detail';
+import { DetailRow, Unavailable } from '@/components/detail';
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import { useBooking } from '@/features/customer/booking/hooks/use-booking';
-import { bookingLabels } from '@/features/customer/booking/booking-presentation';
-import { Disclosure } from '@/components/customer-controls';
+import { bookingLabels, canPay } from '@/features/customer/booking/booking-presentation';
+import { Disclosure, TextAction } from '@/components/customer-controls';
+import { usePaymentAvailability } from '../hooks/use-payment-availability';
 function Content() {
   const { bookingId = '' } = useLocalSearchParams<{ bookingId: string }>();
   const query = useBooking(bookingId);
+  const available = usePaymentAvailability();
+  const resumable = !!query.data && !query.error && canPay(query.data, query.remainingMs);
   return (
     <Screen
       footer={
@@ -31,16 +34,23 @@ function Content() {
         <DetailRow label="Thời điểm nhận tiền" />
       </Disclosure>
       <Unavailable>
-        Chưa thể tải chi tiết từng giao dịch và thời điểm nhận tiền. Không thanh toán lại khi chưa có kết quả
-        xác nhận.
+        Chưa có thông tin chi tiết của từng giao dịch. Trạng thái đơn được cập nhật riêng ở trên.
       </Unavailable>
-      <UnavailableAction
-        label="Thanh toán lại"
-        reason="Chưa có kết quả xác nhận giao dịch thất bại để thanh toán lại."
-      />
-      <Button busy={query.isRefetching} onPress={() => void query.refetch()}>
+      {resumable && (
+        <Button
+          disabled={!available}
+          disabledReason="Thanh toán trực tuyến chưa khả dụng."
+          onPress={() => router.replace({ pathname: '/booking/[bookingId]/payment', params: { bookingId } })}
+        >
+          Tiếp tục thanh toán
+        </Button>
+      )}
+      <Button secondary={resumable} busy={query.isRefetching} onPress={() => void query.refetch()}>
         Kiểm tra trạng thái đơn
       </Button>
+      <TextAction onPress={() => router.push({ pathname: '/support', params: { bookingId } })}>
+        Liên hệ hỗ trợ
+      </TextAction>
     </Screen>
   );
 }

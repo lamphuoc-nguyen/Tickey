@@ -51,10 +51,10 @@ export function useTicket(id: string) {
   const refetch = query.refetch;
   useEffect(() => {
     const listener = AppState.addEventListener('change', (state) => {
-      if (state === 'active' && online && session?.workspace.kind === 'CUSTOMER') void refetch();
+      if (state === 'active' && online && id && session?.workspace.kind === 'CUSTOMER') void refetch();
     });
     return () => listener.remove();
-  }, [refetch, online, session?.workspace.kind]);
+  }, [refetch, online, id, session?.workspace.kind]);
   const download = useMutation({
     mutationFn: async () => {
       if (!session || !query.data || !online) throw new Error('Cần tải vé mới từ máy chủ.');

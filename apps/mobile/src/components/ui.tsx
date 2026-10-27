@@ -2,7 +2,7 @@ import { customerTheme } from '@event/ui-kit';
 import { ApiError } from '@event/core';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useState, type PropsWithChildren } from 'react';
+import { useState, type PropsWithChildren, type Ref } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -53,6 +53,7 @@ export function Button({
       <Pressable
         testID={testID}
         accessibilityRole="button"
+        accessibilityLabel={typeof children === 'string' ? children : undefined}
         accessibilityState={{ disabled: disabled || busy, busy }}
         disabled={disabled || busy}
         onPress={onPress}
@@ -81,12 +82,14 @@ export function Field({
   label,
   error,
   helper,
+  inputRef,
   ...props
-}: TextInputProps & { label: string; error?: string; helper?: string }) {
+}: TextInputProps & { label: string; error?: string; helper?: string; inputRef?: Ref<TextInput> }) {
   return (
     <View style={{ gap: 8 }}>
       <Copy style={ui.label}>{label}</Copy>
       <TextInput
+        ref={inputRef}
         accessibilityLabel={label}
         accessibilityHint={error ?? helper}
         placeholderTextColor={c.muted}
@@ -237,7 +240,7 @@ export const icons = {
   empty: { source: require('../../assets/figma/1-4538-imgFrame2.svg'), size: 44 },
   network: { source: require('../../assets/figma/1-4580-imgFrame2.svg'), size: 44 },
   email: { source: require('../../assets/figma/1-618-imgFrame2.svg'), size: 44 },
-  upload: { source: require('../../assets/figma/151-1603-imgFrame2.svg'), size: 24 },
+  upload: { source: require('../../assets/figma/1-2340-upload.svg'), size: 24 },
 };
 export function Header({
   back = true,
@@ -366,6 +369,7 @@ export function errorMessage(error: unknown): string {
       SEAT_CONFLICT: 'Một số ghế vừa được đặt. Lựa chọn còn lại chưa được giữ chỗ.',
       SOLD_OUT: 'Hạng vé hoặc khu vực đã hết chỗ.',
       LIMIT_EXCEEDED: 'Số vé vượt giới hạn cho phép.',
+      RATE_LIMITED: 'Bạn đã thao tác quá nhanh. Vui lòng chờ một lúc rồi thử lại.',
       SESSION_NOT_ON_SALE: 'Suất diễn hiện không bán vé. Vui lòng chọn suất khác.',
       BOOKING_EXPIRED: 'Đã hết thời gian giữ chỗ. Vui lòng chọn lại.',
       OTP_REQUIRED: 'Bạn cần xác thực OTP trước khi gửi tài khoản nhận hoàn.',
@@ -402,7 +406,7 @@ export function QueryState({
 }) {
   if (loading && !error)
     return (
-      <View style={ui.state}>
+      <View style={[ui.state, compact && { paddingVertical: 20 }]}>
         <ActivityIndicator size="large" color={c.primary} />
         <Copy>Đang tải…</Copy>
       </View>

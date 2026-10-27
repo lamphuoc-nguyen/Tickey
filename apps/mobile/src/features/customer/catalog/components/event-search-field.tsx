@@ -11,11 +11,12 @@ export function EventSearchField({ value, onChange }: { value: string; onChange:
       </View>
       <TextInput
         accessibilityLabel="Tìm sự kiện"
-        placeholder="Tên sự kiện bạn muốn tìm"
+        placeholder="Tên sự kiện"
         placeholderTextColor={c.muted}
         value={value}
         onChangeText={onChange}
         autoCorrect={false}
+        multiline={false}
         returnKeyType="search"
         onSubmitEditing={() => Keyboard.dismiss()}
         style={[ui.body, { flex: 1, minWidth: 0, paddingVertical: 14 }]}

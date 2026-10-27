@@ -1,5 +1,11 @@
 [
   {
+    "node": "1:2340",
+    "constant": "imgFrame",
+    "file": "1-2340-upload.svg",
+    "bytes": 701
+  },
+  {
     "node": "1:722",
     "constant": "imgFrame",
     "file": "1-722-imgFrame.svg",

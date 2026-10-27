@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { bankInputSchema } from '@event/core';
+import { useRef, useState } from 'react';
+import { Keyboard, TextInput } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { ActionFooter, Copy, Field, Heading, Notice, QueryState, Screen, ui } from '@/components/ui';
 import { TextAction } from '@/components/customer-controls';
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import { useRefund } from '@/features/customer/support/hooks/use-support-actions';
 import { useFormDraft } from '@/features/forms/use-form-draft';
+import { validateBankDraft } from '../bank-form';
 function Content() {
   const { refundId = '' } = useLocalSearchParams<{ refundId: string }>();
   const refund = useRefund(refundId);
@@ -15,6 +16,10 @@ function Content() {
     accountHolder: '',
   });
   const [checked, setChecked] = useState(false);
+  const numberInput = useRef<TextInput>(null);
+  const holderInput = useRef<TextInput>(null);
+  const validation = validateBankDraft(draft);
+  const editable = !!refund.data && !refund.error && refund.data.status === 'AWAITING_BANK_INFO';
   const required = refund.data?.status === 'AWAITING_BANK_INFO';
   return (
     <Screen
@@ -30,8 +35,10 @@ function Content() {
           }
           onPress={() => {
             setChecked(true);
-            if (bankInputSchema.safeParse(draft).success)
+            if (validation.result.success) {
+              update(validation.result.data);
               router.push({ pathname: '/refunds/[refundId]/otp', params: { refundId } });
+            }
           }}
         >
           Xác thực OTP
@@ -44,25 +51,38 @@ function Content() {
       <Field
         label="Mã ngân hàng"
         value={draft.bankCode}
+        editable={editable}
         onChangeText={(bankCode) => update({ bankCode })}
         autoCapitalize="characters"
-        error={checked && !draft.bankCode.trim() ? 'Nhập mã ngân hàng.' : undefined}
+        autoCorrect={false}
+        returnKeyType="next"
+        submitBehavior="submit"
+        onSubmitEditing={() => numberInput.current?.focus()}
+        error={checked ? validation.errors.bankCode : undefined}
       />
       <Field
         label="Số tài khoản"
+        inputRef={numberInput}
         value={draft.accountNumber}
+        editable={editable}
         onChangeText={(accountNumber) => update({ accountNumber })}
         keyboardType="number-pad"
-        error={
-          checked && !/^\d{6,20}$/.test(draft.accountNumber) ? 'Số tài khoản cần 6–20 chữ số.' : undefined
-        }
+        returnKeyType="next"
+        submitBehavior="submit"
+        onSubmitEditing={() => holderInput.current?.focus()}
+        error={checked ? validation.errors.accountNumber : undefined}
       />
       <Field
         label="Tên chủ tài khoản"
+        inputRef={holderInput}
         value={draft.accountHolder}
+        editable={editable}
         onChangeText={(accountHolder) => update({ accountHolder })}
         autoCapitalize="characters"
-        error={checked && !draft.accountHolder.trim() ? 'Nhập tên chủ tài khoản.' : undefined}
+        autoCorrect={false}
+        returnKeyType="done"
+        onSubmitEditing={Keyboard.dismiss}
+        error={checked ? validation.errors.accountHolder : undefined}
       />
       {!required && !refund.isPending && !refund.error && (
         <Notice>Yêu cầu hiện không cần bổ sung tài khoản ngân hàng. Thông tin nhập chưa được gửi.</Notice>
