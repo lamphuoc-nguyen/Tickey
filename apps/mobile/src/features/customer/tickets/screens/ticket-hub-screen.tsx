@@ -44,7 +44,7 @@ function Content({ view, bookingId }: { view: OrderView; bookingId?: string }) {
   return (
     <Screen
       back={false}
-      footer={<TabBar current="/orders" />}
+      bottomNavigation={<TabBar current="/orders" />}
       refreshControl={
         <RefreshControl
           refreshing={offlineList ? saved.isRefetching : orders.isRefetching}

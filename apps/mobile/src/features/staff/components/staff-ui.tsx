@@ -1,13 +1,27 @@
 import { Image } from 'expo-image';
 import { router, type Href } from 'expo-router';
 import { PropsWithChildren } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { c, Copy, fonts, Heading, Icon, icons } from '@/components/ui';
+import {
+  FloatingNavigationProvider,
+  useFloatingNavigation,
+} from '@/components/navigation/floating-navigation-context';
+import { FloatingScrollView } from '@/components/navigation/floating-scroll-view';
+import { FloatingNavigationBar } from '@/components/navigation/floating-navigation-bar';
 
 export type StaffTab = 'home' | 'check-in' | 'pos' | 'more';
 
-export function StaffFrame({
+export function StaffFrame({ ...props }: React.ComponentProps<typeof StaffFrameContent>) {
+  return (
+    <FloatingNavigationProvider>
+      <StaffFrameContent {...props} />
+    </FloatingNavigationProvider>
+  );
+}
+
+function StaffFrameContent({
   title,
   subtitle,
   children,
@@ -22,6 +36,7 @@ export function StaffFrame({
   contentStyle?: ViewStyle;
 }>) {
   const insets = useSafeAreaInsets();
+  const { geometry } = useFloatingNavigation();
   return (
     <View style={styles.screen}>
       <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
@@ -56,22 +71,22 @@ export function StaffFrame({
         </View>
       </View>
 
-      <ScrollView
+      <FloatingScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[styles.content, { paddingBottom: 96 + insets.bottom }, contentStyle]}
+        contentContainerStyle={[styles.content, contentStyle, { paddingBottom: geometry.clearance }]}
       >
         <View>
           <Heading>{title}</Heading>
           {subtitle ? <Copy style={styles.subtitle}>{subtitle}</Copy> : null}
         </View>
         {children}
-      </ScrollView>
+      </FloatingScrollView>
       <StaffTabBar active={active} bottomInset={insets.bottom} />
     </View>
   );
 }
 
-export function StaffTabBar({ active, bottomInset }: { active: StaffTab; bottomInset: number }) {
+export function StaffTabBar({ active }: { active: StaffTab; bottomInset?: number }) {
   const tabs: { id: StaffTab; label: string; icon: keyof typeof icons; path: Href }[] = [
     { id: 'home', label: 'Ca làm', icon: 'home', path: '/staff' },
     { id: 'check-in', label: 'Soát vé', icon: 'ticket', path: '/staff/check-in' },
@@ -79,23 +94,15 @@ export function StaffTabBar({ active, bottomInset }: { active: StaffTab; bottomI
     { id: 'more', label: 'Thêm', icon: 'account', path: '/staff/tickets' },
   ];
   return (
-    <View style={[styles.tabBar, { paddingBottom: Math.max(bottomInset, 10) }]}>
-      {tabs.map((tab) => (
-        <Pressable
-          key={tab.id}
-          accessibilityRole="tab"
-          accessibilityLabel={tab.label}
-          accessibilityState={{ selected: active === tab.id }}
-          onPress={() => router.replace(tab.path)}
-          style={styles.tab}
-        >
-          <View style={[styles.tabIcon, active === tab.id && styles.tabIconActive]}>
-            <Icon name={tab.icon} />
-          </View>
-          <Text style={[styles.tabLabel, active === tab.id && styles.tabLabelActive]}>{tab.label}</Text>
-        </Pressable>
-      ))}
-    </View>
+    <FloatingNavigationBar
+      active={active}
+      tabs={tabs.map((tab) => ({
+        id: tab.id,
+        label: tab.label,
+        source: icons[tab.icon].source,
+        onPress: () => router.navigate(tab.path),
+      }))}
+    />
   );
 }
 
@@ -254,22 +261,6 @@ const styles = StyleSheet.create({
   actionCaption: { color: 'rgba(255,255,255,0.78)', fontFamily: fonts.regular, fontSize: 11 },
   actionChevron: { color: 'white', fontSize: 28, fontFamily: fonts.regular },
   pressed: { opacity: 0.82 },
-  tabBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderTopWidth: 1,
-    borderTopColor: c.border,
-    backgroundColor: c.surface,
-    flexDirection: 'row',
-    paddingTop: 8,
-  },
-  tab: { flex: 1, alignItems: 'center', gap: 3 },
-  tabIcon: { width: 50, height: 30, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
-  tabIconActive: { backgroundColor: c.primaryContainer },
-  tabLabel: { color: c.muted, fontFamily: fonts.medium, fontSize: 10 },
-  tabLabelActive: { color: c.primary, fontFamily: fonts.semibold },
 });
 
 export const staffStyles = styles;

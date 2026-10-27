@@ -623,6 +623,34 @@ trong `.github/workflows/ci.yml` (chỉ chữa CI, `git clone && pnpm test` ở 
 
 ---
 
+## F-11: Bottom Navigation cố định và thay màn khi chuyển tab
+
+- Trạng thái: FIXED
+- Phía: frontend
+- Giao cho: claude
+- Mức độ: low
+- Luồng: khác
+- Người phát hiện: Codex, theo yêu cầu trực tiếp của người dùng
+
+### Tái hiện
+1. Ở bản trước thay đổi, mở Home Customer và cuộn nội dung.
+2. Chuyển sang tab khác rồi trở lại Home; navigation dùng replace thay vì giữ scene của tab.
+3. Thanh cố định luôn chiếm vùng hiển thị; người dùng yêu cầu floating, tự ẩn/hiện và cuối cùng chỉ giữ icon cho cả Customer và Staff.
+
+### Kỳ vọng / Thực tế
+Thanh pill dùng chung, giữ vị trí cuộn khi chuyển tab, ẩn xuống/hiện lên theo hướng cuộn và giữ tên cho accessibility dù không hiển thị chữ. Bản cũ dùng footer và router.replace.
+
+### Bằng chứng
+Baseline `f6ccc01`, `apps/mobile/src/components/tab-bar.tsx` gọi `router.replace(tab.path)`. Bản sửa `apps/mobile/src/components/tab-bar.tsx:41` dùng navigate; `apps/mobile/src/components/ui.tsx:341` tách bottomNavigation khỏi action footer; `apps/mobile/src/features/staff/components/staff-ui.tsx:97` dùng bar chung.
+
+### Nguyên nhân và sửa
+Chưa có persistent tab navigator và controller scroll dùng chung. Bổ sung nested Tabs giữ URL, Reanimated controller/ngưỡng 12dp, safe-area, Light/Dark, keyboard/Reduce Motion; bar icon-only cao 60dp. Không sửa nghiệp vụ/quyền, backend hoặc bật Staff demo. Danh sách file và QA: [FLOATING_NAVIGATION.md](../FLOATING_NAVIGATION.md).
+
+### Kiểm thử
+Mobile lint/typecheck qua; 124/124 test, gồm 9 test scroll/geometry và kiểm tra route/Auth/callback/79 frame. Android Expo Go đã smoke bản có nhãn: hide/show, giữ scroll, empty, Light/Dark, gesture navigation; chưa chạy lại native sau bỏ chữ. Chưa iOS/Staff runtime hợp lệ/FPS thiết bị thật. Các kiểm tra workspace trước commit ghi tại tài liệu bàn giao.
+
+---
+
 ## Summary by Severity
 
 | Severity | Count | Bugs |
@@ -630,4 +658,4 @@ trong `.github/workflows/ci.yml` (chỉ chữa CI, `git clone && pnpm test` ở 
 | Nghiêm trọng (Critical) | 0 | — |
 | Cao (High) | 2 | F-04, F-10 |
 | Trung bình (Medium) | 2 | F-07, F-08 |
-| Thấp (Low) | 6 | F-01, F-02, F-03, F-05, F-06, F-09 |
+| Thấp (Low) | 7 | F-01, F-02, F-03, F-05, F-06, F-09, F-11 |

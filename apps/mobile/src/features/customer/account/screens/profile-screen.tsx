@@ -10,7 +10,7 @@ function Content() {
   const profile = useProfile(),
     actions = useAuthActions();
   return (
-    <Screen back={false} footer={<TabBar current="/profile" />}>
+    <Screen back={false} bottomNavigation={<TabBar current="/profile" />}>
       <Heading>Tài khoản</Heading>
       <QueryState loading={profile.isPending} error={profile.error} retry={() => void profile.refetch()} />
       <ProfileIdentity profile={profile.data} />

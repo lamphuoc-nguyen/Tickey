@@ -28,7 +28,7 @@ export default function HomeScreen() {
   return (
     <Screen
       back={false}
-      footer={<TabBar current="/" />}
+      bottomNavigation={<TabBar current="/" />}
       refreshControl={
         <RefreshControl
           refreshing={events.isRefetching || featured.isRefetching || categories.isRefetching}
