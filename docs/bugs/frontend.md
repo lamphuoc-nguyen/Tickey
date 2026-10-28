@@ -647,7 +647,7 @@ Baseline `f6ccc01`, `apps/mobile/src/components/tab-bar.tsx` gọi `router.repla
 Chưa có persistent tab navigator và controller scroll dùng chung. Bổ sung nested Tabs giữ URL, Reanimated controller/ngưỡng 12dp, safe-area, Light/Dark, keyboard/Reduce Motion; bar icon-only cao 60dp. Không sửa nghiệp vụ/quyền, backend hoặc bật Staff demo. Danh sách file và QA: [FLOATING_NAVIGATION.md](../FLOATING_NAVIGATION.md).
 
 ### Kiểm thử
-Mobile lint/typecheck qua; 124/124 test, gồm 9 test scroll/geometry và kiểm tra route/Auth/callback/79 frame. Android Expo Go đã smoke bản có nhãn: hide/show, giữ scroll, empty, Light/Dark, gesture navigation; chưa chạy lại native sau bỏ chữ. Chưa iOS/Staff runtime hợp lệ/FPS thiết bị thật. Các kiểm tra workspace trước commit ghi tại tài liệu bàn giao.
+Mobile lint/typecheck qua; 124/124 test, gồm 9 test scroll/geometry và kiểm tra route/Auth/callback/79 frame. Android Expo Go đã smoke bản có nhãn: hide/show, giữ scroll, empty, Light/Dark, gesture navigation; chưa chạy lại native sau bỏ chữ. Chưa iOS/Staff runtime hợp lệ/FPS thiết bị thật. Các kiểm tra workspace trước commit ghi tại tài liệu bàn giao. Bổ sung tiếp: slide ngang 280ms theo thứ tự tab, theo dõi Reduce Motion; giữ state/URL. Mobile lint/typecheck, 124 test và Android export qua. Đã mở icon-only trên Android, chụp frame chuyển cảnh và xác nhận Home giữ scroll; chi tiết tại FLOATING_NAVIGATION.md.
 
 ---
 

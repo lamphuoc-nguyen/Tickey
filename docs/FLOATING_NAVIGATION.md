@@ -2,7 +2,7 @@
 
 Phạm vi được người dùng duyệt: cả hai giao diện trong một Expo app, giữ URL/tab/icon/quyền và nghiệp vụ. Chưa có ảnh tham khảo đính kèm trong lượt này; thực hiện theo mô tả floating pill, translucent, active capsule, scroll hide/show. Không bật Staff demo hoặc tạo dữ liệu nghiệp vụ để kiểm tra.
 
-Cập nhật theo yêu cầu tiếp theo: bỏ nhãn chữ hiển thị trên cả Customer và Staff, chỉ giữ icon căn giữa; thanh cao 60dp, vùng chạm mỗi tab vẫn tối thiểu 44×48dp. Tên tab còn trong accessibilityLabel và navigation metadata. Lint/typecheck qua, Vitest 124/124 sau bỏ test chiều cao cho nhãn chữ không còn áp dụng. Chưa chạy lại native sau lần đổi sang icon-only; ảnh và kiểm tra native bên dưới ghi nhận bản có nhãn trước đó.
+Cập nhật theo yêu cầu tiếp theo: bỏ nhãn chữ hiển thị trên cả Customer và Staff, chỉ giữ icon căn giữa; thanh cao 60dp, vùng chạm mỗi tab vẫn tối thiểu 44×48dp. Tên tab còn trong accessibilityLabel và navigation metadata. Lint/typecheck qua, Vitest 124/124 sau bỏ test chiều cao cho nhãn chữ không còn áp dụng. Bản icon-only đã mở lại trên Android trong lần bổ sung chuyển cảnh ở cuối tài liệu; bảng QA floating ban đầu bên dưới vẫn ghi nhận bản có nhãn trước đó.
 
 ## Kế hoạch
 
@@ -30,7 +30,7 @@ Nguồn API đối chiếu với code đã cài và [Reanimated scroll handler](
 - `FloatingNavigationBar`: pill cao 60dp, cách hai bên 16dp, đáy `safeArea.bottom + 12dp`, icon 24dp, target tối thiểu 44×48dp; active capsule trượt giữa bốn vị trí. Chỉ hiển thị icon; giữ tên cho trình đọc màn hình. Có tab accessibility role/label/selected; lúc hidden bỏ hit testing và ẩn các tab khỏi accessibility tree.
 - Hide 250ms, show 290ms, ease-out cubic; translateY bằng chiều cao + khoảng đáy + 40dp để cả shadow rời viewport, đồng thời opacity về 0. Animation dùng Reanimated trên UI thread và `ReduceMotion.System`. Keyboard mở ẩn bar, đóng hiện lại; không đổi layout hoặc padding theo progress nên nội dung không giật do thanh ẩn/hiện.
 - Surface/tint tự theo system Light/Dark. iOS dùng GlassView khi cả hai availability check cho phép và Reduce Transparency đang tắt; nền tảng khác dùng nền translucent. Chưa thêm blur library hoặc hứa có blur native trên Android.
-- `PersistentTabLayout`: lazy Tabs, freeze background scene, không animation chuyển screen; `router.navigate` thay cho replace khi bấm tab. Tab state gắn với account/workspace; đổi scope unmount scene để không giữ UI riêng tư của scope cũ. Giữ một AuthProvider và QueryClientProvider hiện có. Không đổi role, workspace contract, callback scheme hay API.
+- `PersistentTabLayout`: lazy Tabs, freeze background scene, chuyển cảnh trượt ngang 280ms; `router.navigate` thay cho replace khi bấm tab. Tab state gắn với account/workspace; đổi scope unmount scene để không giữ UI riêng tư của scope cũ. Giữ một AuthProvider và QueryClientProvider hiện có. Không đổi role, workspace contract, callback scheme hay API.
 - `Screen` chỉ bọc controller nếu có `bottomNavigation`; `StaffFrame` dùng cùng controller/bar. Nội dung chừa khoảng đáy bằng bar + inset + gap + 16dp, không che mục cuối. Các fixed action footer/modal/horizontal scroll giữ nguyên.
 
 ## File/module
@@ -91,3 +91,15 @@ Theo yêu cầu tiếp theo của người dùng, commit/push trên `giaunh-cusm
 - `dotnet build --configuration Release backend/EventPlatform.sln`: qua, 0 warning/error.
 - `git diff --check`: qua. Đối chiếu tám route chuyển thư mục: nội dung giữ nguyên, gồm wrappers Staff đang có.
 - Docker image và pgTAP: chưa chạy local do chưa cài Docker/Supabase CLI; không chạy lên hosted project. Kết quả trên không phải xác nhận các job GitHub Actions đã chạy.
+
+## Bổ sung chuyển cảnh giữa tab (28/10/2026)
+
+Theo yêu cầu tiếp theo, PersistentTabLayout dùng animation shift và sceneStyleInterpolator của Tabs hiện có: progress -1/0/1 thành translateX -width/0/width. Chọn tab ở bên phải thì scene mới từ phải vào; quay về bên trái thì từ trái vào. Timing 280ms, ease-out cubic, chiều rộng cập nhật theo cửa sổ và clamp biên. Bar hiện nằm trong screen nên đi cùng scene khi chuyển cảnh.
+
+Navigator Expo Router 57.0.25 dùng RN Animated native driver trên Android/iOS (đã đọc implementation đang cài). Không thêm navigator/dependency hoặc listener JS từng frame. Motion của bar/capsule vẫn dùng Reanimated. Đọc Reduce Motion trước khi bật animation, theo dõi reduceMotionChanged và cleanup; khi bật/chưa đọc được preference dùng duration 0 / animation none. Không đổi key, URL, thứ tự tab hoặc remount scene vì animation.
+
+Kiểm tra mới: Mobile lint/typecheck qua, Vitest 124/124; Android Hermes export 2.769 modules / 62 assets qua. Android Expo Go / Pixel_5 Android 36 mở icon-only Home và thông báo thật rỗng; chuyển qua lại, chụp được frame scene bên phải đi vào. Home sau cuộn giữ nguyên bounds tiêu đề trước/sau đổi tab [55,510][1025,579]. Thử Reduce Motion bằng animator_duration_scale=0 rồi chuyển Home/Thông báo, không thấy ReactNativeJS/AndroidRuntime error; đã khôi phục setting về trạng thái ban đầu. Không xem screenshot cuối chuyển cảnh là bằng chứng FPS.
+
+Máy ảo có System UI ANR lúc khởi động; đã chọn Wait trước kiểm tra app. Chưa kiểm tra iOS, Staff với phiên hợp lệ hoặc FPS release/device. Ảnh/XML tại .expo/tab-slide-qa (ignored). Các tiến trình API/Metro/emulator do QA mở đã dừng. Không sửa backend, bật demo hoặc ghi dữ liệu nghiệp vụ production.
+
+Nguồn đối chiếu: [React Navigation tab animations](https://reactnavigation.org/docs/bottom-tab-navigator/#animations) và code navigator được bundle trong Expo Router đang cài.
