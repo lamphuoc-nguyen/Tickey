@@ -55,7 +55,15 @@ describe('single mobile app migration contracts', () => {
         '/auth/login',
         '/auth/callback',
         '/payment-result',
+        '/orders',
+        '/notifications',
+        '/profile',
+        '/profile/edit',
+        '/profile/preferences',
         '/staff',
+        '/staff/check-in',
+        '/staff/pos',
+        '/staff/tickets',
         '/staff/workspaces',
       ]),
     );
@@ -82,12 +90,19 @@ describe('single mobile app migration contracts', () => {
     }
   });
   it('removes prototype role switches and uses role resolution after authentication', () => {
-    const profile = readFileSync(join(mobile, 'src/features/customer/account/screens/profile-screen.tsx'), 'utf-8');
+    const profile = readFileSync(
+      join(mobile, 'src/features/customer/account/screens/profile-screen.tsx'),
+      'utf-8',
+    );
     const staff = readFileSync(join(mobile, 'src/features/staff/screens/staff-entry-screen.tsx'), 'utf-8');
     expect(profile).not.toContain("router.push('/staff')");
     expect(profile).not.toContain("router.push('/workspaces')");
     expect(staff).not.toContain("router.replace('/')");
-    expect(readFileSync(join(mobile, 'src/features/auth/screens/auth-screen.tsx'), 'utf-8')).toContain("pathname: '/workspaces'");
-    expect(readFileSync(join(mobile, 'src/features/auth/hooks/use-auth-callback.ts'), 'utf-8')).toContain("'/auth/reset' : '/workspaces'");
+    expect(readFileSync(join(mobile, 'src/features/auth/screens/auth-screen.tsx'), 'utf-8')).toContain(
+      "pathname: '/workspaces'",
+    );
+    expect(readFileSync(join(mobile, 'src/features/auth/hooks/use-auth-callback.ts'), 'utf-8')).toContain(
+      "'/auth/reset' : '/workspaces'",
+    );
   });
 });

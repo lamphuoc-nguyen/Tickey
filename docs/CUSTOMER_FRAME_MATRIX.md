@@ -1,5 +1,7 @@
 # Customer/Auth — bảng đối chiếu từng frame
 
+Floating navigation: Home `/`, Vé của tôi `/orders`, Thông báo `/notifications`, Tài khoản `/profile` chuyển nội bộ vào `(customer)/(tabs)`, giữ nguyên URL và toàn bộ 79 ID/frame dưới đây. Màn chi tiết/Auth/checkout không nhận auto-hide. Kết quả QA của thay đổi thanh điều hướng ở [FLOATING_NAVIGATION.md](FLOATING_NAVIGATION.md); không thay thế tình trạng kiểm chứng nghiệp vụ của từng frame.
+
 Cập nhật UX cho người dùng lần đầu: Home, ngày giờ, checkout và màn Vé của tôi chung; xem [phạm vi và kiểm chứng](CUSTOMER_FIRST_USE_UX.md). Các thay đổi theo yêu cầu người dùng, giữ nguyên 79 frame gốc.
 
 Cập nhật theo yêu cầu UX mới: bỏ nhập tên từng người, dùng người mua từ tài khoản, một vùng QR theo đơn. Các frame holder/next-ticket vẫn giữ ID gốc để đối chiếu nhưng không còn là bước trong flow Customer; xem [bàn giao UI vé theo đơn](CUSTOMER_GROUP_ADMISSION_UI.md). Đây là thay đổi được người dùng duyệt, không sửa Figma hay backend.

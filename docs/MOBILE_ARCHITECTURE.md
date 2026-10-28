@@ -23,6 +23,8 @@ packages/{core,ui_kit,seat_map}/      repository/client/model và UI/renderer d�
 
 Route groups không thêm URL prefix. Customer giữ URL cũ; Staff có segment thật `/staff`. Test cấu trúc kiểm tra không có hai route cùng URL, một Auth/Query provider và đủ 79 frame mapping còn trỏ tới route tồn tại. Route mỏng; Screen → Hook → core repository/API client → Server. Chỉ core import SDK Supabase.
 
+Bottom navigation mới dùng nested `(tabs)` tại `(customer)/(tabs)` và `(staff)/staff/(tabs)`, bên trong Stack/guard cũ. Bốn root tab mỗi giao diện giữ URL, icon và nhãn; trang chi tiết vẫn ở Stack ngoài Tabs. Navigator giữ screen/scroll khi đổi tab và reset scene theo account/workspace. Controller floating chỉ được tạo trên màn có bar; không thêm Auth/Query provider hay bật Staff demo. Cơ chế, danh sách file và giới hạn kiểm chứng ở [FLOATING_NAVIGATION.md](FLOATING_NAVIGATION.md).
+
 ## Những gì đã chuyển và lựa chọn cấu hình
 
 | Nguồn trước migration | Đích / xử lý |

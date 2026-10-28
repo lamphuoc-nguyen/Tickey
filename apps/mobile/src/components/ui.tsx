@@ -19,6 +19,11 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  FloatingNavigationProvider,
+  useOptionalFloatingNavigation,
+} from './navigation/floating-navigation-context';
+import { FloatingScrollView } from './navigation/floating-scroll-view';
 
 export const c = customerTheme.colors;
 export const fonts = customerTheme.fonts;
@@ -277,25 +282,39 @@ export function Header({
     </View>
   );
 }
-export function Screen({
-  children,
-  footer,
-  back = true,
-  navigationEnabled = true,
-  scroll = true,
-  refreshControl,
-  contentStyle,
-  label,
-}: PropsWithChildren<{
+type ScreenProps = PropsWithChildren<{
   footer?: React.ReactNode;
+  bottomNavigation?: React.ReactNode;
   label?: string;
   back?: boolean;
   navigationEnabled?: boolean;
   scroll?: boolean;
   refreshControl?: React.ComponentProps<typeof ScrollView>['refreshControl'];
   contentStyle?: ViewStyle;
-}>) {
+}>;
+export function Screen(props: ScreenProps) {
+  return props.bottomNavigation ? (
+    <FloatingNavigationProvider>
+      <ScreenContent {...props} />
+    </FloatingNavigationProvider>
+  ) : (
+    <ScreenContent {...props} />
+  );
+}
+function ScreenContent({
+  children,
+  footer,
+  bottomNavigation,
+  back = true,
+  navigationEnabled = true,
+  scroll = true,
+  refreshControl,
+  contentStyle,
+  label,
+}: ScreenProps) {
   const insets = useSafeAreaInsets();
+  const floating = useOptionalFloatingNavigation();
+  const ContentScrollView = floating ? FloatingScrollView : ScrollView;
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
@@ -303,21 +322,23 @@ export function Screen({
     >
       <Header back={back} navigationEnabled={navigationEnabled} label={label} />
       {scroll ? (
-        <ScrollView
+        <ContentScrollView
           keyboardShouldPersistTaps="handled"
           refreshControl={refreshControl}
           contentContainerStyle={[
             ui.content,
             !footer && { paddingBottom: Math.max(insets.bottom, 24) },
             contentStyle,
+            floating && { paddingBottom: floating.geometry.clearance },
           ]}
         >
           {children}
-        </ScrollView>
+        </ContentScrollView>
       ) : (
         <View style={{ flex: 1 }}>{children}</View>
       )}
       {footer && <View style={[ui.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>{footer}</View>}
+      {bottomNavigation}
     </KeyboardAvoidingView>
   );
 }

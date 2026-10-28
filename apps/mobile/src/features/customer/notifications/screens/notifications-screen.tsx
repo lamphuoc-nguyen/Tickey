@@ -15,7 +15,7 @@ function Content() {
   return (
     <Screen
       back={false}
-      footer={<TabBar current="/notifications" />}
+      bottomNavigation={<TabBar current="/notifications" />}
       refreshControl={
         <RefreshControl refreshing={query.isRefetching} onRefresh={() => void query.refetch()} />
       }

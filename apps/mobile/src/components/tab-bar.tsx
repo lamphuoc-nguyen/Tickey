@@ -1,7 +1,6 @@
-import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { Pressable, View } from 'react-native';
-import { Copy, c, fonts, icons } from './ui';
+import { icons } from './ui';
+import { FloatingNavigationBar } from './navigation/floating-navigation-bar';
 
 const tabs = [
   {
@@ -32,51 +31,15 @@ const tabs = [
 ];
 export function TabBar({ current }: { current: (typeof tabs)[number]['path'] }) {
   return (
-    <View style={{ flexDirection: 'row', marginHorizontal: -15, marginTop: -8 }}>
-      {tabs.map((tab) => (
-        <Pressable
-          key={tab.path}
-          accessibilityRole="tab"
-          accessibilityLabel={tab.label}
-          accessibilityState={{ selected: current === tab.path }}
-          onPress={() => router.replace(tab.path)}
-          style={{ flex: 1, minHeight: 64, alignItems: 'center', gap: 3, paddingTop: 0 }}
-        >
-          <View
-            style={{
-              backgroundColor: current === tab.path ? c.primaryContainer : 'transparent',
-              borderRadius: 999,
-              width: 56,
-              height: 32,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Image
-              source={
-                current === tab.path
-                  ? (tab.active ?? icons[tab.icon].source)
-                  : 'inactive' in tab
-                    ? tab.inactive
-                    : icons[tab.icon].source
-              }
-              style={{ width: 24, height: 24 }}
-              contentFit="contain"
-            />
-          </View>
-          <Copy
-            style={{
-              fontFamily: fonts.medium,
-              color: current === tab.path ? c.primary : '#6F5C58',
-              fontSize: 11,
-              lineHeight: 16,
-              textAlign: 'center',
-            }}
-          >
-            {tab.label}
-          </Copy>
-        </Pressable>
-      ))}
-    </View>
+    <FloatingNavigationBar
+      active={current}
+      tabs={tabs.map((tab) => ({
+        id: tab.path,
+        label: tab.label,
+        source: 'inactive' in tab ? tab.inactive : icons[tab.icon].source,
+        activeSource: tab.active,
+        onPress: () => router.navigate(tab.path),
+      }))}
+    />
   );
 }
