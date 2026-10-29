@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
-import { Button, Heading, QueryState, Screen } from '@/components/ui';
+import { Button, Heading, QueryState } from '@/components/ui';
+import { CustomerBrowseScreen } from '@/components/customer-browse-screen';
 import { MenuGroup, MenuRow } from '@/components/customer-controls';
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import { useReports } from '@/features/customer/account/hooks/use-customer-data';
@@ -8,7 +9,7 @@ function Content() {
   const query = useReports();
   const reports = query.data?.pages.flat() ?? [];
   return (
-    <Screen>
+    <CustomerBrowseScreen tab="/profile">
       <Heading>Phản ánh của tôi</Heading>
       <QueryState
         loading={query.isPending}
@@ -34,7 +35,7 @@ function Content() {
         </Button>
       )}
       <Button onPress={() => router.push('/tickets')}>Chọn vé để gửi phản ánh</Button>
-    </Screen>
+    </CustomerBrowseScreen>
   );
 }
 export default function ReportsScreen() {

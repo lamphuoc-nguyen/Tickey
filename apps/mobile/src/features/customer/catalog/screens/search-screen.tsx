@@ -2,7 +2,8 @@ import { useEffect } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Disclosure, TextAction } from '@/components/customer-controls';
-import { Button, Copy, Heading, QueryState, Screen, c, ui } from '@/components/ui';
+import { Button, Copy, Heading, QueryState, c, ui } from '@/components/ui';
+import { CustomerBrowseScreen } from '@/components/customer-browse-screen';
 import { useCategories, useEvents } from '../hooks/use-catalog';
 import { EventCard } from '../components/event-card';
 import { EventSearchField } from '../components/event-search-field';
@@ -22,7 +23,7 @@ export default function SearchScreen() {
     categories = useCategories();
   const events = query.data?.pages.flat() ?? [];
   return (
-    <Screen>
+    <CustomerBrowseScreen tab="/">
       <Heading>Tìm sự kiện</Heading>
       <EventSearchField
         value={draft.text}
@@ -90,6 +91,6 @@ export default function SearchScreen() {
           Xem thêm sự kiện
         </Button>
       )}
-    </Screen>
+    </CustomerBrowseScreen>
   );
 }

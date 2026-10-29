@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Button, Card, Copy, Heading, Notice, QueryState, Screen, ui } from '@/components/ui';
+import { TabBar } from '@/components/tab-bar';
 import { TextAction } from '@/components/customer-controls';
 import { BuyerInfo } from '@/features/customer/booking/components/buyer-info';
 import { useConnection, useOfflineTickets } from '../hooks/use-ticket';
@@ -16,7 +17,7 @@ function OfflineContent({ bookingId }: { bookingId?: string }) {
     (group) => !bookingId || group.bookingId === bookingId,
   );
   return (
-    <Screen>
+    <Screen bottomNavigation={!bookingId ? <TabBar current="/orders" /> : undefined}>
       <Heading>Vé đã lưu</Heading>
       {!groups.some((group) => group.bookingId === id) && (
         <Notice warning>Bản lưu trên thiết bị. Kết nối mạng để kiểm tra hiệu lực và lượt vào cổng.</Notice>
@@ -34,7 +35,11 @@ function OfflineContent({ bookingId }: { bookingId?: string }) {
           <Copy style={ui.muted}>{group.tickets.length} chỗ đã lưu</Copy>
           <TextAction
             expanded={id === group.bookingId}
-            onPress={() => setId((current) => (current === group.bookingId ? null : group.bookingId))}
+            onPress={() => {
+              if (!bookingId)
+                router.push({ pathname: '/tickets/offline', params: { bookingId: group.bookingId } });
+              else setId((current) => (current === group.bookingId ? null : group.bookingId));
+            }}
           >
             {id === group.bookingId ? 'Thu gọn vé của đơn' : 'Xem vé của đơn'}
           </TextAction>

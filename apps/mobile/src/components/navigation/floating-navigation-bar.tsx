@@ -29,6 +29,7 @@ export type FloatingTab = {
   source: ImageSourcePropType;
   activeSource?: ImageSourcePropType;
   onPress: () => void;
+  onReselect?: () => void;
 };
 
 function supportsGlass() {
@@ -161,7 +162,8 @@ export function FloatingNavigationBar({ tabs, active }: { tabs: readonly Floatin
               onPress={() => {
                 Keyboard.dismiss();
                 show();
-                if (!selected) tab.onPress();
+                if (selected) tab.onReselect?.();
+                else tab.onPress();
               }}
               style={({ pressed }) => [styles.tab, pressed && { opacity: 0.65 }]}
             >

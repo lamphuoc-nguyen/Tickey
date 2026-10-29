@@ -651,6 +651,42 @@ Mobile lint/typecheck qua; 124/124 test, gồm 9 test scroll/geometry và kiểm
 
 ---
 
+### Điều chỉnh theo phản hồi 29/10/2026
+Người dùng yêu cầu chỉ ẩn theo scroll xuống, không ẩn do đổi tab. Controller cũ đưa progress về 0 khi mất focus nên outgoing scene mất bar giữa slide. Đã tách navigationVisibilityTransition: blur giữ progress, focus hiện ngay; scroll mới animate, giữ ngoại lệ keyboard. Bốn regression tests mới qua; Mobile lint/typecheck và 131 tests qua. Android Home → Thông báo → Home giữ bốn icon sau chuyển tab. Chưa iOS/Staff runtime hoặc đo FPS. Chi tiết tại FLOATING_NAVIGATION.md; không ghi production.
+
+Phản hồi tiếp: Home cuộn thật nhưng scroll range nhỏ hơn padding bar bị reducer/layout reaction coi là trang ngắn nên luôn show. Đã bỏ trừ reservedBottom; chỉ ép show với trang không có scroll range thật. Regression Home 870/745dp qua. Mobile lint/typecheck và 132 test qua; Android Home top có 4 tab, scroll xuống 0 tab/capsule ngoài viewport, scroll ngược 4 tab khi chưa về đầu. Bằng chứng .expo/home-bar-scroll ignored; chưa iOS/Staff runtime.
+
+Mở rộng được duyệt tiếp theo: thêm bar chung trên Search/Event/Venue, offline list và refund/report/support list; form hỗ trợ tách `/support/new`, giữ bookingId/draft. Chạm icon đang chọn ở trang con về root. Phát hiện action footer chừa khoảng đáy cố định khiến Đặt vé đứng cao sau hide; sửa FloatingActionFooter overlay theo shared progress, không relayout viewport từng frame. Native action dịch xuống 242px khi bar ẩn và trở lại khi hiện. Mobile lint/typecheck, 137 tests qua; đã QA list empty thật, reselect và nháp form; chưa submit/write hoặc offline ticket runtime do chưa có bản tải. Chi tiết tại FLOATING_NAVIGATION.md.
+
+## F-12: Mobile REST timeout trước khi backend Render khởi động xong
+
+- Trạng thái: FIXED
+- Phía: frontend
+- Giao cho: claude
+- Mức độ: low
+- Luồng: tìm suất
+- Người phát hiện: Codex, theo báo lỗi của người dùng
+
+### Tái hiện
+1. Cấu hình Mobile tới https://tickey-api.onrender.com và mở Home khi backend đang ngủ.
+2. Request REST có timeout mặc định 20 giây; backend có thể cần lâu hơn để phản hồi lần đầu.
+3. Home báo kết nối quá thời gian dù server sau đó hoạt động bình thường.
+
+### Kỳ vọng / Thực tế
+Cho phép chờ backend Render khởi động nhưng vẫn có giới hạn chờ, hủy request khi rời màn và hiển thị retry nếu không phản hồi. Không tự gửi lại giao dịch hay thay dữ liệu lỗi bằng fixture.
+
+### Bằng chứng và sửa
+Đọc code HttpClient: timeout mặc định 20.000ms, tham số thứ ba cho phép cấu hình riêng. Lần kiểm tra trước ghi nhận health deploy trả 200 sau 22,6 giây. Khi người dùng báo lại, bundle Android đang được Metro 8081 phục vụ đã chứa đúng URL deploy; Home vẫn giữ error state cũ. Sau reload hoàn toàn, Android đã tải danh mục và sự kiện thật.
+
+Chỉ sửa apps/mobile: api-timeout.ts chọn 90.000ms cho HTTPS host có hậu tố .onrender.com, các host khác vẫn 20.000ms. repositories.ts truyền timeout này vào HttpClient hiện có. Giữ nguyên core, Portal, API/contract và payment implementation; không tự retry mutation. File .env.local đã chỉnh riêng API URL theo người dùng xác nhận, không track hoặc sao chép khóa. Không in secret hay sửa dữ liệu production.
+
+### Kiểm thử
+Mobile lint/typecheck qua, 34 file / 127 test qua. Ba test mới kiểm tra phân loại host, REST phản hồi ở giây 45 vẫn thành công và request treo bị hủy tại giây 90 với lỗi REQUEST_TIMEOUT. Fixtures chỉ ở unit tests.
+
+Android Expo Go trên emulator-5554: đọc được màn Home đang timeout, kiểm tra URL trong bundle, Reload qua menu Expo rồi quan sát Home có danh mục/sự kiện thật và không còn thông báo timeout. Không tạo booking/payment hoặc thay đổi tài khoản. Không ép backend production ngủ để kiểm chứng cold start; nhánh phản hồi chậm được kiểm bằng fake timers, không tuyên bố đã chạy cold-start E2E native. Không dừng Metro/thiết bị do người dùng đang chạy.
+
+---
+
 ## Summary by Severity
 
 | Severity | Count | Bugs |
@@ -658,4 +694,4 @@ Mobile lint/typecheck qua; 124/124 test, gồm 9 test scroll/geometry và kiểm
 | Nghiêm trọng (Critical) | 0 | — |
 | Cao (High) | 2 | F-04, F-10 |
 | Trung bình (Medium) | 2 | F-07, F-08 |
-| Thấp (Low) | 7 | F-01, F-02, F-03, F-05, F-06, F-09, F-11 |
+| Thấp (Low) | 8 | F-01, F-02, F-03, F-05, F-06, F-09, F-11, F-12 |

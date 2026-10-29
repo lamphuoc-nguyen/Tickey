@@ -25,6 +25,8 @@ Route groups không thêm URL prefix. Customer giữ URL cũ; Staff có segment 
 
 Bottom navigation mới dùng nested `(tabs)` tại `(customer)/(tabs)` và `(staff)/staff/(tabs)`, bên trong Stack/guard cũ. Bốn root tab mỗi giao diện giữ URL, icon và nhãn; trang chi tiết vẫn ở Stack ngoài Tabs. Navigator giữ screen/scroll khi đổi tab và reset scene theo account/workspace. Controller floating chỉ được tạo trên màn có bar; không thêm Auth/Query provider hay bật Staff demo. Cơ chế, danh sách file và giới hạn kiểm chứng ở [FLOATING_NAVIGATION.md](FLOATING_NAVIGATION.md).
 
+Mở rộng theo UX được duyệt 29/10: CustomerBrowseScreen dùng lại bar trên Search/Event/Venue và các list Offline/Refund/Report/Support trong Stack hiện có, không thêm root tab. Support list `/support` tách form `/support/new`; link theo bookingId vẫn giữ context. Action footer của trang duyệt chuyển động cùng progress bar, còn form/checkout/QR giữ giao diện riêng. Xem bảng phạm vi và QA trong FLOATING_NAVIGATION.md.
+
 ## Những gì đã chuyển và lựa chọn cấu hình
 
 | Nguồn trước migration | Đích / xử lý |

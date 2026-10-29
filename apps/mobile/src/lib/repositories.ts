@@ -10,11 +10,16 @@ import {
   SupabaseWorkspaceRepository,
 } from '@event/core';
 import { getSupabase } from './supabase';
+import { apiRequestTimeout } from './api-timeout';
 
 // Screens and hooks talk to the server only through these (MT §9.1, §21.1).
 function createRepositories() {
   const client = getSupabase();
-  const http = new HttpClient(process.env.EXPO_PUBLIC_API_URL, client);
+  const http = new HttpClient(
+    process.env.EXPO_PUBLIC_API_URL,
+    client,
+    apiRequestTimeout(process.env.EXPO_PUBLIC_API_URL),
+  );
   return {
     http,
     catalog: new HttpCatalogRepository(http),
