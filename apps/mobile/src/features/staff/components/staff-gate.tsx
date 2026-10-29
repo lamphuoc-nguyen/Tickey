@@ -58,10 +58,20 @@ export function StaffGate({ children }: PropsWithChildren) {
         </>
       )}
       {access === 'unauthenticated' ? (
-        <Button secondary onPress={() => router.replace('/')}>Khám phá sự kiện</Button>
+        <Button secondary onPress={() => router.replace('/')}>
+          Khám phá sự kiện
+        </Button>
       ) : auth.session ? (
-        <Button secondary busy={actions.logout.isPending}
-          onPress={() => void actions.logout.mutateAsync().then(() => router.replace('/auth/login')).catch(() => {})}>
+        <Button
+          secondary
+          busy={actions.logout.isPending}
+          onPress={() =>
+            void actions.logout
+              .mutateAsync()
+              .then(() => router.replace('/auth/login'))
+              .catch(() => {})
+          }
+        >
           Đăng xuất
         </Button>
       ) : null}
