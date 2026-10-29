@@ -24,7 +24,10 @@ export default function StaffEventScreen() {
             accessibilityRole="radio"
             accessibilityState={{ checked: active }}
             onPress={() =>
-              router.replace({ pathname: '/staff', params: { sessionId: shift.sessionId, assignmentId: shift.id } })
+              router.replace({
+                pathname: '/staff',
+                params: { sessionId: shift.sessionId, assignmentId: shift.id },
+              })
             }
           >
             <StaffCard style={active ? styles.selected : undefined}>
@@ -37,7 +40,9 @@ export default function StaffEventScreen() {
               </View>
               <View style={styles.metaRow}>
                 <Text style={styles.meta}>
-                  {shift.session ? formatSessionTime(shift.session.startsAt, shift.session.venue?.timezone) : 'Chưa có suất'}
+                  {shift.session
+                    ? formatSessionTime(shift.session.startsAt, shift.session.venue?.timezone)
+                    : 'Chưa có suất'}
                 </Text>
                 <Text style={styles.meta}>{shift.gate?.name ?? 'Mọi cổng'}</Text>
               </View>
@@ -53,7 +58,9 @@ export default function StaffEventScreen() {
       {!query.isPending && !shifts.length ? (
         <StaffCard>
           <Text style={styles.title}>Chưa có assignment</Text>
-          <Copy style={styles.muted}>Người quản lý cần phân công session, gate và permission cho tài khoản này.</Copy>
+          <Copy style={styles.muted}>
+            Người quản lý cần phân công session, gate và permission cho tài khoản này.
+          </Copy>
         </StaffCard>
       ) : null}
     </StaffFrame>

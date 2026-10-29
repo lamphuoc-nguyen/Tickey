@@ -124,7 +124,11 @@ function StaffLanding() {
             onPress={() => setSelectedId(shift.id)}
             style={[
               ui.card,
-              { padding: 8, backgroundColor: active ? c.tint : c.surface, borderColor: active ? c.accent : c.border },
+              {
+                padding: 8,
+                backgroundColor: active ? c.tint : c.surface,
+                borderColor: active ? c.accent : c.border,
+              },
             ]}
           >
             {cover ? (
@@ -147,9 +151,7 @@ function StaffLanding() {
                 {gateName(shift)}
               </Copy>
               <Copy style={{ fontSize: 11, color: phase === 'ACTIVE' ? c.accent : c.muted }}>
-                {phase === 'ACTIVE'
-                  ? 'Đang trong ca'
-                  : `Ca bắt đầu ${shiftTime(shift, shift.validFrom)}`}
+                {phase === 'ACTIVE' ? 'Đang trong ca' : `Ca bắt đầu ${shiftTime(shift, shift.validFrom)}`}
                 {' · '}
                 {shift.permissions.map((permission) => permissionNames[permission] ?? permission).join(', ')}
               </Copy>
