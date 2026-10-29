@@ -37,6 +37,9 @@ export function getRepositories() {
   return (instance ??= createRepositories());
 }
 export const repositories = {
+  get http() {
+    return getRepositories().http;
+  },
   get catalog() {
     return getRepositories().catalog;
   },
