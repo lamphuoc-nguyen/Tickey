@@ -7,7 +7,9 @@ import { repositories } from '@/lib/repositories';
 
 const deviceSchema = z.object({
   device_id: z.string(),
-  public_keys: z.array(z.object({ kid: z.string(), public_key: z.string(), status: z.string().optional() })).default([]),
+  public_keys: z
+    .array(z.object({ kid: z.string(), public_key: z.string(), status: z.string().optional() }))
+    .default([]),
 });
 
 const ticketSchema = z.object({
@@ -87,10 +89,7 @@ const ticketTypeSchema = z.object({
   status: z.string().optional(),
   visibility: z.string().optional(),
   zones: z.array(z.object({ zone_id: z.string() })).default([]),
-  inventory: z
-    .object({ quota: z.number(), locked: z.number(), sold: z.number() })
-    .nullable()
-    .optional(),
+  inventory: z.object({ quota: z.number(), locked: z.number(), sold: z.number() }).nullable().optional(),
 });
 export type StaffTicketType = z.infer<typeof ticketTypeSchema>;
 
@@ -107,7 +106,10 @@ async function fingerprint(orgId: string) {
   const key = deviceKey(orgId);
   const saved = await AsyncStorage.getItem(`${key}.fingerprint`);
   if (saved) return saved;
-  const value = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, `${orgId}:${Crypto.randomUUID()}`);
+  const value = await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    `${orgId}:${Crypto.randomUUID()}`,
+  );
   await AsyncStorage.setItem(`${key}.fingerprint`, value);
   return value;
 }
@@ -132,9 +134,13 @@ export async function registerStaffDevice(orgId: string) {
 export async function getStaffManifest(sessionId: string, deviceId: string, since?: string) {
   const query = new URLSearchParams({ deviceId });
   if (since) query.set('since', since);
-  return repositories.http.request(`/api/sessions/${encodeURIComponent(sessionId)}/manifest?${query}`, manifestSchema, {
-    authenticated: true,
-  });
+  return repositories.http.request(
+    `/api/sessions/${encodeURIComponent(sessionId)}/manifest?${query}`,
+    manifestSchema,
+    {
+      authenticated: true,
+    },
+  );
 }
 
 export async function checkInStaff(input: {
@@ -181,7 +187,7 @@ export async function searchStaffAttendees(sessionId: string, query: string) {
 export async function syncStaffScans(input: {
   sessionId: string;
   deviceId: string;
-  scans: Array<{ clientScanId: string; ticketId: string; gateId: string; scannedAt: string; localResult: string }>;
+  scans: { clientScanId: string; ticketId: string; gateId: string; scannedAt: string; localResult: string }[];
 }) {
   return repositories.http.request('/api/check-in/sync', syncSchema, {
     method: 'POST',
@@ -191,9 +197,13 @@ export async function syncStaffScans(input: {
 }
 
 export async function getStaffAnalytics(sessionId: string) {
-  return repositories.http.request(`/api/sessions/${encodeURIComponent(sessionId)}/gate-analytics`, analyticsSchema, {
-    authenticated: true,
-  });
+  return repositories.http.request(
+    `/api/sessions/${encodeURIComponent(sessionId)}/gate-analytics`,
+    analyticsSchema,
+    {
+      authenticated: true,
+    },
+  );
 }
 
 export async function getStaffTicketTypes(sessionId: string) {
@@ -215,7 +225,15 @@ export async function createStaffPosBooking(input: {
 }) {
   return repositories.http.request(
     '/api/bookings',
-    z.object({ id: z.string(), code: z.string(), status: z.string(), booking_type: z.string(), total_amount: z.number() }).passthrough(),
+    z
+      .object({
+        id: z.string(),
+        code: z.string(),
+        status: z.string(),
+        booking_type: z.string(),
+        total_amount: z.number(),
+      })
+      .passthrough(),
     {
       method: 'POST',
       authenticated: true,
@@ -238,4 +256,3 @@ export async function clearStaffDevice(orgId: string) {
   const key = deviceKey(orgId);
   await AsyncStorage.multiRemove([`${key}.id`, `${key}.fingerprint`, `${key}.name`]);
 }
-

@@ -5,7 +5,12 @@ import { useAuth } from '../../auth/hooks/auth-context';
 import { StaffCard, StaffFrame, StaffSectionTitle, StaffStatus } from '../components/staff-ui';
 import { useSelectedStaffShift } from '../hooks/use-selected-staff-shift';
 import { useStaffDevice } from '../hooks/use-staff-device';
-import { manualCheckInStaff, searchStaffAttendees, type StaffAttendee, type StaffScanResult } from '../lib/staff-api';
+import {
+  manualCheckInStaff,
+  searchStaffAttendees,
+  type StaffAttendee,
+  type StaffScanResult,
+} from '../lib/staff-api';
 
 export default function StaffCheckInScreen() {
   const { session } = useAuth();
@@ -54,14 +59,26 @@ export default function StaffCheckInScreen() {
   };
 
   if (shiftsQuery.isPending) {
-    return <StaffFrame title="Soát vé vào cổng" active="check-in"><QueryState loading /></StaffFrame>;
+    return (
+      <StaffFrame title="Soát vé vào cổng" active="check-in">
+        <QueryState loading />
+      </StaffFrame>
+    );
   }
   if (!selected) {
-    return <StaffFrame title="Soát vé vào cổng" active="check-in"><QueryState empty emptyText="Chưa có session được phân công." /></StaffFrame>;
+    return (
+      <StaffFrame title="Soát vé vào cổng" active="check-in">
+        <QueryState empty emptyText="Chưa có session được phân công." />
+      </StaffFrame>
+    );
   }
 
   return (
-    <StaffFrame title="Soát vé vào cổng" subtitle={`${selected.session?.title ?? 'Session'} · ${selected.gate?.name ?? 'Chưa gán gate'}`} active="check-in">
+    <StaffFrame
+      title="Soát vé vào cổng"
+      subtitle={`${selected.session?.title ?? 'Session'} · ${selected.gate?.name ?? 'Chưa gán gate'}`}
+      active="check-in"
+    >
       <View style={styles.statusRow}>
         <StaffStatus tone={gateId && device.data ? 'success' : 'warning'}>
           {gateId && device.data ? 'Sẵn sàng check-in' : 'Thiếu gate hoặc device registration'}
@@ -69,7 +86,9 @@ export default function StaffCheckInScreen() {
         <Text style={styles.permission}>{selected.permissions.join(' · ')}</Text>
       </View>
       <StaffCard style={styles.qrUnavailable}>
-        <View style={styles.qrIcon}><Text style={styles.qrIconText}>QR</Text></View>
+        <View style={styles.qrIcon}>
+          <Text style={styles.qrIconText}>QR</Text>
+        </View>
         <View style={{ flex: 1, gap: 3 }}>
           <Text style={styles.resultTitle}>Quét QR</Text>
           <Text style={styles.resultDetail}>Native camera/QR verifier chưa được nối trong app hiện tại.</Text>
@@ -91,27 +110,48 @@ export default function StaffCheckInScreen() {
         </StaffCard>
       </View>
       {attendees.map((attendee) => (
-        <Pressable key={attendee.ticket_id} onPress={() => setSelectedAttendee(attendee)} accessibilityRole="radio">
+        <Pressable
+          key={attendee.ticket_id}
+          onPress={() => setSelectedAttendee(attendee)}
+          accessibilityRole="radio"
+        >
           <StaffCard style={selectedAttendee?.ticket_id === attendee.ticket_id ? styles.selected : undefined}>
             <View style={styles.attendeeRow}>
               <View style={{ flex: 1, gap: 3 }}>
                 <Text style={styles.resultTitle}>{attendee.name ?? 'Khách chưa có tên'}</Text>
-                <Text style={styles.resultDetail}>{attendee.booking_code} · {attendee.ticket_type}</Text>
-                <Text style={styles.resultDetail}>{attendee.zone_name ?? 'Không có khu'} · {attendee.seat_code ?? 'Vé đứng'} · {attendee.phone_masked ?? 'Không có SĐT'}</Text>
+                <Text style={styles.resultDetail}>
+                  {attendee.booking_code} · {attendee.ticket_type}
+                </Text>
+                <Text style={styles.resultDetail}>
+                  {attendee.zone_name ?? 'Không có khu'} · {attendee.seat_code ?? 'Vé đứng'} ·{' '}
+                  {attendee.phone_masked ?? 'Không có SĐT'}
+                </Text>
               </View>
-              <Text style={[styles.attendeeStatus, attendee.status === 'ISSUED' ? styles.issued : styles.used]}>{attendee.status}</Text>
+              <Text
+                style={[styles.attendeeStatus, attendee.status === 'ISSUED' ? styles.issued : styles.used]}
+              >
+                {attendee.status}
+              </Text>
             </View>
           </StaffCard>
         </Pressable>
       ))}
       {selectedAttendee ? (
-        <Button busy={checking} disabled={!gateId || !device.data?.deviceId || selectedAttendee.status !== 'ISSUED'} onPress={() => void manualCheckIn()}>
+        <Button
+          busy={checking}
+          disabled={!gateId || !device.data?.deviceId || selectedAttendee.status !== 'ISSUED'}
+          onPress={() => void manualCheckIn()}
+        >
           Xác nhận giấy tờ và check-in
         </Button>
       ) : null}
       {result ? <Result result={result} /> : null}
       {error ? <QueryState error={error} /> : null}
-      {!gateId ? <Text style={styles.warning}>Assignment không có gate_id nên database sẽ từ chối thao tác check-in.</Text> : null}
+      {!gateId ? (
+        <Text style={styles.warning}>
+          Assignment không có gate_id nên database sẽ từ chối thao tác check-in.
+        </Text>
+      ) : null}
     </StaffFrame>
   );
 }
@@ -121,7 +161,9 @@ function Result({ result }: { result: StaffScanResult }) {
   return (
     <StaffCard style={ok ? styles.resultGood : styles.resultBad}>
       <Text style={[styles.resultBadge, ok ? styles.issued : styles.used]}>{result.result}</Text>
-      <Text style={styles.resultDetail}>{result.ticket?.holder_name ?? 'Database đã ghi nhận kết quả check-in.'}</Text>
+      <Text style={styles.resultDetail}>
+        {result.ticket?.holder_name ?? 'Database đã ghi nhận kết quả check-in.'}
+      </Text>
     </StaffCard>
   );
 }
@@ -129,8 +171,20 @@ function Result({ result }: { result: StaffScanResult }) {
 const styles = StyleSheet.create({
   statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   permission: { color: c.muted, fontFamily: fonts.medium, fontSize: 10 },
-  qrUnavailable: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.blueTint, borderColor: '#CBD9F0' },
-  qrIcon: { width: 46, height: 46, borderRadius: 14, backgroundColor: '#315D99', alignItems: 'center', justifyContent: 'center' },
+  qrUnavailable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: c.blueTint,
+    borderColor: '#CBD9F0',
+  },
+  qrIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: '#315D99',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   qrIconText: { color: 'white', fontFamily: fonts.heading, fontSize: 15, letterSpacing: 1 },
   resultTitle: { color: c.text, fontFamily: fonts.semibold, fontSize: 14 },
   resultDetail: { color: c.muted, fontFamily: fonts.regular, fontSize: 11, lineHeight: 16 },
