@@ -290,7 +290,7 @@ function Content() {
             />
             <MenuRow
               label="Liên hệ hỗ trợ"
-              onPress={() => router.push({ pathname: '/support', params: { bookingId } })}
+              onPress={() => router.push({ pathname: '/support/new', params: { bookingId } })}
             />
             <MenuRow label="Đơn của tôi" onPress={() => router.replace(orderHistoryRoute)} />
           </MenuGroup>

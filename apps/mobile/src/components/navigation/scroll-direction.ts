@@ -10,7 +10,6 @@ export type ScrollMetrics = {
   viewportHeight: number;
   insetTop?: number;
   insetBottom?: number;
-  reservedBottom?: number;
   scrolling?: boolean;
 };
 
@@ -35,8 +34,8 @@ export function nextScrollDirection(
   const y = metrics.y + top;
   const clamped = Math.min(maxY, Math.max(0, y));
   if (metrics.viewportHeight <= 0 || !Number.isFinite(y)) return state;
-  // A padding-only scroll range does not turn an otherwise short page into a hiding toolbar.
-  if (maxY <= (metrics.reservedBottom ?? 0) + 1 || y <= TOP_REVEAL_DISTANCE)
+  // Any real scroll range counts, even when it is shorter than the floating bar's clearance.
+  if (maxY <= 1 || y <= TOP_REVEAL_DISTANCE)
     return { lastY: clamped, direction: 0, distance: 0, visible: true };
   // Ignore the bottom rubber-band and its rebound. Do not interpret it as an upward gesture.
   if (y > maxY || metrics.scrolling === false) return { ...state, lastY: clamped, direction: 0, distance: 0 };

@@ -110,7 +110,7 @@ function Content() {
             />
             <MenuRow
               label="Liên hệ hỗ trợ"
-              onPress={() => router.push({ pathname: '/support', params: { bookingId } })}
+              onPress={() => router.push({ pathname: '/support/new', params: { bookingId } })}
             />
           </MenuGroup>
           {!!save.error && <ErrorNotice error={save.error} />}

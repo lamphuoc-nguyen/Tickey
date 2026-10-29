@@ -48,7 +48,7 @@ function Content() {
       <Button secondary={resumable} busy={query.isRefetching} onPress={() => void query.refetch()}>
         Kiểm tra trạng thái đơn
       </Button>
-      <TextAction onPress={() => router.push({ pathname: '/support', params: { bookingId } })}>
+      <TextAction onPress={() => router.push({ pathname: '/support/new', params: { bookingId } })}>
         Liên hệ hỗ trợ
       </TextAction>
     </Screen>

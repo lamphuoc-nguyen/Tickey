@@ -1,6 +1,7 @@
 import { formatMoney } from '@event/core';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Button, Card, Copy, Heading, QueryState, Screen } from '@/components/ui';
+import { Button, Card, Copy, Heading, QueryState } from '@/components/ui';
+import { CustomerBrowseScreen } from '@/components/customer-browse-screen';
 import { TextAction } from '@/components/customer-controls';
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import { useRefunds } from '@/features/customer/account/hooks/use-customer-data';
@@ -29,7 +30,7 @@ function Content() {
   const { bookingId } = useLocalSearchParams<{ bookingId?: string }>();
   const refunds = query.data?.pages.flat().filter((r) => !bookingId || r.bookingId === bookingId) ?? [];
   return (
-    <Screen>
+    <CustomerBrowseScreen tab="/profile">
       <Heading>Theo dõi hoàn tiền</Heading>
       <QueryState
         loading={query.isPending}
@@ -72,7 +73,7 @@ function Content() {
           Xem thêm hoàn tiền
         </Button>
       )}
-    </Screen>
+    </CustomerBrowseScreen>
   );
 }
 export default function RefundsScreen() {

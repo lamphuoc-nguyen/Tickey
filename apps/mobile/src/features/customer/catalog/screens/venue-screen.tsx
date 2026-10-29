@@ -1,5 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActionFooter, QueryState, Screen } from '@/components/ui';
+import { ActionFooter, QueryState } from '@/components/ui';
+import { CustomerBrowseScreen } from '@/components/customer-browse-screen';
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import { useTicket } from '@/features/customer/tickets/hooks/use-ticket';
 import { useSessions } from '../hooks/use-catalog';
@@ -9,7 +10,8 @@ function TicketContent() {
   const { ticketId = '' } = useLocalSearchParams<{ ticketId: string }>();
   const { ticket, query, saved, online } = useTicket(ticketId);
   return (
-    <Screen
+    <CustomerBrowseScreen
+      tab="/orders"
       footer={
         <ActionFooter
           onPress={() => router.replace({ pathname: '/tickets/[ticketId]', params: { ticketId } })}
@@ -24,7 +26,7 @@ function TicketContent() {
         retry={() => void query.refetch()}
       />
       {ticket ? <TicketVenueDetails ticket={ticket} /> : <VenueDetails venue={undefined} />}
-    </Screen>
+    </CustomerBrowseScreen>
   );
 }
 export function TicketVenueScreen() {
@@ -39,7 +41,8 @@ export function EventVenueScreen() {
   const query = useSessions(eventId);
   const session = query.data?.find((s) => s.id === sessionId);
   return (
-    <Screen
+    <CustomerBrowseScreen
+      tab="/"
       footer={
         <ActionFooter onPress={() => router.replace({ pathname: '/events/[eventId]', params: { eventId } })}>
           Về sự kiện
@@ -54,6 +57,6 @@ export function EventVenueScreen() {
         emptyText="Chưa có thông tin địa điểm cho suất diễn này."
       />
       <VenueDetails venue={session?.venue} doorsOpenAt={session?.doorsOpenAt} />
-    </Screen>
+    </CustomerBrowseScreen>
   );
 }

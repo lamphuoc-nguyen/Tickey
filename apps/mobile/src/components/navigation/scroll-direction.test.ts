@@ -10,7 +10,6 @@ const metrics = (y: number) => ({
   y,
   contentHeight: 2000,
   viewportHeight: 700,
-  reservedBottom: 120,
   scrolling: true,
 });
 const at = (y = 100, visible = true): ScrollDirectionState => ({
@@ -63,9 +62,18 @@ describe('floating navigation scroll hysteresis', () => {
     expect(state.visible).toBe(false);
     expect(nextScrollDirection(state, metrics(1287)).visible).toBe(true);
   });
-  it('keeps short lists visible, including lists which can scroll only their bottom clearance', () => {
-    for (const contentHeight of [500, 700, 800])
+  it('keeps pages with no actual scroll range visible', () => {
+    for (const contentHeight of [500, 700, 701])
       expect(nextScrollDirection(at(100, false), { ...metrics(100), contentHeight }).visible).toBe(true);
+  });
+  it('hides on a short Home scroll range even when it is less than the bar clearance', () => {
+    const homeMetrics = { ...metrics(0), contentHeight: 870, viewportHeight: 745 };
+    let state = initialScrollDirection();
+    for (const y of [8, 18, 24, 28, 32, 38]) state = nextScrollDirection(state, { ...homeMetrics, y });
+    expect(state.visible).toBe(false);
+    state = nextScrollDirection(state, { ...homeMetrics, y: 100 });
+    expect(state.visible).toBe(false);
+    expect(nextScrollDirection(state, { ...homeMetrics, y: 86 }).visible).toBe(true);
   });
   it('normalizes iOS content insets and ignores missing layout measurements', () => {
     expect(nextScrollDirection(at(300, false), { ...metrics(-44), insetTop: 44 }).visible).toBe(true);

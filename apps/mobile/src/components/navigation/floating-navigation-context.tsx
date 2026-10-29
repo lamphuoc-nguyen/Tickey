@@ -11,6 +11,7 @@ import {
   type SharedValue,
 } from 'react-native-reanimated';
 import { initialScrollDirection, navigationGeometry, type ScrollDirectionState } from './scroll-direction';
+import { navigationVisibilityTransition } from './navigation-visibility';
 
 type FloatingNavigationState = {
   direction: SharedValue<ScrollDirectionState>;
@@ -63,14 +64,15 @@ export function FloatingNavigationProvider({ children }: PropsWithChildren) {
   useAnimatedReaction(
     () => ({ visible: direction.get().visible, keyboard: keyboard.get(), focused: focused.get() }),
     (next, previous) => {
-      if (!next.focused || next.keyboard) {
-        progress.set(0);
+      const transition = navigationVisibilityTransition(next, previous);
+      if (!transition) return;
+      if (!transition.animated) {
+        progress.set(transition.target);
         return;
       }
-      if (previous?.visible === next.visible && previous.focused && !previous.keyboard) return;
       progress.set(
-        withTiming(next.visible ? 1 : 0, {
-          duration: next.visible ? 290 : 250,
+        withTiming(transition.target, {
+          duration: transition.target ? 290 : 250,
           easing: Easing.out(Easing.cubic),
           reduceMotion: ReduceMotion.System,
         }),

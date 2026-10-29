@@ -2,7 +2,8 @@ import { formatSessionTime } from '@event/core';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { View } from 'react-native';
-import { ActionFooter, Copy, Heading, Icon, QueryState, Screen, c, ui } from '@/components/ui';
+import { ActionFooter, Copy, Heading, Icon, QueryState, c, ui } from '@/components/ui';
+import { CustomerBrowseScreen } from '@/components/customer-browse-screen';
 import { Badge, Disclosure, MenuRow, TextAction } from '@/components/customer-controls';
 import { useEvent, useSessions } from '../hooks/use-catalog';
 import { eventPhoto } from '../components/event-card';
@@ -16,7 +17,8 @@ export default function EventScreen() {
   const first = choices.available[0] ?? choices.other[0];
   const openDates = () => router.push({ pathname: '/events/[eventId]/sessions', params: { eventId } });
   return (
-    <Screen
+    <CustomerBrowseScreen
+      tab="/"
       contentStyle={{ padding: 0, gap: 0 }}
       footer={
         event.data && (
@@ -117,6 +119,6 @@ export default function EventScreen() {
           </View>
         </>
       )}
-    </Screen>
+    </CustomerBrowseScreen>
   );
 }

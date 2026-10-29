@@ -6,10 +6,9 @@ import { nextScrollDirection } from './scroll-direction';
 
 /** Spread onto ONE primary Animated.ScrollView/FlatList/SectionList, never a horizontal child list. */
 export function useFloatingNavigationScroll() {
-  const { direction, focused, scrolling, geometry } = useFloatingNavigation();
+  const { direction, focused, scrolling } = useFloatingNavigation();
   const contentHeight = useSharedValue(0);
   const viewportHeight = useSharedValue(0);
-  const reservedBottom = geometry.clearance;
   const onScroll = useAnimatedScrollHandler({
     onBeginDrag: () => {
       scrolling.set(true);
@@ -32,7 +31,6 @@ export function useFloatingNavigationScroll() {
           viewportHeight: event.layoutMeasurement.height,
           insetTop: event.contentInset?.top ?? 0,
           insetBottom: event.contentInset?.bottom ?? 0,
-          reservedBottom,
           scrolling: scrolling.get(),
         }),
       );
@@ -41,7 +39,7 @@ export function useFloatingNavigationScroll() {
   useAnimatedReaction(
     () => ({ content: contentHeight.get(), viewport: viewportHeight.get(), focused: focused.get() }),
     ({ content, viewport, focused: active }) => {
-      if (active && viewport > 0 && content <= viewport + reservedBottom + 1)
+      if (active && viewport > 0 && content <= viewport + 1)
         direction.set({ ...direction.get(), direction: 0, distance: 0, visible: true });
     },
   );

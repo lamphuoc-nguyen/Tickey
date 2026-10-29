@@ -26,12 +26,12 @@ Nguồn API đối chiếu với code đã cài và [Reanimated scroll handler](
 
 - `FloatingNavigationProvider`: controller riêng từng screen có bar. Screen đang focus mới nhận keyboard listener; cleanup khi blur. Focus/show reset bộ tích lũy nhưng giữ offset. Shared values điều khiển visibility, tiến trình animation và focus/keyboard; không set React state trong scroll callback.
 - `useFloatingNavigationScroll`: worklet nhận drag/momentum của một primary Animated.ScrollView. Có thể spread cùng handler lên Animated.FlatList/SectionList nếu sau này dùng; hiện chưa có container loại đó để QA thực tế. `FloatingScrollView` ghép layout/content-size callback; callback cuộn bổ sung cần compose từ hook, tránh ghi đè controller.
-- `nextScrollDirection`: tích lũy cùng hướng 12dp rồi đổi target, reset phần tích lũy khi đảo hướng. Offset trong 24dp đầu trang luôn show. Bỏ qua rubber-band ở đáy và normalize content inset ở đầu iOS; scroll phát sinh ngoài drag/momentum không đổi target. Khi đứng yên giữ trạng thái. Nội dung không dài hơn viewport ngoài phần padding dành cho bar luôn show.
+- `nextScrollDirection`: tích lũy cùng hướng 12dp rồi đổi target, reset phần tích lũy khi đảo hướng. Offset trong 24dp đầu trang luôn show. Bỏ qua rubber-band ở đáy và normalize content inset ở đầu iOS; scroll phát sinh ngoài drag/momentum không đổi target. Khi đứng yên giữ trạng thái. Trang không có scroll range thật luôn show; khoảng cuộn ngắn hơn padding của bar vẫn được nhận (sửa theo phản hồi Home 29/10).
 - `FloatingNavigationBar`: pill cao 60dp, cách hai bên 16dp, đáy `safeArea.bottom + 12dp`, icon 24dp, target tối thiểu 44×48dp; active capsule trượt giữa bốn vị trí. Chỉ hiển thị icon; giữ tên cho trình đọc màn hình. Có tab accessibility role/label/selected; lúc hidden bỏ hit testing và ẩn các tab khỏi accessibility tree.
 - Hide 250ms, show 290ms, ease-out cubic; translateY bằng chiều cao + khoảng đáy + 40dp để cả shadow rời viewport, đồng thời opacity về 0. Animation dùng Reanimated trên UI thread và `ReduceMotion.System`. Keyboard mở ẩn bar, đóng hiện lại; không đổi layout hoặc padding theo progress nên nội dung không giật do thanh ẩn/hiện.
 - Surface/tint tự theo system Light/Dark. iOS dùng GlassView khi cả hai availability check cho phép và Reduce Transparency đang tắt; nền tảng khác dùng nền translucent. Chưa thêm blur library hoặc hứa có blur native trên Android.
 - `PersistentTabLayout`: lazy Tabs, freeze background scene, chuyển cảnh trượt ngang 280ms; `router.navigate` thay cho replace khi bấm tab. Tab state gắn với account/workspace; đổi scope unmount scene để không giữ UI riêng tư của scope cũ. Giữ một AuthProvider và QueryClientProvider hiện có. Không đổi role, workspace contract, callback scheme hay API.
-- `Screen` chỉ bọc controller nếu có `bottomNavigation`; `StaffFrame` dùng cùng controller/bar. Nội dung chừa khoảng đáy bằng bar + inset + gap + 16dp, không che mục cuối. Các fixed action footer/modal/horizontal scroll giữ nguyên.
+- `Screen` chỉ bọc controller nếu có `bottomNavigation`; `StaffFrame` dùng cùng controller/bar. Nội dung chừa khoảng đáy bằng bar + inset + gap + 16dp, không che mục cuối. Khi có cả action footer và bar, footer dùng overlay dịch lên/xuống cùng progress; các footer của checkout/form không có bar, modal và horizontal scroll giữ nguyên.
 
 ## File/module
 
@@ -103,3 +103,57 @@ Kiểm tra mới: Mobile lint/typecheck qua, Vitest 124/124; Android Hermes expo
 Máy ảo có System UI ANR lúc khởi động; đã chọn Wait trước kiểm tra app. Chưa kiểm tra iOS, Staff với phiên hợp lệ hoặc FPS release/device. Ảnh/XML tại .expo/tab-slide-qa (ignored). Các tiến trình API/Metro/emulator do QA mở đã dừng. Không sửa backend, bật demo hoặc ghi dữ liệu nghiệp vụ production.
 
 Nguồn đối chiếu: [React Navigation tab animations](https://reactnavigation.org/docs/bottom-tab-navigator/#animations) và code navigator được bundle trong Expo Router đang cài.
+
+## Giữ thanh hiện khi đổi tab (29/10/2026)
+
+Theo yêu cầu mới, mất focus không còn đưa progress về 0. Scene cũ giữ capsule ở vị trí đang có khi trượt ra, đồng thời vẫn khóa touch/accessibility ở scene không focus. Scene mới hiện bar ngay khi focus, không chạy slide-up/fade-in vì chuyển tab. Chỉ thay đổi hướng scroll mới chạy hide/show animation; ngoại lệ keyboard vẫn ẩn tức thì để không che input và hiện lại khi đóng.
+
+Tách policy worklet navigationVisibilityTransition để kiểm tra các chuỗi blur/focus/idle/scroll/keyboard. Thêm bốn regression tests: blur không hide; tab cũ từng hidden hiện ngay khi trở lại; chỉ scroll mới animate; keyboard không làm phát sinh slide khi đổi focus. Mobile lint/typecheck qua; tổng 35 file / 131 test qua (bao gồm thay đổi timeout API đang có trong working tree).
+
+Android Expo Go đang chạy Metro của người dùng: Home → Thông báo → Home, màn Thông báo thật rỗng và vẫn thấy bốn icon tab sau khi chuyển. Không restart/clear data/đăng xuất hoặc gửi mutation. Chưa đo frame-by-frame cho toàn bộ chuyển cảnh, chưa iOS hay runtime Staff có quyền; Staff dùng cùng controller. Giữ thay đổi timeout API có trước, không commit/push trong lượt sửa này.
+
+## Sửa Home cuộn xuống nhưng bar vẫn hiện (29/10/2026)
+
+Phản hồi tiếp theo chỉ ra trường hợp Home có scroll range thật nhưng ngắn hơn khoảng đệm bar. Reducer và layout reaction trước đó cùng trừ reservedBottom, ép visible=true nên đã bỏ qua gesture Home. Bỏ phép trừ này ở cả hai nơi: chỉ coi trang không cuộn được khi content không vượt viewport (dung sai 1dp). Giữ padding layout để không che mục cuối, threshold 12dp/top reveal 24dp, focus không hide và xử lý bounce/keyboard hiện có.
+
+Thêm regression dùng metrics Home content 870dp / viewport 745dp: cuộn xuống từng bước làm hidden, tiếp tục xuống giữ hidden, đảo lên 14dp hiện lại. Test trang không cuộn được vẫn visible. Mobile lint/typecheck qua; 35 file / 132 test qua.
+
+Đã thử trực tiếp Android Expo Go tại kích thước/cỡ chữ đang có, không thay system settings: Home đầu trang có bốn tab; swipe lên để cuộn xuống thì XML không còn tab và screenshot xác nhận capsule rời viewport; swipe ngược lại hiện bốn tab. Bounds tiêu đề lần lượt [55,832][1025,901] → [55,510][1025,579] → [55,628][1025,697], xác nhận có scroll thật và không cần về đầu mới show. Bằng chứng ignored tại .expo/home-bar-scroll/home-top, home-down, home-up (XML/PNG). Không ghi nghiệp vụ production; chưa iOS/Staff runtime có quyền. Các hàng QA cũ về padding-only Home mô tả bản trước sửa, không phải hành vi hiện tại.
+
+## Mở rộng trang duyệt và footer đồng bộ (29/10/2026)
+
+Phạm vi người dùng đã duyệt: giữ bốn icon và mở thanh sang trang duyệt, tách form hỗ trợ; sau đó yêu cầu action footer hạ xuống khi bar ẩn. Không thêm tab, role switch hoặc API mới.
+
+| Trang | Tab được chọn | UI |
+| --- | --- | --- |
+| `/search`, `/events/[eventId]`, `/events/[eventId]/venue` | Khám phá | CustomerBrowseScreen chung; Search giữ draft/bàn phím, event/venue có action footer chuyển động |
+| `/tickets/[ticketId]/venue` | Vé của tôi | Cùng component địa điểm, guard và dữ liệu vé cũ |
+| `/tickets/offline` | Vé của tôi | Danh sách bản tải có bar; mở một đơn chuyển tới cùng URL với bookingId, vùng vé/QR không có bar |
+| `/refunds`, `/reports`, `/support` | Tài khoản | List/loading/empty/error thật, cùng controller scroll |
+| `/support/new` | Không có bar | Form riêng, cùng memory draft support theo bookingId và validation/mutation thật |
+
+`CustomerBrowseScreen` gom cấu hình chrome để không lặp controller hoặc animation theo trang. `TabBar` có onReselect khi đang ở trang con: chạm icon được chọn quay về root nhóm; chạm tab tại root tiếp tục giữ scroll/params. Không tạo lại navigator cho trang con, giữ URL Stack và 79 frame.
+
+SupportScreen hiện là danh sách; SupportRequestScreen giữ phần form cũ. Các link hỗ trợ có bookingId từ đơn/vé/payment-status mở thẳng `/support/new`; link cũ `/support?bookingId=...` vẫn giữ context khi bấm Gửi yêu cầu mới. Không đổi gửi request/response, khóa gửi lặp hoặc điều kiện thành công. Không thêm bar vào Auth/OTP, chọn suất/ghế, checkout, QR, form hồ sơ/ngân hàng/report và thread trả lời hỗ trợ.
+
+### Sửa action footer bị treo khi bar ẩn
+
+`FloatingActionFooter` đặt overlay, translateY theo cùng shared progress của bar: visible thì nâng nút lên trên capsule với gap, hidden thì trở về safe-area đáy. `actionFooterLayout` tính lift từ clearance/inset và dự phòng kích thước trước onLayout; chiều cao footer được đo lại khi nội dung/font thay đổi. ScrollView giữ viewport và khoảng đệm theo chiều cao đo được, không set React state từng frame hoặc thay đổi viewport trong animation, tránh tự phát sinh scroll ngược làm bar nhấp nháy. Chỉ màn có cả bottomNavigation và footer mới dùng cơ chế này; checkout/forms cũ giữ footer thường.
+
+### Kết quả và giới hạn
+
+- Mobile lint/typecheck: qua. Vitest 36 files / 137 tests qua; thêm năm case footer/safe-area/measured height. Kiểm tra routes có `/support/new`, `/support/[requestId]`, không trùng URL và đủ 79 frame vẫn qua.
+- Android Hermes export sau sửa footer: qua, 2.776 modules / 62 assets; đây là kiểm tra bundle, không thay thế các bước native ở dưới.
+- Android Expo Go, Metro đang chạy của người dùng: Search, event thật từ catalog, event venue theo session thật; refund/report/support/offline list rỗng thật. Mỗi trang có bốn icon và tab highlight đúng nhóm. Không gán record giả để mở màn.
+- Native reselect: Search → Khám phá, Support → Tài khoản, Offline → Vé của tôi đều về đúng root và có bốn icon. Support list → form không có bar, gõ nháp cục bộ → back → mở lại giữ nội dung; đã xóa phần nháp QA, không gửi form.
+- Event footer sau bổ sung gap 12dp theo phản hồi: khi bar hiện, chữ Đặt vé ở [476,1869][604,1924]; khi ẩn, chữ xuống [476,2078][604,2133] (209px / 76dp); cuộn ngược trở lại vị trí ban đầu. Gap tăng thêm 33px/12dp phía trên vùng hệ thống so với lần đầu sửa footer, vị trí khi bar hiện giữ nguyên. Capsule biến mất/hiện đồng thời, không cần về đầu. Ảnh/XML `footer-visible`, `footer-hidden`, `footer-restored` trong `.expo/browse-navigation-qa` ignored. Lint/typecheck và 137 tests đã chạy lại và qua sau chỉnh padding.
+- Một lượt thao tác gặp LogBox “Cannot connect to Expo CLI”; kiểm tra Metro vẫn running, dismiss cảnh báo và reload từ Expo Go để nhận đủ module mới rồi kiểm tra lại. Không sửa node_modules hoặc tắt LogBox toàn app.
+- Chưa có dữ liệu vé tải xuống trên tài khoản QA: chưa chạy runtime trang QR offline/địa điểm từ vé. Code đã dựng, không tạo/cache vé mẫu. Chưa gửi support, tạo booking/payment hoặc ghi nghiệp vụ hosted PRODUCTION. Chưa iOS/Staff runtime hợp lệ, TalkBack hoặc đo FPS release/device.
+
+File bổ sung: `components/customer-browse-screen.tsx`, `navigation/action-footer-layout.ts` + test, `navigation/floating-action-footer.tsx`, `support/screens/support-request-screen.tsx`, route `support/new.tsx`. Sửa Screen/TabBar, các screen trong bảng, các link support theo bookingId và tài liệu. Giữ thay đổi timeout/focus/Home trước đó; không commit/push trong lượt này.
+
+## Bàn giao commit/push theo yêu cầu tiếp theo (29/10/2026)
+
+Gom các thay đổi đang có của F-11 (mở rộng điều hướng/footer, giữ bar khi chuyển tab, sửa Home scroll) và F-12 (timeout Render riêng Mobile). Giữ cả các merge commit đã pull từ main. Chỉ đưa source Mobile và tài liệu vào commit; `.env.local`, ảnh/XML, script chẩn đoán và bundle `.expo` đều ignored.
+
+Kiểm tra trước commit: `pnpm lint` 3/3 task qua (2 cached), `pnpm typecheck` 7/7 qua (6 cached), `pnpm test` 6/6 qua (5 cached), Mobile chạy mới 137/137; Portal build qua với cảnh báo chunk >500 kB. Backend test 212/212, không skipped; Release build 0 warnings/errors. UI-kit không có test files, không tính là test UI/native. Docker image/pgTAP chưa chạy vì thiếu Docker và Supabase CLI trên máy, không chạy lên hosted production. Không tuyên bố GitHub Actions đã xanh từ các kiểm tra local này.

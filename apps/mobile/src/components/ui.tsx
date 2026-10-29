@@ -2,7 +2,7 @@ import { customerTheme } from '@event/ui-kit';
 import { ApiError } from '@event/core';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useState, type PropsWithChildren, type Ref } from 'react';
+import { useCallback, useState, type PropsWithChildren, type Ref } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -15,6 +15,7 @@ import {
   TextInput,
   View,
   type TextInputProps,
+  type LayoutChangeEvent,
   type TextProps,
   type ViewStyle,
 } from 'react-native';
@@ -24,6 +25,8 @@ import {
   useOptionalFloatingNavigation,
 } from './navigation/floating-navigation-context';
 import { FloatingScrollView } from './navigation/floating-scroll-view';
+import { FloatingActionFooter } from './navigation/floating-action-footer';
+import { actionFooterLayout } from './navigation/action-footer-layout';
 
 export const c = customerTheme.colors;
 export const fonts = customerTheme.fonts;
@@ -314,6 +317,12 @@ function ScreenContent({
 }: ScreenProps) {
   const insets = useSafeAreaInsets();
   const floating = useOptionalFloatingNavigation();
+  const [footerHeight, setFooterHeight] = useState(0);
+  const onFooterLayout = useCallback(
+    (event: LayoutChangeEvent) => setFooterHeight(event.nativeEvent.layout.height),
+    [],
+  );
+  const footerLayout = actionFooterLayout(floating?.geometry.clearance ?? 0, footerHeight, insets.bottom);
   const ContentScrollView = floating ? FloatingScrollView : ScrollView;
   return (
     <KeyboardAvoidingView
@@ -329,7 +338,9 @@ function ScreenContent({
             ui.content,
             !footer && { paddingBottom: Math.max(insets.bottom, 24) },
             contentStyle,
-            floating && { paddingBottom: floating.geometry.clearance },
+            floating && {
+              paddingBottom: footer ? footerLayout.contentClearance : floating.geometry.clearance,
+            },
           ]}
         >
           {children}
@@ -337,7 +348,19 @@ function ScreenContent({
       ) : (
         <View style={{ flex: 1 }}>{children}</View>
       )}
-      {footer && <View style={[ui.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>{footer}</View>}
+      {footer &&
+        (floating ? (
+          <FloatingActionFooter
+            style={ui.footer}
+            bottomPadding={footerLayout.bottomPadding}
+            lift={footerLayout.lift}
+            onLayout={onFooterLayout}
+          >
+            {footer}
+          </FloatingActionFooter>
+        ) : (
+          <View style={[ui.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>{footer}</View>
+        ))}
       {bottomNavigation}
     </KeyboardAvoidingView>
   );

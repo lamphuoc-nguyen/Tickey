@@ -128,9 +128,6 @@ export default function HomeScreen() {
         </Pressable>
       </ScrollView>
       <QueryState error={categories.error} retry={() => void categories.refetch()} />
-      {(featured.isPending || !!featured.error || !!banners.length) && (
-        <Heading small>Sự kiện nổi bật</Heading>
-      )}
       <QueryState
         loading={featured.isPending}
         error={featured.error}

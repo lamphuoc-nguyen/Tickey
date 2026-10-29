@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import { icons } from './ui';
 import { FloatingNavigationBar } from './navigation/floating-navigation-bar';
 
@@ -30,6 +30,7 @@ const tabs = [
   },
 ];
 export function TabBar({ current }: { current: (typeof tabs)[number]['path'] }) {
+  const pathname = usePathname();
   return (
     <FloatingNavigationBar
       active={current}
@@ -39,6 +40,7 @@ export function TabBar({ current }: { current: (typeof tabs)[number]['path'] }) 
         source: 'inactive' in tab ? tab.inactive : icons[tab.icon].source,
         activeSource: tab.active,
         onPress: () => router.navigate(tab.path),
+        onReselect: pathname !== tab.path ? () => router.navigate(tab.path) : undefined,
       }))}
     />
   );
