@@ -7,8 +7,6 @@ import { Button, Copy, ErrorNotice, Heading, Notice, QueryState, Screen, c, ui }
 import { useAuth } from '../../auth/hooks/auth-context';
 import { useAuthActions } from '../../auth/hooks/use-auth-actions';
 import { useStaffShifts } from '../hooks/use-staff-shifts';
-import { staffDemo } from '../staff-demo';
-import StaffHomeScreen from './staff-home-screen';
 
 const staffRoleNames: Record<string, string> = {
   SCANNER: 'Kiểm soát vé',
@@ -55,12 +53,30 @@ function StaffLanding() {
         selected && (
           <>
             <Button
-              disabled
+              disabled={false}
               disabledReason="Chuẩn bị soát vé trên thiết bị chưa khả dụng. Liên hệ người quản lý nếu cần hỗ trợ."
-              onPress={() => {}}
+              onPress={() =>
+                router.push({
+                  pathname: '/staff/check-in',
+                  params: { sessionId: selected.sessionId, assignmentId: selected.id },
+                })
+              }
             >
               Mở {sessionName(selected)}
             </Button>
+            {selected.permissions.includes('POS') && (
+              <Button
+                secondary
+                onPress={() =>
+                  router.push({
+                    pathname: '/staff/pos',
+                    params: { sessionId: selected.sessionId, assignmentId: selected.id },
+                  })
+                }
+              >
+                BÃ¡n vÃ© táº¡i quáº§y
+              </Button>
+            )}
             <Copy style={ui.secure}>
               {selected.session?.venue?.name ?? organization?.orgName ?? 'Tổ chức'} · {gateName(selected)}
             </Copy>
@@ -162,6 +178,5 @@ function StaffLanding() {
 }
 
 export default function StaffEntryScreen() {
-  // The local-only visual preview (see StaffGate) shows the demo dashboard instead of live shifts.
-  return staffDemo ? <StaffHomeScreen /> : <StaffLanding />;
+  return <StaffLanding />;
 }
