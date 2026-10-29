@@ -116,9 +116,7 @@ async function fingerprint(orgId: string) {
 
 export async function registerStaffDevice(orgId: string) {
   const key = deviceKey(orgId);
-  const savedId = await AsyncStorage.getItem(`${key}.id`);
   const fp = await fingerprint(orgId);
-  if (savedId) return { deviceId: savedId, fingerprint: fp };
   const platform = Platform.OS === 'ios' ? 'IOS' : 'ANDROID';
   const name = Device.modelName ?? Device.deviceName ?? `Tickey ${platform}`;
   const response = await repositories.http.request('/api/devices', deviceSchema, {
