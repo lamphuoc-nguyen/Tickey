@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { CheckCircle2, Search } from 'lucide-react';
+import { CheckCircle2, Search, Trash2 } from 'lucide-react';
 import { useToast } from '../../components/common/ToastProvider';
 import { QueryNotice } from '../../components/common/QueryNotice';
-import { ConfirmButton } from '../../components/common/ConfirmButton';
 import {
   FigmaPageHeader,
   FigmaRecordInfoCard,
@@ -87,6 +86,7 @@ export function OrgStaffPage() {
     deleteMember.mutate(member.userId, {
       onSuccess: () => {
         showToast(`Đã xóa nhân sự ${memberName(member)} khỏi tổ chức.`, 'success');
+        setMemberToDelete(null);
       },
       onError: (error) => showToast(errorMessage(error), 'danger'),
     });
@@ -109,6 +109,7 @@ export function OrgStaffPage() {
   const [validFrom, setValidFrom] = useState('');
   const [validUntil, setValidUntil] = useState('');
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
 
   const openSessions = sessions.filter(({ session }) => OPEN_SESSION(session.status));
   const chosenSession = sessionById.get(assignSessionId) ?? openSessions[0];
@@ -314,17 +315,20 @@ export function OrgStaffPage() {
                                 Phân công ca →
                               </button>
                             )}
-                            <ConfirmButton
-                              message={`Xác nhận xóa "${memberName(m)}" khỏi tổ chức?`}
-                              confirmLabel="Xóa"
-                              className="btn btn-outline"
-                              disabled={deleteMember.isPending}
-                              onConfirm={() => handleDeleteMember(m)}
+                            <button
+                              type="button"
+                              onClick={() => setMemberToDelete(m)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--danger)',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                fontSize: 13,
+                              }}
                             >
-                              <span style={{ color: 'var(--danger)', fontSize: 13, fontWeight: 600 }}>
-                                Xóa
-                              </span>
-                            </ConfirmButton>
+                              Xóa
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -802,6 +806,86 @@ export function OrgStaffPage() {
             subtitle={detail ? (sessionById.get(detail.sessionId)?.session.venue?.name ?? '') : undefined}
             image={detail ? (sessionById.get(detail.sessionId)?.event.coverImageUrl ?? null) : null}
           />
+        </div>
+      )}
+      {/* Modal xác nhận xóa nhân sự hiện riêng biệt ở giữa màn hình */}
+      {memberToDelete && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.45)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            backdropFilter: 'blur(3px)',
+          }}
+          onClick={() => !deleteMember.isPending && setMemberToDelete(null)}
+        >
+          <div
+            className="card"
+            style={{
+              width: '100%',
+              maxWidth: 440,
+              padding: 24,
+              margin: 16,
+              boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+              backgroundColor: 'var(--surface)',
+              borderRadius: 'var(--radius-lg, 12px)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: '50%',
+                  backgroundColor: '#FEE2E2',
+                  color: '#DC2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <Trash2 size={22} />
+              </div>
+              <div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: 'var(--text)' }}>
+                  Xác nhận xóa nhân sự
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>
+                  Thao tác này sẽ thu hồi quyền của nhân sự
+                </div>
+              </div>
+            </div>
+
+            <div style={{ fontSize: 14, color: 'var(--text)', marginBottom: 22, lineHeight: 1.6 }}>
+              Bạn có chắc chắn muốn xóa nhân sự <strong>"{memberName(memberToDelete)}"</strong> khỏi tổ chức? Các ca trực đang phân công cho nhân sự này sẽ tự động bị thu hồi.
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={deleteMember.isPending}
+                onClick={() => setMemberToDelete(null)}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ backgroundColor: 'var(--danger)', borderColor: 'var(--danger)', color: '#fff' }}
+                disabled={deleteMember.isPending}
+                onClick={() => handleDeleteMember(memberToDelete)}
+              >
+                {deleteMember.isPending ? 'Đang xóa…' : 'Xác nhận xóa'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -190,9 +190,16 @@ export function OrgVenuesPage() {
     `${v.name} ${v.city} ${v.addressLine}`.toLowerCase().includes(search.trim().toLowerCase()),
   );
   const field = <K extends keyof VenueInput>(key: K) => ({
-    value: form[key] ?? '',
-    onChange: (e: { target: { value: string } }) =>
-      setForm((f) => ({ ...f, [key]: key === 'capacity' ? Number(e.target.value) : e.target.value })),
+    value: key === 'capacity' ? (form.capacity === 0 ? '' : form.capacity) : (form[key] ?? ''),
+    onChange: (e: { target: { value: string } }) => {
+      if (key === 'capacity') {
+        const raw = e.target.value.replace(/^0+(?=\d)/, '');
+        const val = raw === '' ? 0 : Number(raw);
+        setForm((f) => ({ ...f, capacity: isNaN(val) ? 0 : val }));
+      } else {
+        setForm((f) => ({ ...f, [key]: e.target.value }));
+      }
+    },
   });
 
   const fillForm = (v: VenueDetail) => {

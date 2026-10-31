@@ -981,8 +981,8 @@ export function EventCreationWizard({
                           step="10000"
                           disabled={t.kind === 'FREE'}
                           className="form-input"
-                          value={t.kind === 'FREE' ? 0 : t.price}
-                          onChange={(e) => updateTicket(idx, { price: Number(e.target.value) })}
+                          value={t.kind === 'FREE' ? 0 : (t.price === 0 ? '' : t.price)}
+                          onChange={(e) => { const raw = e.target.value.replace(/^0+(?=\d)/, ''); updateTicket(idx, { price: raw === '' ? 0 : Number(raw) }); }}
                           style={{ minWidth: 120, textAlign: 'right', fontWeight: 700 }}
                         />
                         {t.kind === 'PAID' && (
@@ -996,8 +996,8 @@ export function EventCreationWizard({
                           type="number"
                           min="1"
                           className="form-input"
-                          value={t.quota}
-                          onChange={(e) => updateTicket(idx, { quota: Number(e.target.value) })}
+                          value={t.quota === 0 ? '' : t.quota}
+                          onChange={(e) => { const raw = e.target.value.replace(/^0+(?=\d)/, ''); updateTicket(idx, { quota: raw === '' ? 0 : Number(raw) }); }}
                           style={{ minWidth: 90, textAlign: 'right' }}
                         />
                       </td>
