@@ -315,20 +315,26 @@ export function OrgStaffPage() {
                                 Phân công ca →
                               </button>
                             )}
-                            <button
-                              type="button"
-                              onClick={() => setMemberToDelete(m)}
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                color: 'var(--danger)',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                fontSize: 13,
-                              }}
-                            >
-                              Xóa
-                            </button>
+                            {m.roles.includes('OWNER') ? (
+                              <span style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic' }}>
+                                Chủ sở hữu
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setMemberToDelete(m)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: 'var(--danger)',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  fontSize: 13,
+                                }}
+                              >
+                                Xóa
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

@@ -1,4 +1,3 @@
-import { ApiError } from '@event/core';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/api';
 import { repositories } from '../../../lib/repositories';
@@ -315,7 +314,8 @@ export function useDeleteMember(orgId: string | null) {
         p_user_id: userId,
       });
       if (error) {
-        throw new ApiError('INVALID_STATE', { reason: error.message });
+        const msg = error.message || 'Không thể xóa nhân sự khỏi tổ chức.';
+        throw new Error(msg);
       }
       return data;
     },
