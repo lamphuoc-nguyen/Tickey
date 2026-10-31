@@ -158,9 +158,19 @@ export function useMembers(orgId: string | null) {
     queryKey: ['org', orgId, 'members'],
     queryFn: async (): Promise<Member[]> => {
       // Ưu tiên gọi RPC list_org_members để lấy kèm email từ auth.users
+      interface MemberRpcRow {
+        id: string;
+        user_id: string;
+        roles: string[];
+        status: MemberStatus;
+        created_at: string;
+        full_name: string | null;
+        phone: string | null;
+        email: string | null;
+      }
       const { data, error } = await supabase.rpc('list_org_members', { p_org_id: orgId });
       if (!error && Array.isArray(data)) {
-        return data.map((row: any) => ({
+        return (data as MemberRpcRow[]).map((row) => ({
           id: row.id,
           userId: row.user_id,
           roles: row.roles,
