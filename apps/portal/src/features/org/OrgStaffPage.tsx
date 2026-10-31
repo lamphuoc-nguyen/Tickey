@@ -118,7 +118,7 @@ export function OrgStaffPage() {
   const detail = assignments.data.find((assignment) => assignment.id === detailId);
 
   const shownMembers = (members.data ?? []).filter((member) =>
-    `${memberName(member)} ${roleText(member.roles)}`.toLowerCase().includes(search.trim().toLowerCase()),
+    `${memberName(member)} ${member.profile?.email ?? ""} ${roleText(member.roles)}`.toLowerCase().includes(search.trim().toLowerCase()),
   );
   const shownAssignments = [...assignments.data].sort((a, b) => a.validFrom.localeCompare(b.validFrom));
 
@@ -277,6 +277,7 @@ export function OrgStaffPage() {
                   <thead>
                     <tr>
                       <th>THÀNH VIÊN</th>
+                      <th>EMAIL</th>
                       <th>ĐIỆN THOẠI</th>
                       <th>VAI TRÒ</th>
                       <th>NGÀY THÊM</th>
@@ -288,6 +289,7 @@ export function OrgStaffPage() {
                     {shownMembers.map((m) => (
                       <tr key={m.id}>
                         <td style={{ fontWeight: 700 }}>{memberName(m)}</td>
+                        <td style={{ color: 'var(--text)' }}>{m.profile?.email || '—'}</td>
                         <td>{m.profile?.phone ?? '—'}</td>
                         <td>{roleText(m.roles)}</td>
                         <td>{formatDateTime(m.createdAt)}</td>

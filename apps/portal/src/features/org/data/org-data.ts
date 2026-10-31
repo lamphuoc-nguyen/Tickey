@@ -13,7 +13,7 @@ export interface Member {
   roles: string[];
   status: MemberStatus;
   createdAt: string;
-  profile: { fullName: string | null; phone: string | null } | null;
+  profile: { fullName: string | null; phone: string | null; email?: string | null } | null;
 }
 
 export interface Venue {
@@ -156,7 +156,25 @@ export const sessionLabel = (event: Pick<OrgEvent, 'title'>, session: Pick<OrgSe
 export function useMembers(orgId: string | null) {
   return useQuery({
     queryKey: ['org', orgId, 'members'],
-    queryFn: () => api.get<Member[]>(`/api/organizations/${orgId}/members`),
+    queryFn: async (): Promise<Member[]> => {
+      // Ưu tiên gọi RPC list_org_members để lấy kèm email từ auth.users
+      const { data, error } = await supabase.rpc('list_org_members', { p_org_id: orgId });
+      if (!error && Array.isArray(data)) {
+        return data.map((row: any) => ({
+          id: row.id,
+          userId: row.user_id,
+          roles: row.roles,
+          status: row.status,
+          createdAt: row.created_at,
+          profile: {
+            fullName: row.full_name,
+            phone: row.phone,
+            email: row.email,
+          },
+        }));
+      }
+      return api.get<Member[]>(`/api/organizations/${orgId}/members`);
+    },
     enabled: !!orgId,
   });
 }
