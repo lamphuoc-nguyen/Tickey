@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router';
 import { CheckCircle2, Search } from 'lucide-react';
 import { useToast } from '../../components/common/ToastProvider';
 import { QueryNotice } from '../../components/common/QueryNotice';
+import { ConfirmButton } from '../../components/common/ConfirmButton';
 import {
   FigmaPageHeader,
   FigmaRecordInfoCard,
@@ -18,6 +19,8 @@ import {
   memberName,
   sessionLabel,
   useAssignStaff,
+  useDeleteMember,
+  type Member,
   useMembers,
   useOrgEvents,
   useRevokeAssignment,
@@ -78,6 +81,16 @@ export function OrgStaffPage() {
   const setMember = useSetMember(orgId);
   const assignStaff = useAssignStaff();
   const revoke = useRevokeAssignment();
+  const deleteMember = useDeleteMember(orgId);
+
+  const handleDeleteMember = (member: Member) => {
+    deleteMember.mutate(member.userId, {
+      onSuccess: () => {
+        showToast(`Đã xóa nhân sự ${memberName(member)} khỏi tổ chức.`, 'success');
+      },
+      onError: (error) => showToast(errorMessage(error), 'danger'),
+    });
+  };
 
   const memberByUser = new Map((members.data ?? []).map((member) => [member.userId, member]));
   const sessionById = new Map(sessions.map((item) => [item.session.id, item]));
@@ -295,13 +308,24 @@ export function OrgStaffPage() {
                           </span>
                         </td>
                         <td>
-                          {m.status === 'ACTIVE' && m.roles.some((role) => STAFF_ROLES.includes(role)) ? (
-                            <button type="button" onClick={() => openAssign(m.userId)} style={linkButton}>
-                              Phân công ca →
-                            </button>
-                          ) : (
-                            <span style={{ fontSize: 12, color: 'var(--muted)' }}>—</span>
-                          )}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                            {m.status === 'ACTIVE' && m.roles.some((role) => STAFF_ROLES.includes(role)) && (
+                              <button type="button" onClick={() => openAssign(m.userId)} style={linkButton}>
+                                Phân công ca →
+                              </button>
+                            )}
+                            <ConfirmButton
+                              message={`Xác nhận xóa "${memberName(m)}" khỏi tổ chức?`}
+                              confirmLabel="Xóa"
+                              className="btn btn-outline"
+                              disabled={deleteMember.isPending}
+                              onConfirm={() => handleDeleteMember(m)}
+                            >
+                              <span style={{ color: 'var(--danger)', fontSize: 13, fontWeight: 600 }}>
+                                Xóa
+                              </span>
+                            </ConfirmButton>
+                          </div>
                         </td>
                       </tr>
                     ))}

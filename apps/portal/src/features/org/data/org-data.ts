@@ -1,6 +1,7 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/api';
 import { repositories } from '../../../lib/repositories';
+import { supabase } from '../../../lib/supabase';
 
 // Org portal data from /api (database JSON, camelCase). Writes go through the RPC-backed endpoints only.
 
@@ -299,6 +300,24 @@ export function useSetMember(orgId: string | null) {
   return useMutation({
     mutationFn: (input: { email: string; roles: string[] }) =>
       api.put(`/api/organizations/${orgId}/members`, input),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['org', orgId, 'members'] }),
+  });
+}
+
+/** Deletes a member from the organization and revokes their active assignments. OWNER only. */
+export function useDeleteMember(orgId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await supabase.rpc('delete_org_member', {
+        p_org_id: orgId,
+        p_user_id: userId,
+      });
+      if (error) {
+        throw new ApiError('INVALID_STATE', { reason: error.message });
+      }
+      return data;
+    },
     onSuccess: () => client.invalidateQueries({ queryKey: ['org', orgId, 'members'] }),
   });
 }
