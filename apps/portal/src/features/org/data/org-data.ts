@@ -1,3 +1,4 @@
+import { ApiError } from '@event/core';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/api';
 import { repositories } from '../../../lib/repositories';
