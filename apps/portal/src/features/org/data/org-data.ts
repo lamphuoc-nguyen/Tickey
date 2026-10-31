@@ -157,7 +157,6 @@ export function useMembers(orgId: string | null) {
   return useQuery({
     queryKey: ['org', orgId, 'members'],
     queryFn: async (): Promise<Member[]> => {
-      // Ưu tiên gọi RPC list_org_members để lấy kèm email từ auth.users
       interface MemberRpcRow {
         id: string;
         user_id: string;
@@ -168,6 +167,20 @@ export function useMembers(orgId: string | null) {
         phone: string | null;
         email: string | null;
       }
+      interface DirectMemberRow {
+        id: string;
+        user_id: string;
+        roles: string[];
+        status: MemberStatus;
+        created_at: string;
+        profile: {
+          full_name: string | null;
+          phone: string | null;
+          email?: string | null;
+        } | null;
+      }
+
+      // 1. Thử gọi RPC list_org_members để lấy kèm email từ auth.users
       const { data, error } = await supabase.rpc('list_org_members', { p_org_id: orgId });
       if (!error && Array.isArray(data)) {
         return (data as MemberRpcRow[]).map((row) => ({
@@ -183,6 +196,30 @@ export function useMembers(orgId: string | null) {
           },
         }));
       }
+
+      // 2. Thử truy vấn trực tiếp từ bảng memberships kèm profiles
+      const { data: directData, error: directError } = await supabase
+        .from('memberships')
+        .select('id, user_id, roles, status, created_at, profile:profiles!memberships_user_id_fkey(full_name, phone, email)')
+        .eq('org_id', orgId)
+        .order('created_at');
+
+      if (!directError && Array.isArray(directData) && directData.length > 0) {
+        return (directData as unknown as DirectMemberRow[]).map((row) => ({
+          id: row.id,
+          userId: row.user_id,
+          roles: row.roles,
+          status: row.status,
+          createdAt: row.created_at,
+          profile: {
+            fullName: row.profile?.full_name ?? null,
+            phone: row.profile?.phone ?? null,
+            email: row.profile?.email ?? null,
+          },
+        }));
+      }
+
+      // 3. Fallback về API .NET
       return api.get<Member[]>(`/api/organizations/${orgId}/members`);
     },
     enabled: !!orgId,
