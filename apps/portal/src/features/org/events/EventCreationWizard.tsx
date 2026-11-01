@@ -29,7 +29,7 @@ import {
 import { useOrgVenues, useLayoutZones } from '../data/org-data';
 import { useVenue } from '../data/venue-data';
 import { toIso, toLocalInput } from './datetime';
-import { type WizardTicketItem, persistWizardTickets } from './wizard-tickets';
+import { type WizardTicketItem, freeTiersWithoutSeats, persistWizardTickets } from './wizard-tickets';
 
 
 function getDefaultDates(timeZone = 'Asia/Ho_Chi_Minh') {
@@ -148,6 +148,10 @@ export function EventCreationWizard({
   const saveTicketType = useSaveTicketType(createdSessionId);
 
   const effectiveSlug = slug || slugify(title);
+  const seatlessFreeTiers = freeTiersWithoutSeats(tickets, zones);
+  const seatlessWarning = seatlessFreeTiers.length
+    ? `Hạng ${seatlessFreeTiers.map((t) => `"${t.name || 'chưa đặt tên'}"`).join(', ')} dùng chung khu có ghế với hạng có phí nên chưa có ghế để bán. Hãy chọn khu đứng, hoặc sau khi lưu vào "Gán hạng vé theo ghế" để chia ghế.`
+    : null;
 
   // --- Actions ---
   const handleUploadCover = async (file: File) => {
@@ -1088,6 +1092,8 @@ export function EventCreationWizard({
             </div>
           </div>
 
+          {seatlessWarning && <FigmaInfoAlert tone="warning">{seatlessWarning}</FigmaInfoAlert>}
+
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 10 }}>
             <button
               type="button"
@@ -1179,6 +1185,16 @@ export function EventCreationWizard({
                     title: `Đã thiết lập ${tickets.length} hạng vé`,
                     desc: `Tổng sức chứa: ${totalCapacity.toLocaleString('vi-VN')} vé · Doanh thu dự kiến: ${formatVnd(estimatedRevenue)}`,
                   },
+                  ...(seatlessWarning
+                    ? [
+                        {
+                          pass: false,
+                          title: 'Có hạng miễn phí chưa có ghế để bán',
+                          desc: seatlessWarning,
+                          warnOnly: true,
+                        },
+                      ]
+                    : []),
                   {
                     pass: !!cover,
                     title: cover ? 'Đã có ảnh poster bìa' : 'Chưa có ảnh bìa (khuyến nghị tải lên)',

@@ -8,6 +8,8 @@ export interface PaymentSession {
   bookingId: string;
   paymentUrl: string;
   expiresAt: string;
+  /** How to finish: TEST submits the signed test form, REDIRECT opens paymentUrl. Older APIs omit it. */
+  mode?: 'TEST' | 'REDIRECT';
 }
 
 export interface PaymentApi {
@@ -146,6 +148,7 @@ export class HttpPaymentApi implements PaymentApi {
         bookingId: z.string(),
         paymentUrl: z.url(),
         expiresAt: z.string().datetime({ offset: true }),
+        mode: z.enum(['TEST', 'REDIRECT']).optional(),
       })
       .safeParse(body);
     if (!parsed.success) throw new ApiError('UNKNOWN', { reason: 'INVALID_PAYMENT_RESPONSE' });

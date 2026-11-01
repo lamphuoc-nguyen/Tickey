@@ -130,14 +130,13 @@ password **`Dev@123456`**.
 | `customer-1@dev.local` | `Dev@123456` | Customer                                                   | Buying tickets                                    |
 | `customer-2@dev.local` | `Dev@123456` | Customer                                                   | Buying tickets, racing customer-1 for one seat    |
 
-- Admin and Owner accounts must enrol TOTP (2FA) on their first portal login, or sensitive actions return
-  `MFA_REQUIRED`.
+- MFA is not required in P1 (`20261026000006_drop_mfa_requirement.sql`).
 - Org A's event "Đêm nhạc Mùa Thu" has two sessions on sale (Đêm 1, Đêm 2) with VIP, Thường, Vé đứng, a free student
   ticket and comp tickets.
 - Where to log in: portal https://tickey-portal.vercel.app (Admin/Owner), mobile app (Customer/Staff). The API is
   https://tickey-api.onrender.com (free plan: the first request after idling takes up to a minute).
-- Payment is in **test mode** (`Payments__Gateway=TEST` on Render): checkout opens a test page with
-  "Thanh toán thành công" / "Thanh toán thất bại". No money moves; a successful test payment issues signed tickets.
+- Payment is in **test mode** (`Payments__Gateway=TEST`, `Payments__Test__AllowCheckout=true` on Render): the app confirms
+  in one tap. No money moves, and signed tickets are still issued, so turn it off before real customers can reach it.
 
 ### What is already set up (2026-10-07)
 
@@ -150,7 +149,7 @@ password **`Dev@123456`**.
   ```
   Otherwise `db push` runs the init file again and fails.
 - **Auth hook:** Authentication → Hooks → Custom Access Token → `public.custom_access_token_hook` (enabled).
-- **MFA:** TOTP enabled. Admin, Owner and Finance accounts must enrol TOTP, or sensitive RPCs return `MFA_REQUIRED`.
+- **MFA:** TOTP is enabled but not required in P1.
 - **QR signing key:** kid `hosted-1` (Ed25519, ACTIVE) is in `public.signing_keys`. The private seed is in the
   Workers user-secrets of the machine that generated it only (see below).
 - **Security advisor:** the `SECURITY DEFINER` RPC warnings, the `org_public` view and `rls_auto_enable` are

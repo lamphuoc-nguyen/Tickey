@@ -105,13 +105,13 @@ Quy tắc server áp dụng (`check_in_booking`):
 
 1. `npx supabase start` (cần Docker), rồi `npx supabase db reset`.
 2. Tạo khóa ký QR cho local (DB_INSTRUCTIONS §4.1) và chèn public key vào `signing_keys`.
-3. Chạy API với `Payments__Gateway=TEST`, `Payments__Test__HmacKey`, `Qr__SigningKey`, `Qr__Kid`, `Api__PublicUrl=http://localhost:5080` và các key Supabase local.
+3. Chạy API với `Payments__Gateway=TEST`, `Payments__Test__AllowCheckout=true`, `Payments__Test__HmacKey`, `Qr__SigningKey`, `Qr__Kid`, `Api__PublicUrl=http://localhost:5080` và các key Supabase local.
 4. Để demo soát vé ngay trong ngày, dời giờ suất "Đêm 1" và cửa sổ phân công của staff trên **DB local**: `doors_open_at` < bây giờ < `sales_end_at`.
 5. Sau khi đồng bộ nhánh Customer, app xác nhận trực tiếp qua adapter TEST hiện có của API, không cần EXPO_PUBLIC_PAYMENT_GATEWAY và không mở trang cổng trung gian. Các ảnh C07/C08 ở trên ghi lại lần demo trước thay đổi này. Không dùng tên gateway khác để vượt qua điều kiện của UI. Xem `apps/mobile/PAYMENT_TESTING.md` để biết luồng hiện tại và blocker C-12 trên hosted.
 6. Trên web không có camera: dán nội dung QR vào ô "Mã QR" ở màn Soát vé.
 
 ## Lưu ý khi đưa lên môi trường hosted
 
-- **Hosted đang thiếu các migration ngày 26/10** (kiểm tra ngày 01/11/2026): `get_payment_by_order_ref` và `get_refunds_by_session` đều trả `PGRST202`. Thiếu hàm đầu tiên thì nút "Thanh toán thành công" của cổng TEST luôn lỗi. Cần áp lần lượt các file `20261026000001` → `20261026000007`, rồi đến `20261101000000_booking_admission_pass.sql`. Sau đó chạy `notify pgrst, 'reload schema';`.
+- Hosted đã có các migration đến `20261101000000` (kiểm tra catalog ngày 01/11/2026). Cần áp thêm `20261102000000_assign_staff_upsert.sql`, rồi chạy `notify pgrst, 'reload schema';`.
 - Sau `20261101000000`, cần áp thêm `20261101000001_backfill_booking_credentials.sql`. Khi đó worker đang giữ khóa `hosted-1` sẽ ký bù QR cho các đơn đã `CONFIRMED`.
 - Các bản build mobile cũ không có màn QR đơn. Cần build lại app vì có thêm plugin `expo-camera`.

@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text.Json;
 using EventPlatform.Api;
 using EventPlatform.Core.Payments;
@@ -18,9 +20,10 @@ public class TestPaymentTests
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private static (HttpClient Client, FakeHttpHandler Handler) Create(string? gateway)
+    private static (HttpClient Client, FakeHttpHandler Handler) Create(string? gateway, bool allowCheckout = true,
+        string rpcResponse = """{"result":"PAID"}""")
     {
-        var handler = new FakeHttpHandler((_, _) => (HttpStatusCode.OK, """{"result":"PAID"}"""));
+        var handler = new FakeHttpHandler((_, _) => (HttpStatusCode.OK, rpcResponse));
         var factory = new WebApplicationFactory<IApiMarker>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("Testing");
@@ -32,6 +35,7 @@ public class TestPaymentTests
             {
                 builder.UseSetting("Payments:Gateway", gateway);
                 builder.UseSetting("Payments:Test:HmacKey", TestHmacKey);
+                builder.UseSetting("Payments:Test:AllowCheckout", allowCheckout ? "true" : "false");
             }
             builder.ConfigureTestServices(services =>
                 services.AddHttpClient<SupabaseRpcClient>().ConfigurePrimaryHttpMessageHandler(() => handler));
@@ -50,6 +54,58 @@ public class TestPaymentTests
         using var hmac = new System.Security.Cryptography.HMACSHA256(System.Text.Encoding.UTF8.GetBytes(TestHmacKey));
         var hash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(data));
         return Convert.ToHexString(hash);
+    }
+
+    private static HttpRequestMessage SessionRequest(string gateway)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "/payments/sessions")
+        {
+            Content = JsonContent.Create(new { bookingId = Guid.NewGuid(), gateway }),
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "user-jwt");
+        return request;
+    }
+
+    [Fact]
+    public async Task Closed_test_checkout_refuses_session_page_and_result_without_touching_the_database()
+    {
+        var (client, handler) = Create("TEST", allowCheckout: false);
+
+        var session = await client.SendAsync(SessionRequest("TEST"), Ct);
+        var page = await client.GetAsync(
+            $"/payments/test/X-1?amount=180000&return={Uri.EscapeDataString(ReturnUrl)}&sig={ComputeTestSig("X-1", 180000, ReturnUrl)}", Ct);
+        var result = await client.PostAsync("/payments/test/X-1", Form("success"), Ct);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, session.StatusCode);
+        Assert.Contains("PAYMENT_UNAVAILABLE", await session.Content.ReadAsStringAsync(Ct));
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, page.StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, result.StatusCode);
+        Assert.Empty(handler.Calls);
+    }
+
+    [Fact]
+    public async Task Open_test_checkout_uses_the_servers_gateway_and_reports_test_mode()
+    {
+        var (client, handler) = Create("TEST", rpcResponse:
+            """{"booking":{},"payment":{"order_ref":"X-1","amount":180000,"gateway":"TEST","expires_at":"2026-11-01T10:00:00Z"}}""");
+
+        var res = await client.SendAsync(SessionRequest("VNPAY"), Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        Assert.Contains("\"mode\":\"TEST\"", await res.Content.ReadAsStringAsync(Ct));
+        var call = Assert.Single(handler.Calls);
+        Assert.Contains("\"p_gateway\":\"TEST\"", call.Body);
+    }
+
+    [Fact]
+    public async Task Unconfigured_gateway_is_unavailable_before_touching_the_database()
+    {
+        var (client, handler) = Create(null);
+
+        var res = await client.SendAsync(SessionRequest("TEST"), Ct);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, res.StatusCode);
+        Assert.Empty(handler.Calls);
     }
 
     [Fact]
@@ -212,6 +268,7 @@ public class TestPaymentTests
             builder.UseSetting("Api:PublicUrl", "https://api.test");
             builder.UseSetting("Payments:Gateway", "TEST");
             builder.UseSetting("Payments:Test:HmacKey", TestHmacKey);
+            builder.UseSetting("Payments:Test:AllowCheckout", "true");
             builder.ConfigureTestServices(services =>
                 services.AddHttpClient<SupabaseRpcClient>().ConfigurePrimaryHttpMessageHandler(() => handler));
         });

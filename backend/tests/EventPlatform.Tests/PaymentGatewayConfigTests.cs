@@ -2,12 +2,14 @@ using System;
 using System.Linq;
 using EventPlatform.Api;
 using EventPlatform.Core;
+using EventPlatform.Core.Outbox;
 using EventPlatform.Core.Payments;
 using EventPlatform.Core.Supabase;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace EventPlatform.Tests;
@@ -50,6 +52,31 @@ public class PaymentGatewayConfigTests
         var gateway = scope.ServiceProvider.GetRequiredService<IPaymentGateway>();
         
         Assert.IsType<UnconfiguredPaymentGateway>(gateway);
+    }
+
+    // render.yaml has no Workers service, so the API itself must process refunds (BUG-002).
+    [Fact]
+    public void Api_hosts_refund_and_payment_query_jobs_when_a_gateway_is_configured()
+    {
+        var handler = new FakeHttpHandler((_, _) => (System.Net.HttpStatusCode.OK, "[]"));
+        var factory = new WebApplicationFactory<IApiMarker>().WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Staging");
+            builder.UseSetting("MediaStorage:ImageProvider", "Supabase");
+            builder.UseSetting("Supabase:Url", "http://db.test");
+            builder.UseSetting("Supabase:AnonKey", "sb_publishable_test");
+            builder.UseSetting("Supabase:ServiceRoleKey", "sb_secret_test");
+            builder.UseSetting("Payments:Gateway", "TEST");
+            builder.UseSetting("Payments:Test:HmacKey", "test-key");
+            builder.ConfigureTestServices(services =>
+                services.AddHttpClient<SupabaseRpcClient>().ConfigurePrimaryHttpMessageHandler(() => handler));
+        });
+
+        using var client = factory.CreateClient();
+        var hosted = factory.Services.GetServices<IHostedService>().ToList();
+
+        Assert.Contains(hosted, s => s is RefundWorker);
+        Assert.Contains(hosted, s => s is PaymentQueryJob);
     }
 
     [Fact]

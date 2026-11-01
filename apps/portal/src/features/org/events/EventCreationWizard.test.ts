@@ -1,5 +1,47 @@
 import { describe, it, expect, vi } from 'vitest';
-import { persistWizardTickets, type WizardTicketItem } from './wizard-tickets';
+import { freeTiersWithoutSeats, persistWizardTickets, type WizardTicketItem } from './wizard-tickets';
+
+describe('freeTiersWithoutSeats (BUG-003)', () => {
+  const tier = (name: string, kind: WizardTicketItem['kind'], zoneIds: string[]): WizardTicketItem => ({
+    tempId: name,
+    name,
+    kind,
+    price: kind === 'PAID' ? 100000 : 0,
+    quota: 10,
+    zoneIds,
+    refundPolicy: 'ONLY_IF_CANCELLED',
+  });
+  const zones = [
+    { id: 'a', kind: 'SEATED' },
+    { id: 'b', kind: 'SEATED' },
+    { id: 'ga', kind: 'STANDING' },
+  ];
+
+  it('flags a free tier in a seated zone that a paid tier already takes', () => {
+    const free = tier('Free', 'FREE', ['b']);
+    expect(freeTiersWithoutSeats([tier('Paid', 'PAID', ['b']), free], zones)).toEqual([free]);
+  });
+
+  it('counts an empty zone choice as the first zone, as saving does', () => {
+    const free = tier('Free', 'FREE', []);
+    expect(freeTiersWithoutSeats([tier('Paid', 'PAID', ['a']), free], zones)).toEqual([free]);
+  });
+
+  it('accepts a free tier in a standing zone or a zone without a paid tier', () => {
+    const tickets = [
+      tier('Paid', 'PAID', ['a', 'ga']),
+      tier('Standing', 'FREE', ['ga']),
+      tier('Other', 'FREE', ['b']),
+    ];
+    expect(freeTiersWithoutSeats(tickets, zones)).toEqual([]);
+  });
+
+  it('accepts a free tier that can still sell in one of its zones', () => {
+    expect(
+      freeTiersWithoutSeats([tier('Paid', 'PAID', ['a']), tier('Free', 'FREE', ['a', 'b'])], zones),
+    ).toEqual([]);
+  });
+});
 
 describe('EventCreationWizard ticket persistence (F-07)', () => {
   const sampleTickets: WizardTicketItem[] = [

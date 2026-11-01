@@ -26,7 +26,7 @@ pnpm --filter @event/mobile exec expo start --go --clear
 
 ## Điều kiện server và giới hạn
 
-Backend vẫn phải hỗ trợ adapter xác nhận hiện có (TEST, HMAC ký URL) và worker/phần ký phát vé. Không có server phát vé thì chỉ sửa UI không thể tạo vé hợp lệ. Nếu backend chưa sẵn sàng, app giữ error/pending. Không sửa backend/migration hoặc ghi dữ liệu production trong đợt triển khai này.
+Backend phải bật `Payments:Test:AllowCheckout=true` (mặc định tắt, API trả 503 `PAYMENT_UNAVAILABLE`), vẫn phải hỗ trợ adapter xác nhận hiện có (TEST, HMAC ký URL) và worker/phần ký phát vé. Không có server phát vé thì chỉ sửa UI không thể tạo vé hợp lệ. Nếu backend chưa sẵn sàng, app giữ error/pending. Không sửa backend/migration hoặc ghi dữ liệu production trong đợt triển khai này.
 
 Mobile không kiểm tra/gỡ khóa theo hostname production nữa, theo yêu cầu sản phẩm không cần cờ cấu hình payment. Điều này không xác minh môi trường và không cấp quyền chạy giao dịch production cho agent. Kiểm thử ghi chỉ được thực hiện trên local/staging riêng.
 

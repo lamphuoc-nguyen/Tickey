@@ -31,7 +31,7 @@ Mật khẩu chung (chỉ dùng local): **`Dev@123456`**
 | customer-1@dev.local, customer-2@dev.local | Customer | Đặt vé, tranh cùng một ghế |
 | multi@dev.local | Customer + SCANNER Org A | Bộ chọn workspace |
 
-Admin, OWNER, FINANCE phải bật 2FA (TOTP) trong app: các RPC nhạy cảm báo `MFA_REQUIRED` khi token chưa `aal2`.
+P1 không yêu cầu 2FA (`20261026000006_drop_mfa_requirement.sql`). `MFA_REQUIRED` vẫn có trong danh sách mã lỗi nhưng RPC không còn trả.
 
 ## Cấu trúc database
 

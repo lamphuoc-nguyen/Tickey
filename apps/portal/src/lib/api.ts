@@ -60,6 +60,7 @@ const messages: Record<ApiError['code'], string> = {
   LEDGER_UNBALANCED: 'Giao dịch sổ cái không cân bằng.',
   LEDGER_INVALID_LINES: 'Bút toán sổ cái chưa hợp lệ.',
   RATE_LIMITED: 'Bạn đã thực hiện quá nhiều thao tác. Vui lòng chờ giây lát rồi thử lại.',
+  PAYMENT_UNAVAILABLE: 'Hiện chưa thể thanh toán. Vui lòng thử lại sau.',
   UNKNOWN: DEFAULT_ERROR_MESSAGE,
 };
 

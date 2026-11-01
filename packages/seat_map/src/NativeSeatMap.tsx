@@ -83,7 +83,26 @@ export function NativeSeatMap({
   const pinch = Gesture.Pinch().onEnd((event) => runOnJS(zoomTo)(event.scale));
   const tap = Gesture.Tap().onEnd((event) => runOnJS(tapAt)(event.x, event.y));
   return (
-    <View style={{ height }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+    <View style={{ height: height + CONTROLS_HEIGHT }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+      {/* Above the canvas: over it, the buttons would cover seats (top row). */}
+      <View style={{ height: CONTROLS_HEIGHT, flexDirection: 'row', justifyContent: 'flex-end', gap: 4 }}>
+        <Pressable
+          accessibilityLabel="Thu nhỏ sơ đồ"
+          accessibilityRole="button"
+          onPress={() => zoomTo(0.8)}
+          style={styles.control}
+        >
+          <NativeText>−</NativeText>
+        </Pressable>
+        <Pressable
+          accessibilityLabel="Phóng to sơ đồ"
+          accessibilityRole="button"
+          onPress={() => zoomTo(1.25)}
+          style={styles.control}
+        >
+          <NativeText>+</NativeText>
+        </Pressable>
+      </View>
       <GestureDetector gesture={Gesture.Race(tap, Gesture.Simultaneous(pan, pinch))}>
         <Canvas style={StyleSheet.absoluteFill}>
           {visible.map((seat) => {
@@ -131,27 +150,10 @@ export function NativeSeatMap({
             ))}
         </Canvas>
       </GestureDetector>
-      <View style={{ position: 'absolute', right: 0, top: 0, flexDirection: 'row', gap: 4 }}>
-        <Pressable
-          accessibilityLabel="Thu nhỏ sơ đồ"
-          accessibilityRole="button"
-          onPress={() => zoomTo(0.8)}
-          style={styles.control}
-        >
-          <NativeText>−</NativeText>
-        </Pressable>
-        <Pressable
-          accessibilityLabel="Phóng to sơ đồ"
-          accessibilityRole="button"
-          onPress={() => zoomTo(1.25)}
-          style={styles.control}
-        >
-          <NativeText>+</NativeText>
-        </Pressable>
-      </View>
     </View>
   );
 }
+const CONTROLS_HEIGHT = 52;
 const styles = StyleSheet.create({
   control: {
     width: 48,

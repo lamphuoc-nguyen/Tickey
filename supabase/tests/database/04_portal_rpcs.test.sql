@@ -5,10 +5,11 @@
 --   assign_seats_ticket_type: gán hạng giá cho ghế (S3-BE2-2)
 --   set_session_seat_status: HOLD/BLOCK/RELEASE ghế (S3-BE2-2)
 --   request_bank_account_change: đổi tài khoản nhận tiền có cooldown (S6-BE2-2, AC-16)
+--   assign_staff: phân công lại cập nhật dòng đang ACTIVE, không tạo dòng trùng (BUG-004)
 -- ============================================================================
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(26);
+select plan(30);
 
 create temp table fx (k text primary key, v uuid);
 grant all on fx to authenticated;
@@ -366,6 +367,26 @@ select throws_ok(
   'Other org owner cannot request bank account change'
 );
 reset role;
+
+-- BUG-004: phân công lại không tạo dòng trùng
+set role authenticated;
+do $$ begin perform pg_temp.act_as(pg_temp.fx('owner_a')); end $$;
+insert into fx values
+  ('assign_1', public.assign_staff(pg_temp.fx('session_a'), pg_temp.fx('staff_pos'), array['SCAN'], pg_temp.fx('gate')));
+insert into fx values
+  ('assign_2', public.assign_staff(pg_temp.fx('session_a'), pg_temp.fx('staff_pos'), array['SCAN','MANUAL_CHECKIN'], pg_temp.fx('gate')));
+insert into fx values
+  ('assign_all', public.assign_staff(pg_temp.fx('session_a'), pg_temp.fx('staff_pos'), array['SCAN']));
+insert into fx values
+  ('assign_all_2', public.assign_staff(pg_temp.fx('session_a'), pg_temp.fx('staff_pos'), array['SCAN','MANUAL_CHECKIN']));
+reset role;
+select is(pg_temp.fx('assign_2'), pg_temp.fx('assign_1'), 'Re-assigning the same gate returns the same assignment');
+select is((select permissions from public.staff_assignments where id = pg_temp.fx('assign_1')),
+          array['SCAN','MANUAL_CHECKIN'], 'Re-assigning replaces the permissions');
+select is(pg_temp.fx('assign_all_2'), pg_temp.fx('assign_all'), 'Re-assigning "all gates" (null gate) does not duplicate');
+select is((select count(*)::int from public.staff_assignments
+           where session_id = pg_temp.fx('session_a') and user_id = pg_temp.fx('staff_pos') and status = 'ACTIVE'),
+          2, 'One specific gate and one all-gates assignment stay separate');
 
 select * from finish();
 rollback;

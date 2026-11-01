@@ -159,7 +159,9 @@ export default function SelectionScreen() {
       seated.missing.length > 0 ||
       !!limit ||
       (zone?.type === 'standing' ? draft.quantity > maxQuantity || draft.quantity < 1 : changed));
-  const visibleAccessibleSeats = (zone?.seats ?? []).slice(page * 20, page * 20 + 20);
+  const visibleAccessibleSeats = [...(zone?.seats ?? [])]
+    .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }))
+    .slice(page * 20, page * 20 + 20);
   const reference = seatById.get(draft.conflicts[0] ?? '');
   const replacement = reference
     ? (zone?.seats ?? [])
