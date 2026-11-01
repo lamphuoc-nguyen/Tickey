@@ -120,7 +120,7 @@ Signed-in production flows were **not run**: the agent does not enter credential
 
 ## Minor items, not filed
 
-Fixed on `fix/e2e-findings`, except the audit log item, which needs names from the API.
+All fixed on `fix/e2e-findings`. Each was checked on screen: the zoom buttons and seat taps on Android, the rest on the web builds. The first zoom button fix in `f297abe` hid the buttons behind the map; a later change on the branch corrects it.
 
 - `apps/portal/src/features/auth/LoginPage.tsx:257`: dev hint names `admin-a@dev.local`; the seed account is `admin@dev.local`.
 - Mobile seat map: zoom buttons cover seats A5 and A6 until the map is moved.

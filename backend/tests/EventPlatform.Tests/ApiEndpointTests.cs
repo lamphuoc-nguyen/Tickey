@@ -658,6 +658,24 @@ public class ApiEndpointTests
     }
 
     [Fact]
+    public async Task Admin_audit_logs_add_actor_names_and_keep_system_rows()
+    {
+        const string actor = "a0000000-0000-4000-8000-000000000001";
+        var (client, handler) = Create((request, _) => request.RequestUri!.AbsolutePath.EndsWith("/profiles")
+            ? (HttpStatusCode.OK, $$"""[{"id":"{{actor}}","full_name":"Admin One"}]""")
+            : (HttpStatusCode.OK, $$"""[{"id":1,"actor_id":"{{actor}}"},{"id":2,"actor_id":null}]"""), UserJwt);
+
+        var res = await client.GetAsync("/api/admin/audit-logs", Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        Assert.Equal(2, handler.Calls.Count);
+        Assert.Contains($"id=in.({actor})", Uri.UnescapeDataString(handler.Calls[1].Request.RequestUri!.Query));
+        using var body = JsonDocument.Parse(await res.Content.ReadAsStringAsync(Ct));
+        Assert.Equal("Admin One", body.RootElement[0].GetProperty("actor_name").GetString());
+        Assert.False(body.RootElement[1].TryGetProperty("actor_name", out _));
+    }
+
+    [Fact]
     public async Task Admin_refund_bank_info_uses_the_callers_jwt_and_refund_id()
     {
         var id = Guid.NewGuid();

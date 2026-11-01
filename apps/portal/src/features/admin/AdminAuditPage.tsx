@@ -27,7 +27,7 @@ export function AdminAuditPage() {
       const matchScope = scopeFilter === 'ALL' || log.actorScope === scopeFilter;
       if (!matchScope) return false;
       if (!needle) return true;
-      return `${log.action} ${log.actorId ?? ''} ${log.targetType ?? ''} ${log.targetId ?? ''} ${log.orgId ?? ''}`
+      return `${log.action} ${log.actorName ?? ''} ${log.actorId ?? ''} ${log.targetType ?? ''} ${log.targetId ?? ''} ${log.orgId ?? ''}`
         .toLowerCase()
         .includes(needle);
     });
@@ -39,7 +39,7 @@ export function AdminAuditPage() {
       ...filtered.map((l) => [
         formatDateTime(l.createdAt),
         AUDIT_SCOPE[l.actorScope ?? '']?.label ?? l.actorScope ?? '',
-        l.actorId ?? '',
+        l.actorName ? `${l.actorName} (${l.actorId})` : (l.actorId ?? ''),
         l.action,
         l.targetType ?? '',
         l.targetId ?? '',
@@ -165,8 +165,8 @@ export function AdminAuditPage() {
                       <td>
                         <span className={`badge ${scope.badge}`}>{scope.label}</span>
                       </td>
-                      <td style={{ fontWeight: 700, fontSize: 12 }}>
-                        {log.actorId ? log.actorId.slice(0, 8) : 'Hệ thống'}
+                      <td style={{ fontWeight: 700, fontSize: 12 }} title={log.actorId ?? undefined}>
+                        {log.actorName ?? (log.actorId ? log.actorId.slice(0, 8) : 'Hệ thống')}
                       </td>
                       <td>{log.action}</td>
                       <td style={{ fontSize: 12 }}>

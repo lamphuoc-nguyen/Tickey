@@ -32,4 +32,4 @@ Trong `apps/portal/src/features/org/events/`: cảnh báo ở bước 3 và tron
 
 ## Kiểm thử
 `dotnet test` 224/224, build Release, `pnpm lint`, `typecheck`, `test` (mobile 163, core 93, portal 42), build portal, `supabase test db` 135 (local).
-Mới: 4 test `freeTiersWithoutSeats`. Chưa bấm thử cảnh báo trên trình duyệt.
+Mới: 4 test `freeTiersWithoutSeats`. Đã kiểm trên portal local: cảnh báo hiện ở bước 3 và checklist bước 4, không chặn gửi duyệt, mất khi chuyển sang khu đứng.
