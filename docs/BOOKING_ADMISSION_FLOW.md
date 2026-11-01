@@ -48,7 +48,7 @@ Nội dung QR có dạng `base64url(payload) + "." + chữ ký`. Payload chỉ c
 Ghi chú:
 - Số lượt đã vào / còn lại luôn do server trả về (`GET /api/bookings/{id}/admission`). App không tự suy ra từ cache.
 - Khi bấm **Lưu đơn để xem offline**, app lưu kèm QR của đơn, nên vẫn mở được mã ở cổng khi mất mạng. Lúc offline, số lượt hiện `—`.
-- Đơn đã `CONFIRMED` trước bản này được worker ký bù QR đơn: migration xếp lại job `ISSUE_TICKETS` cho các đơn chưa có QR mà suất diễn chưa kết thúc.
+- Đơn đã `CONFIRMED` trước bản này được worker ký bù QR đơn: `20261101000001_backfill_booking_credentials.sql` đưa job `ISSUE_TICKETS` cũ của các đơn chưa có QR (suất diễn chưa kết thúc) về `PENDING`. Gọi `enqueue` không có tác dụng, vì mỗi đơn chỉ được có một job `ISSUE_TICKETS` (C-11).
 
 ## 2. Nhân viên soát vé (app mobile, chế độ Staff)
 
@@ -113,5 +113,5 @@ Quy tắc server áp dụng (`check_in_booking`):
 ## Lưu ý khi đưa lên môi trường hosted
 
 - **Hosted đang thiếu các migration ngày 26/10** (kiểm tra ngày 01/11/2026): `get_payment_by_order_ref` và `get_refunds_by_session` đều trả `PGRST202`. Thiếu hàm đầu tiên thì nút "Thanh toán thành công" của cổng TEST luôn lỗi. Cần áp lần lượt các file `20261026000001` → `20261026000007`, rồi đến `20261101000000_booking_admission_pass.sql`. Sau đó chạy `notify pgrst, 'reload schema';`.
-- Sau khi áp migration QR đơn, worker đang giữ khóa `hosted-1` sẽ tự ký bù QR cho các đơn đã `CONFIRMED`.
+- Sau `20261101000000`, cần áp thêm `20261101000001_backfill_booking_credentials.sql`. Khi đó worker đang giữ khóa `hosted-1` sẽ ký bù QR cho các đơn đã `CONFIRMED`.
 - Các bản build mobile cũ không có màn QR đơn. Cần build lại app vì có thêm plugin `expo-camera`.
