@@ -30,6 +30,10 @@ services:
       # HMAC key for test payment signatures (required when Payments__Gateway=TEST). Set in Render dashboard.
       - key: Payments__Test__HmacKey
         sync: false
+      # Opens the fake checkout: tickets are issued without taking money. This deployment only has testers.
+      # Set to false (or remove) before real customers can reach it (BUG-001).
+      - key: Payments__Test__AllowCheckout
+        value: "true"
       # Ed25519 seed for QR tickets: the API issues tickets itself when this is set (no separate Workers host).
       - key: Qr__SigningKey
         sync: false

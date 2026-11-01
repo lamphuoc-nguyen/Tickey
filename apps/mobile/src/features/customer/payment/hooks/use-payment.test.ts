@@ -121,6 +121,18 @@ it('opens a browser for a real gateway instead of posting the TEST confirmation'
   expect(runtime.confirm).not.toHaveBeenCalled();
 });
 
+it('lets the server choose: REDIRECT opens the gateway even when the app defaults to TEST', async () => {
+  runtime.create.mockResolvedValueOnce({
+    bookingId: 'booking-a',
+    paymentUrl: 'https://gateway.test/pay',
+    expiresAt: '2026-11-01T10:00:00Z',
+    mode: 'REDIRECT',
+  });
+  await buildMutation('booking-a').mutationFn(undefined, runtime.assertCurrent);
+  expect(runtime.browser).toHaveBeenCalledWith('https://gateway.test/pay');
+  expect(runtime.confirm).not.toHaveBeenCalled();
+});
+
 it('accepts an uncertain redirect only when server independently confirms payment', async () => {
   runtime.confirm.mockRejectedValueOnce(new ApiError('NETWORK'));
   runtime.getBooking.mockResolvedValueOnce({ ...booking, status: 'PAID' });

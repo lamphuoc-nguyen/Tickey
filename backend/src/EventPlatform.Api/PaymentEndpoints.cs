@@ -4,9 +4,11 @@ using EventPlatform.Core.Supabase;
 
 namespace EventPlatform.Api;
 
-public sealed record CreatePaymentSessionRequest(Guid BookingId, string Gateway);
+/// <summary>Gateway is accepted from older apps and ignored: the server's configured gateway decides.</summary>
+public sealed record CreatePaymentSessionRequest(Guid BookingId, string? Gateway);
 
-public sealed record PaymentSessionResponse(Guid BookingId, string PaymentUrl, DateTimeOffset ExpiresAt);
+/// <summary>Mode tells the app how to finish: TEST = submit the signed test form, REDIRECT = open PaymentUrl.</summary>
+public sealed record PaymentSessionResponse(Guid BookingId, string PaymentUrl, DateTimeOffset ExpiresAt, string Mode);
 
 /// <summary>Shape of begin_payment's "payment" object.</summary>
 internal sealed record BeginPaymentResult(JsonElement Booking, BeginPaymentOrder Payment);
@@ -24,7 +26,7 @@ public static class PaymentEndpoints
         group.MapPost("/sessions", async (CreatePaymentSessionRequest body, HttpContext http,
             SupabaseRpcClient rpc, IPaymentGateway gateway, IConfiguration config, CancellationToken ct) =>
             Bearer.Token(http) is { } jwt
-                ? await CreateSessionAsync(body.BookingId, body.Gateway, jwt, rpc, gateway, config, ct)
+                ? await CreateSessionAsync(body.BookingId, jwt, rpc, gateway, config, ct)
                 : Results.Unauthorized());
 
         group.MapPost("/ipn/{gateway}", HandleIpnAsync);
@@ -37,17 +39,28 @@ public static class PaymentEndpoints
     }
 
     /// <summary>begin_payment as the user (PostgREST validates the JWT, the RPC checks ownership), then the gateway URL.</summary>
-    public static async Task<IResult> CreateSessionAsync(Guid bookingId, string gatewayCode, string jwt,
+    public static async Task<IResult> CreateSessionAsync(Guid bookingId, string jwt,
         SupabaseRpcClient rpc, IPaymentGateway gateway, IConfiguration config, CancellationToken ct)
     {
+        // Checked before begin_payment, so a closed checkout leaves the booking untouched.
+        if (gateway is UnconfiguredPaymentGateway or TestPaymentGateway { CheckoutAllowed: false })
+        {
+            return Unavailable();
+        }
+
         var result = await rpc.CallAsUserAsync<BeginPaymentResult>("begin_payment",
-            new { p_booking_id = bookingId, p_gateway = gatewayCode }, jwt, ct);
+            new { p_booking_id = bookingId, p_gateway = gateway.Name }, jwt, ct);
 
         var p = result.Payment;
         var returnUrl = new Uri($"{config["Api:PublicUrl"]?.TrimEnd('/')}/payments/return?booking_id={bookingId}");
         var url = gateway.BuildPaymentUrl(new PaymentOrder(p.OrderRef, p.Amount, p.Gateway, p.ExpiresAt), returnUrl);
-        return Results.Ok(new PaymentSessionResponse(bookingId, url.ToString(), p.ExpiresAt));
+        var mode = gateway is TestPaymentGateway ? "TEST" : "REDIRECT";
+        return Results.Ok(new PaymentSessionResponse(bookingId, url.ToString(), p.ExpiresAt, mode));
     }
+
+    /// <summary>No usable gateway here: the app shows "payment unavailable" (ApiError PAYMENT_UNAVAILABLE).</summary>
+    public static IResult Unavailable() => Results.Json(new { message = "PAYMENT_UNAVAILABLE", details = "{}" },
+        statusCode: StatusCodes.Status503ServiceUnavailable);
 
     // MT §20.5: verify, record, always 200 after recording. Tickets are issued by the worker, not here.
     private static async Task<IResult> HandleIpnAsync(string gateway, HttpRequest request, SupabaseRpcClient rpc,

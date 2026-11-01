@@ -53,7 +53,8 @@ public sealed class UnconfiguredPaymentGateway : IPaymentGateway
 
 /// <summary>
 /// Test mode (Payments:Gateway = TEST): no money moves. The payment URL is the API's own checkout page
-/// (/payments/test/{orderRef}), where the tester chooses success or failure. Never enable it with real customers.
+/// (/payments/test/{orderRef}), where the tester chooses success or failure. Tickets are issued without taking
+/// money, so checkout stays closed unless Payments:Test:AllowCheckout is true (BUG-001). Never allow it with real customers.
 /// </summary>
 public sealed class TestPaymentGateway : IPaymentGateway
 {
@@ -63,9 +64,13 @@ public sealed class TestPaymentGateway : IPaymentGateway
 
     private readonly string _hmacKey;
 
+    /// <summary>False: no payment session is opened and the checkout page refuses to record a result.</summary>
+    public bool CheckoutAllowed { get; }
+
     public TestPaymentGateway(IOptions<TestPaymentOptions> options)
     {
         _hmacKey = options.Value.HmacKey ?? throw new InvalidOperationException("Payments:Test:HmacKey is required for TEST gateway");
+        CheckoutAllowed = options.Value.AllowCheckout;
     }
 
     public Uri BuildPaymentUrl(PaymentOrder order, Uri returnUrl)
@@ -114,4 +119,7 @@ public sealed class TestPaymentGateway : IPaymentGateway
 public sealed class TestPaymentOptions
 {
     public string HmacKey { get; set; } = "";
+
+    /// <summary>Explicit opt-in for environments without real customers (local, tester deployments).</summary>
+    public bool AllowCheckout { get; set; }
 }

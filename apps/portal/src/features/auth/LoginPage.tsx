@@ -254,7 +254,7 @@ export function LoginPage() {
             >
               <strong>Tài khoản seed mẫu:</strong>
               <br />• <code>owner-a@dev.local</code> / <code>Dev@123456</code> (Owner Ánh Trăng)
-              <br />• <code>admin-a@dev.local</code> / <code>Dev@123456</code> (Admin nền tảng)
+              <br />• <code>admin@dev.local</code> / <code>Dev@123456</code> (Admin nền tảng)
               <div
                 style={{
                   marginTop: '10px',

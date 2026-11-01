@@ -83,55 +83,9 @@ export function NativeSeatMap({
   const pinch = Gesture.Pinch().onEnd((event) => runOnJS(zoomTo)(event.scale));
   const tap = Gesture.Tap().onEnd((event) => runOnJS(tapAt)(event.x, event.y));
   return (
-    <View style={{ height }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
-      <GestureDetector gesture={Gesture.Race(tap, Gesture.Simultaneous(pan, pinch))}>
-        <Canvas style={StyleSheet.absoluteFill}>
-          {visible.map((seat) => {
-            const state = displaySeatState(seat.id, seatStates, selectedSeatIds, conflictSeatIds);
-            const x = (seat.x - camera.x) * camera.zoom,
-              y = (seat.y - camera.y) * camera.zoom;
-            const size = geometry.diameter * camera.zoom;
-            return (
-              <RoundedRect
-                key={seat.id}
-                x={x - size / 2}
-                y={y - size / 2}
-                width={size}
-                height={size}
-                r={6}
-                color={colors[state]}
-              />
-            );
-          })}
-          {font &&
-            visible.map((seat) => {
-              const state = displaySeatState(seat.id, seatStates, selectedSeatIds, conflictSeatIds);
-              const label = `${seat.number}${state === 'CONFLICT' ? '!' : state === 'SELECTED' ? '✓' : state === 'BLOCKED' ? '×' : ''}`;
-              return (
-                <Text
-                  key={seat.id}
-                  x={(seat.x - camera.x) * camera.zoom - 10}
-                  y={(seat.y - camera.y) * camera.zoom + 5}
-                  text={label}
-                  font={font}
-                  color={['SELECTED', 'CONFLICT', 'BLOCKED'].includes(state) ? 'white' : '#20272B'}
-                />
-              );
-            })}
-          {font &&
-            [...new Map(visible.map((seat) => [seat.row, seat])).values()].map((seat) => (
-              <Text
-                key={`row-${seat.row}`}
-                x={0}
-                y={(seat.y - camera.y) * camera.zoom + 5}
-                text={seat.row}
-                font={font}
-                color="#20272B"
-              />
-            ))}
-        </Canvas>
-      </GestureDetector>
-      <View style={{ position: 'absolute', right: 0, top: 0, flexDirection: 'row', gap: 4 }}>
+    <View style={{ height: height + CONTROLS_HEIGHT }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+      {/* Above the canvas: over it, the buttons would cover seats (top row). */}
+      <View style={{ height: CONTROLS_HEIGHT, flexDirection: 'row', justifyContent: 'flex-end', gap: 4 }}>
         <Pressable
           accessibilityLabel="Thu nhỏ sơ đồ"
           accessibilityRole="button"
@@ -149,9 +103,59 @@ export function NativeSeatMap({
           <NativeText>+</NativeText>
         </Pressable>
       </View>
+      <View style={{ height }}>
+        <GestureDetector gesture={Gesture.Race(tap, Gesture.Simultaneous(pan, pinch))}>
+          <Canvas style={StyleSheet.absoluteFill}>
+            {visible.map((seat) => {
+              const state = displaySeatState(seat.id, seatStates, selectedSeatIds, conflictSeatIds);
+              const x = (seat.x - camera.x) * camera.zoom,
+                y = (seat.y - camera.y) * camera.zoom;
+              const size = geometry.diameter * camera.zoom;
+              return (
+                <RoundedRect
+                  key={seat.id}
+                  x={x - size / 2}
+                  y={y - size / 2}
+                  width={size}
+                  height={size}
+                  r={6}
+                  color={colors[state]}
+                />
+              );
+            })}
+            {font &&
+              visible.map((seat) => {
+                const state = displaySeatState(seat.id, seatStates, selectedSeatIds, conflictSeatIds);
+                const label = `${seat.number}${state === 'CONFLICT' ? '!' : state === 'SELECTED' ? '✓' : state === 'BLOCKED' ? '×' : ''}`;
+                return (
+                  <Text
+                    key={seat.id}
+                    x={(seat.x - camera.x) * camera.zoom - 10}
+                    y={(seat.y - camera.y) * camera.zoom + 5}
+                    text={label}
+                    font={font}
+                    color={['SELECTED', 'CONFLICT', 'BLOCKED'].includes(state) ? 'white' : '#20272B'}
+                  />
+                );
+              })}
+            {font &&
+              [...new Map(visible.map((seat) => [seat.row, seat])).values()].map((seat) => (
+                <Text
+                  key={`row-${seat.row}`}
+                  x={0}
+                  y={(seat.y - camera.y) * camera.zoom + 5}
+                  text={seat.row}
+                  font={font}
+                  color="#20272B"
+                />
+              ))}
+          </Canvas>
+        </GestureDetector>
+      </View>
     </View>
   );
 }
+const CONTROLS_HEIGHT = 52;
 const styles = StyleSheet.create({
   control: {
     width: 48,

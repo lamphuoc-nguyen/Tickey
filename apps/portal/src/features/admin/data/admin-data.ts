@@ -101,6 +101,7 @@ export interface Approval {
 export interface AuditLog {
   id: number;
   actorId: string | null;
+  actorName?: string | null;
   actorScope: string | null;
   orgId: string | null;
   action: string;

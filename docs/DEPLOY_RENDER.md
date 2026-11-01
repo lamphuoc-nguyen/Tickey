@@ -34,7 +34,10 @@ Ba dòng sau **không** làm chết container: `Qr:SigningKey` có `if` bảo v�
 `Api:PublicUrl` mặc định rỗng trong `appsettings.json`. Chúng chỉ làm hỏng tính năng.
 
 Giá trị mặc định đã commit sẵn trong `render.yaml`, không cần điền: `PORT=8080`, `Supabase__Url`,
-`Payments__Gateway=TEST`, `Qr__Kid=hosted-1`.
+`Payments__Gateway=TEST`, `Payments__Test__AllowCheckout=true`, `Qr__Kid=hosted-1`.
+
+`Payments__Test__AllowCheckout` mở checkout thử: phát vé mà không thu tiền. Thiếu thì app báo chưa thể thanh toán (503
+`PAYMENT_UNAVAILABLE`). Service không dùng Blueprint sync phải tự thêm biến này. Đặt `false` trước khi có khách thật (BUG-001).
 
 ## 2. Phân biệt Build failed và Deploy failed
 
@@ -110,7 +113,7 @@ cho những khoá mà giá trị chỉ cần ngẫu nhiên, thay vì `sync: fals
 ## 5. Ghi chú vận hành
 
 - Plan free ngủ sau một khoảng không có request; request đầu tiên sau đó mất tới một phút (`README.md:138`).
-- `render.yaml` chỉ có **một** service: API tự phát vé QR và tự chạy `PaymentQueryJob`, không có host Workers riêng
+- `render.yaml` chỉ có **một** service: API tự phát vé QR và tự chạy `PaymentQueryJob`, `RefundWorker`, không có host Workers riêng
   (`Program.cs:66-75`, `docs/ARCH.md:166`).
 - `render.yaml` thuộc vùng **opencode**, `docs/**` thuộc **claude** (`AGENTS.md` mục 1). Đổi tên hay thêm key
   `sync: false` trong `render.yaml` phải cập nhật bảng ở mục 1 của tài liệu này.

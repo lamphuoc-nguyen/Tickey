@@ -72,8 +72,8 @@ if (!string.IsNullOrEmpty(builder.Configuration["Qr:SigningKey"]))
     builder.Services.AddHostedService<IssueTicketsWorker>();
 }
 
-// PaymentQueryJob must run in API as well (render.yaml only has tickey-api service)
-// It queries gateway for PAYMENT_PENDING bookings and expires unpaid ones
+// PaymentQueryJob and RefundWorker must run in API as well (render.yaml only has tickey-api service).
+// They expire unpaid PAYMENT_PENDING bookings and process refunds; claim_outbox is safe alongside Workers (BUG-002).
 // Only register when a payment gateway is actually configured (TEST or real gateway)
 // and not in Testing environment (tests use fake HTTP handlers that don't support the RPC calls)
 var isTesting = builder.Environment.IsEnvironment("Testing");
@@ -81,6 +81,7 @@ if (!isTesting && (ServiceCollectionExtensions.IsTestPayments(builder.Configurat
     !string.IsNullOrEmpty(builder.Configuration["Payments:Gateway"])))
 {
     builder.Services.AddHostedService<PaymentQueryJob>();
+    builder.Services.AddHostedService<RefundWorker>();
 }
 
 var app = builder.Build();

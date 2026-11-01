@@ -418,6 +418,7 @@ export function errorMessage(error: unknown): string {
       RATE_LIMITED: 'Bạn đã thao tác quá nhanh. Vui lòng chờ một lúc rồi thử lại.',
       SESSION_NOT_ON_SALE: 'Suất diễn hiện không bán vé. Vui lòng chọn suất khác.',
       BOOKING_EXPIRED: 'Đã hết thời gian giữ chỗ. Vui lòng chọn lại.',
+      PAYMENT_UNAVAILABLE: 'Hiện chưa thể thanh toán. Chỗ của bạn vẫn được giữ đến hết thời gian.',
       OTP_REQUIRED: 'Bạn cần xác thực OTP trước khi gửi tài khoản nhận hoàn.',
       MFA_REQUIRED: 'Thao tác cần xác thực bảo mật bổ sung. Vui lòng liên hệ hỗ trợ nếu chưa thiết lập.',
       DEVICE_REVOKED: 'Thiết bị không còn được phép thực hiện thao tác này. Vui lòng liên hệ người quản lý.',

@@ -141,13 +141,13 @@ Tham số (`public.app_settings`): `booking.lock_minutes` = 10 (T_LOCK), `paymen
 
 ### 4.4 Thanh toán
 
-1. Mobile `features/customer/payment/hooks/use-payment.ts` (cần `EXPO_PUBLIC_PAYMENT_GATEWAY`, vd. `TEST`) →
+1. Mobile `features/customer/payment/hooks/use-payment.ts` →
    `HttpPaymentApi.createPaymentSession` → `POST {API}/payments/sessions` (`PaymentEndpoints.cs`) với JWT của khách.
    Tương đương: `POST /api/bookings/{id}/payment`.
 2. API gọi RPC `begin_payment` **bằng JWT của khách**: kiểm chủ sở hữu, Session còn bán, chưa quá T_MAX; Booking →
    `PAYMENT_PENDING`, gia hạn lock = `min(now + 15 + 5 phút, created_at + T_MAX)`, tạo `payments` (`INITIATED`,
    `order_ref = <booking code>-<n>`). Gọi lại khi phiên cổng còn hạn → trả lại phiên cũ.
-3. API dựng URL cổng (`IPaymentGateway.BuildPaymentUrl`), app mở bằng `WebBrowser.openAuthSessionAsync`.
+3. API dựng URL cổng (`IPaymentGateway.BuildPaymentUrl`) và trả `mode`. `TEST`: app tự gửi form đã ký tới trang thử, không mở trình duyệt. `REDIRECT`: app mở `paymentUrl`.
    Chế độ TEST: trang `/payments/test/{orderRef}` (`TestPaymentEndpoints.cs`) có nút "Thanh toán thành công/thất bại".
 4. Kết quả:
    - Cổng thật: `POST /payments/ipn/{gateway}` (hoặc `/api/payments/ipn/{gateway}`) → `VerifyIpnAsync` → RPC
@@ -157,7 +157,8 @@ Tham số (`public.app_settings`): `booking.lock_minutes` = 10 (T_LOCK), `paymen
      Booking đã thanh toán bằng phiên khác → refund `DUPLICATE_PAYMENT`; còn lại `secure_booking_inventory`
      (khoá lại đúng ghế cũ nếu Booking đã EXPIRED) → `mark_booking_paid` (`PAID`, enqueue `ISSUE_TICKETS`) + ghi sổ cái
      (Platform Fee). Không còn ghế / Booking đã CANCELLED → `REFUND_PENDING` + refund `LATE_PAYMENT_NO_SEAT`.
-   - `apply_payment_failure`: chỉ đánh dấu payment `FAILED`; **Booking vẫn `PAYMENT_PENDING`**, chờ job truy vấn cổng.
+   - `apply_payment_failure`: chỉ đánh dấu payment `FAILED`; **Booking vẫn `PAYMENT_PENDING`** để khách thanh toán lại. `PaymentQueryJob` expire khi phiên cổng đã hết hạn và `lock_expires_at` đã qua.
+   - Gateway `TEST` phát vé mà không thu tiền, nên chỉ mở khi `Payments:Test:AllowCheckout=true`. Tắt thì API trả 503 `PAYMENT_UNAVAILABLE` (BUG-001).
 5. `GET /payments/return?booking_id=` redirect về deep link `App:PaymentResultDeepLink` (`eventcustomer://payment-result`).
    App **không tin** tham số trả về: luôn gọi `get_booking`, và `use-booking.ts` poll 3 giây khi trạng thái còn chuyển.
 
@@ -196,10 +197,8 @@ Tham số (`public.app_settings`): `booking.lock_minutes` = 10 (T_LOCK), `paymen
 
 ### 4.7 Phần chưa có / khoảng trống đã biết (đọc trước khi điều tra lỗi)
 
-- **`RefundWorker` chưa được viết**: outbox `PROCESS_REFUND` / `PROCESS_SESSION_REFUNDS` không có ai tiêu thụ, nên
-  refund tạo ra ở trạng thái `REQUESTED` không tự tiến lên.
-- **`PaymentQueryJob` chưa được viết**: Booking `PAYMENT_PENDING` mà khách bỏ dở / thanh toán thất bại sẽ giữ ghế
-  cho đến khi có kết quả cổng (`list_payment_pending_to_query` → `expire_unpaid_booking`); cron chỉ giải phóng `PENDING`.
+- `RefundWorker` và `PaymentQueryJob` chạy trong Workers, và trong API khi có gateway (`Program.cs`, cấu hình Render hiện tại).
+- Booking `PAYMENT_PENDING` giữ ghế đến khi hết phiên cổng và lock, tối đa khoảng 20 phút; cron chỉ giải phóng `PENDING`.
 - `PayoutWorker`, `ReconciliationJob`, `NotificationsWorker` chưa có. Cổng thanh toán thật chưa chọn
   (`UnconfiguredPaymentGateway` ném lỗi khi không bật TEST).
 - API chưa tự validate JWT (để PostgREST kiểm); xem `Bearer.cs`.
@@ -224,7 +223,7 @@ supabase status            # lấy API URL, anon key, service_role key
 
 - Tài khoản test: `customer-1@dev.local`, `customer-2@dev.local` (đặt vé), `owner-a@dev.local` (Org A),
   `admin@dev.local` + `admin-2@dev.local` (hai phiếu duyệt), `staff-a@dev.local` (soát vé/POS), `multi@dev.local`.
-  Admin/Owner phải bật TOTP, không thì RPC nhạy cảm trả `MFA_REQUIRED`.
+  P1 không yêu cầu TOTP (`20261026000006_drop_mfa_requirement.sql`).
 - Khoá ký QR (để Booking lên `CONFIRMED`): xem `supabase/README.md` mục "Cấu hình Supabase cần làm tay".
 - Thay đổi schema: **không sửa** `20261001000000_init_database.sql`; tạo migration mới trong `supabase/migrations/`.
 - ⚠️ **Không** chạy `supabase db reset`, `supabase test db`, `seed.sql`, `smoke_e2e.sql`, `concurrency_ac01.sh`
@@ -240,6 +239,7 @@ dotnet user-secrets --project src/EventPlatform.Api set "Supabase:ServiceRoleKey
 # Tuỳ chọn: thanh toán thử + phát vé ngay trong API
 dotnet user-secrets --project src/EventPlatform.Api set "Payments:Gateway" "TEST"
 dotnet user-secrets --project src/EventPlatform.Api set "Payments:Test:HmacKey" "<chuỗi bí mật bất kỳ>"  # bắt buộc khi Gateway=TEST
+# Payments:Test:AllowCheckout đã bật sẵn trong appsettings.Development.json
 dotnet user-secrets --project src/EventPlatform.Api set "Qr:SigningKey"    "<ed25519 seed>"
 dotnet user-secrets --project src/EventPlatform.Api set "Qr:Kid"           "dev-1"
 # Workers dùng cùng bộ khoá với --project src/EventPlatform.Workers
@@ -256,7 +256,7 @@ Cấu hình khác: `Api:PublicUrl` (link trả về từ cổng), `Cors:Origins`
 ### 5.3 Frontend
 
 ```bash
-cp apps/mobile/.env.example apps/mobile/.env.local   # EXPO_PUBLIC_SUPABASE_URL/ANON_KEY, EXPO_PUBLIC_API_URL, EXPO_PUBLIC_PAYMENT_GATEWAY=TEST
+cp apps/mobile/.env.example apps/mobile/.env.local   # EXPO_PUBLIC_SUPABASE_URL/ANON_KEY, EXPO_PUBLIC_API_URL
 cp apps/portal/.env.example apps/portal/.env.local   # VITE_SUPABASE_URL/ANON_KEY, VITE_API_URL
 
 pnpm dev:portal            # Vite http://localhost:5173 (Org/Admin)

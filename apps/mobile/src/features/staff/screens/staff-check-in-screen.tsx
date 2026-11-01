@@ -162,8 +162,14 @@ function Result({ result }: { result: StaffScanResult }) {
 }
 
 const styles = StyleSheet.create({
-  statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  permission: { color: c.muted, fontFamily: fonts.medium, fontSize: 10 },
+  statusRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  permission: { flexShrink: 1, color: c.muted, fontFamily: fonts.medium, fontSize: 10 },
   resultTitle: { color: c.text, fontFamily: fonts.semibold, fontSize: 14 },
   resultDetail: { color: c.muted, fontFamily: fonts.regular, fontSize: 11, lineHeight: 16 },
   selected: { borderColor: c.primary, borderWidth: 1.5, backgroundColor: c.tint },

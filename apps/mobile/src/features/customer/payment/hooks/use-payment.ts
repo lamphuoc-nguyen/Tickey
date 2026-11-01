@@ -18,10 +18,13 @@ export function usePayment(bookingId: string) {
       const gateway = configuration.gateway;
       if (!configuration.available || !gateway) throw new Error(configuration.unavailableReason);
       let failure: unknown;
+      let testConfirmation = configuration.isTest;
       try {
         const payment = await repositories.payment.createPaymentSession(bookingId, gateway);
         await assertCurrent();
-        if (configuration.isTest) await repositories.payment.confirmTestPayment(payment);
+        // The server's gateway decides; a real gateway must not be sent through the test form.
+        testConfirmation = payment.mode ? payment.mode === 'TEST' : configuration.isTest;
+        if (testConfirmation) await repositories.payment.confirmTestPayment(payment);
         else await openPaymentBrowser(payment.paymentUrl);
       } catch (error) {
         failure = error;
@@ -40,7 +43,7 @@ export function usePayment(bookingId: string) {
       void cache.invalidateQueries({ queryKey: ['tickets', ...sessionScope(session)] });
       const recorded = booking.status === 'PAID' || booking.status === 'CONFIRMED';
       const uncertainTestResult =
-        configuration.isTest && failure instanceof ApiError && failure.code === 'NETWORK';
+        testConfirmation && failure instanceof ApiError && failure.code === 'NETWORK';
       if (failure && !(uncertainTestResult && recorded)) throw failure;
       return booking;
     },

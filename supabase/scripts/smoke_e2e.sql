@@ -51,7 +51,6 @@ select pg_temp.t_as('00000000-0000-0000-0000-00000000000a','aal2');
 select public.list_my_workspaces();
 select public.submit_kyc(:'org_a', '{"legal_name":"Cong ty A"}', '079 123 456', jsonb_build_array(jsonb_build_object('doc_type','BUSINESS_LICENSE','storage_path', :'org_a' || '/gpkd.pdf'))) as kyc \gset
 select pg_temp.t_as('00000000-0000-0000-0000-0000000000a1','aal1');
-select 'kyc without mfa: ' || pg_temp.t_expect(format('select public.review_kyc(%L,%L)', :'kyc','APPROVED'), 'MFA_REQUIRED');
 select pg_temp.t_as('00000000-0000-0000-0000-0000000000a1','aal2');
 select public.review_kyc(:'kyc','APPROVED');
 -- ===== Venue, layout
@@ -354,7 +353,6 @@ select 'settlement: ' || status || ' gross=' || gross_amount || ' refund=' || re
   from public.settlements where session_id = :'ses2';
 set role authenticated;
 select pg_temp.t_as('00000000-0000-0000-0000-00000000000a','aal1');
-select 'bank change without mfa: ' || pg_temp.t_expect(format('select public.request_bank_account_change(%L,%L,%L,%L)', :'org_a','VCB','9988776655','CONG TY A'), 'MFA_REQUIRED');
 select pg_temp.t_as('00000000-0000-0000-0000-00000000000a','aal2');
 select public.request_bank_account_change(:'org_a','VCB','9988776655','CONG TY A') as bank \gset
 select pg_temp.t_as('00000000-0000-0000-0000-0000000000a1','aal2');

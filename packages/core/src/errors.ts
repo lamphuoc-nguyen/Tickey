@@ -20,6 +20,8 @@ export const ERROR_CODES = [
   'LEDGER_INVALID_LINES',
   // API-only (not raised by RPCs): HTTP 429, details { retry_after_seconds } (B-14).
   'RATE_LIMITED',
+  // API-only: HTTP 503 when this server has no open payment gateway (BUG-001).
+  'PAYMENT_UNAVAILABLE',
 ] as const;
 
 export type AppErrorCode = (typeof ERROR_CODES)[number];

@@ -20,7 +20,7 @@ public sealed record BookingOptions(string? BookingType, Guid? CorporateAccountI
 public sealed record CreateBookingRequest(Guid SessionId, BookingItemRequest[] Items, string? IdempotencyKey,
     BookingOptions? Options);
 
-public sealed record StartPaymentRequest(string Gateway);
+public sealed record StartPaymentRequest(string? Gateway);
 
 public sealed record AssignHolderRequest(string Name, string? Email, string? Phone);
 
@@ -104,7 +104,7 @@ public static class BookingEndpoints
 
         api.MapPost("/bookings/{id:guid}/payment", (Guid id, StartPaymentRequest body, HttpContext http,
             SupabaseRpcClient rpc, IPaymentGateway gateway, IConfiguration config, CancellationToken ct) =>
-            PaymentEndpoints.CreateSessionAsync(id, body.Gateway, http.Jwt(), rpc, gateway, config, ct));
+            PaymentEndpoints.CreateSessionAsync(id, http.Jwt(), rpc, gateway, config, ct));
 
         // "My tickets" with the signed QR credential; the app renders the QR from kid + payload + signature.
         api.MapGet("/tickets", async (string? status, int? limit, int? offset, HttpContext http, SupabaseRestClient db,

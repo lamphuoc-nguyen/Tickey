@@ -20,6 +20,8 @@ public static class TestPaymentEndpoints
         group.MapGet("/{orderRef}", (string orderRef, long amount, string @return, string? sig, 
             TestPaymentGateway gateway) =>
         {
+            if (!gateway.CheckoutAllowed) return PaymentEndpoints.Unavailable();
+
             // Verify HMAC signature
             if (sig is null || !gateway.VerifySignature(orderRef, amount, @return, sig))
             {
@@ -32,6 +34,8 @@ public static class TestPaymentEndpoints
             IConfiguration config, ILogger<TestPaymentLog> log, CancellationToken ct,
             TestPaymentGateway gateway) =>
         {
+            if (!gateway.CheckoutAllowed) return PaymentEndpoints.Unavailable();
+
             var form = await request.ReadFormAsync(ct);
             var returnUrl = form["return"].ToString();
             var signature = form["sig"].ToString();

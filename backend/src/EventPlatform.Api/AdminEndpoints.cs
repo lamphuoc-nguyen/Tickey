@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using EventPlatform.Core.Supabase;
 using static EventPlatform.Api.Postgrest;
 
@@ -119,13 +120,39 @@ public static class AdminEndpoints
 
         admin.MapGet("/audit-logs", async (Guid? orgId, string? action, string? targetType, string? targetId,
             int? limit, int? offset, HttpContext http, SupabaseRestClient db, CancellationToken ct) =>
-            Results.Ok(await db.SelectAsync("audit_logs", Query(
+        {
+            var logs = await db.SelectAsync("audit_logs", Query(
                 Select("*"),
                 orgId is { } o ? Eq("org_id", o) : null,
                 string.IsNullOrWhiteSpace(action) ? null : Eq("action", action.Trim()),
                 string.IsNullOrWhiteSpace(targetType) ? null : Eq("target_type", targetType.Trim()),
                 string.IsNullOrWhiteSpace(targetId) ? null : Eq("target_id", targetId.Trim()),
-                "order=created_at.desc", Page(limit, offset)), http.Jwt(), ct)));
+                "order=created_at.desc", Page(limit, offset)), http.Jwt(), ct);
+            return Results.Ok(await WithActorNamesAsync(logs, db, http.Jwt(), ct));
+        });
+    }
+
+    /// <summary>audit_logs.actor_id has no foreign key (logs outlive accounts), so names are looked up separately.</summary>
+    private static async Task<JsonNode> WithActorNamesAsync(JsonElement logs, SupabaseRestClient db, string? jwt,
+        CancellationToken ct)
+    {
+        var merged = JsonNode.Parse(logs.GetRawText())!.AsArray();
+        var ids = merged.Select(l => l?["actor_id"]?.GetValue<string>()).OfType<string>().Distinct().ToArray();
+        if (ids.Length == 0) return merged;
+
+        var profiles = await db.SelectAsync("profiles",
+            Query(Select("id,full_name"), $"id=in.({string.Join(',', ids)})"), jwt, ct);
+        var names = profiles.EnumerateArray().ToDictionary(
+            p => p.GetProperty("id").GetString()!,
+            p => p.TryGetProperty("full_name", out var n) ? n.GetString() : null);
+        foreach (var log in merged)
+        {
+            if (log?["actor_id"]?.GetValue<string>() is { } id && names.TryGetValue(id, out var name))
+            {
+                log["actor_name"] = name;
+            }
+        }
+        return merged;
     }
 
     private static void MapApprovals(RouteGroupBuilder admin)
