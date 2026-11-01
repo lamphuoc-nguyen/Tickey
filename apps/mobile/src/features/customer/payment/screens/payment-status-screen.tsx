@@ -5,11 +5,11 @@ import { AuthGate } from '@/features/auth/components/auth-gate';
 import { useBooking } from '@/features/customer/booking/hooks/use-booking';
 import { bookingLabels, canPay } from '@/features/customer/booking/booking-presentation';
 import { Disclosure, TextAction } from '@/components/customer-controls';
-import { usePaymentAvailability } from '../hooks/use-payment-availability';
+import { getPaymentConfiguration } from '../payment-configuration';
 function Content() {
   const { bookingId = '' } = useLocalSearchParams<{ bookingId: string }>();
   const query = useBooking(bookingId);
-  const available = usePaymentAvailability();
+  const configuration = getPaymentConfiguration();
   const resumable = !!query.data && !query.error && canPay(query.data, query.remainingMs);
   return (
     <Screen
@@ -38,8 +38,8 @@ function Content() {
       </Unavailable>
       {resumable && (
         <Button
-          disabled={!available}
-          disabledReason="Thanh toán trực tuyến chưa khả dụng."
+          disabled={!configuration.available}
+          disabledReason={configuration.unavailableReason}
           onPress={() => router.replace({ pathname: '/booking/[bookingId]/payment', params: { bookingId } })}
         >
           Tiếp tục thanh toán

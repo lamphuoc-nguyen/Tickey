@@ -40,7 +40,13 @@ function Content() {
         </ActionFooter>
       }
     >
-      <Heading>Vé vào cổng</Heading>
+      <Heading>
+        {booking?.status === 'PAID'
+          ? 'Đang phát hành vé'
+          : booking?.status === 'CONFIRMED'
+            ? 'Đặt vé thành công'
+            : 'Vé vào cổng'}
+      </Heading>
       <QueryState loading={query.isPending} error={query.error} retry={() => void query.refetch()} />
       {booking && (
         <>

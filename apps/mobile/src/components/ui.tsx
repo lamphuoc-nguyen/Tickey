@@ -373,6 +373,8 @@ export function ErrorNotice({ error }: { error: unknown }) {
 }
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) {
+    if (error.details.reason === 'PAYMENT_BACKEND_NOT_READY')
+      return 'Hệ thống xác nhận đặt vé chưa sẵn sàng. Vui lòng thử lại sau hoặc liên hệ hỗ trợ.';
     if (error.details.reason === 'REQUEST_TIMEOUT')
       return 'Kết nối mất quá nhiều thời gian. Vui lòng thử lại.';
     if (error.details.reason === 'SESSION_SCOPE_CHANGED')

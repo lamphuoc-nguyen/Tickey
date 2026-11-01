@@ -687,6 +687,35 @@ Android Expo Go trên emulator-5554: đọc được màn Home đang timeout, ki
 
 ---
 
+## F-13: Customer mobile chưa có chế độ kiểm thử thanh toán riêng
+
+- Trạng thái: FIXED
+- Phía: frontend
+- Giao cho: claude
+- Mức độ: low
+- Luồng: thanh toán
+- Người phát hiện: Codex, theo yêu cầu trực tiếp của người dùng
+
+### Tái hiện
+Chọn gateway TEST khi chạy bản development: mobile luôn khóa checkout dù backend đã có cổng thử. Callback backend dùng scheme eventcustomer, Expo Go không sở hữu scheme này.
+
+### Kỳ vọng / Thực tế
+Cho phép thử bằng server thật trong môi trường kiểm thử được bật tường minh, có nhãn không trừ tiền. Giữ khóa ở release và project production đã biết. Expo Go cho phép đóng trình duyệt để xem trạng thái server; development build giữ callback eventcustomer.
+
+### Bằng chứng
+`apps/mobile/src/features/customer/payment/payment-availability.ts` loại TEST vô điều kiện. `apps/mobile/src/features/customer/payment/hooks/use-payment.ts` dùng openAuthSessionAsync với URL do Expo tạo; backend PaymentEndpoints trả eventcustomer://payment-result.
+
+### Đề xuất sửa
+Chỉ sửa mobile: cờ TEST riêng, kiểm tra môi trường, nhãn checkout, browser phù hợp Expo Go, giữ refresh getBooking và khóa request trùng. Không sửa backend/contract, env cá nhân hoặc tạo giao dịch production.
+
+### Kiểm thử
+Mobile lint/typecheck qua; 149/149 test trong 38 file qua. Test mới kiểm tra cờ development/TEST opt-in, chặn API/database production đã biết, giữ URL ký nguyên vẹn, browser Expo Go/native, refresh sau lỗi và không publish cache sau đổi tài khoản. Android Hermes export qua (2782 modules/62 assets); đây là bundle build, không phải kiểm tra runtime/native E2E. Không tạo giao dịch, không đổi .env.local, backend, package dùng chung hoặc dữ liệu production. Cách cấu hình và giới hạn callback Expo Go ghi tại `apps/mobile/PAYMENT_TESTING.md`.
+
+---
+
+### Cập nhật F-13 ngày 01/11/2026
+Người dùng yêu cầu thanh toán không qua màn trung gian và không cấu hình payment ở mobile. C-11 trong core.md chốt cách dùng form TEST có sẵn: mobile gửi xác nhận trực tiếp, vẫn đọc Booking thật và chờ phát hành vé. Mô tả browser Expo Go và khóa theo cờ/hostname ở trên là hành vi của bản trước. Payment env cũ bị bỏ qua; không có nhãn vé xem trước/vô hiệu. Không đổi backend hoặc thực hiện ghi dữ liệu production. QR chung và camera/verifier Staff chưa hoàn thiện nên không tuyên bố đã kiểm tra quét vé.
+
 ## Summary by Severity
 
 | Severity | Count | Bugs |
@@ -694,4 +723,4 @@ Android Expo Go trên emulator-5554: đọc được màn Home đang timeout, ki
 | Nghiêm trọng (Critical) | 0 | — |
 | Cao (High) | 2 | F-04, F-10 |
 | Trung bình (Medium) | 2 | F-07, F-08 |
-| Thấp (Low) | 8 | F-01, F-02, F-03, F-05, F-06, F-09, F-11, F-12 |
+| Thấp (Low) | 9 | F-01, F-02, F-03, F-05, F-06, F-09, F-11, F-12, F-13 |

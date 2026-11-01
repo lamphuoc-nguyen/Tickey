@@ -1,5 +1,61 @@
 # Rủi ro cốt lõi của luồng đặt vé (C-xx)
 
+## C-12: Backend deploy không tìm thấy RPC tra cứu thanh toán trong schema cache
+
+- Trạng thái: OPEN
+- Phía: shared (deployment database/backend → lỗi Customer checkout)
+- Giao cho: opencode
+- Mức độ: high
+- Luồng: thanh toán
+- Người phát hiện: Codex, theo báo lỗi trực tiếp ngày 01/11/2026
+
+### Tái hiện
+Người dùng bấm Thanh toán và mobile hiện thông báo UNKNOWN. Agent không lặp lại thao tác ghi. Kiểm tra GET chỉ đọc với order_ref không tồn tại tới public.get_payment_by_order_ref trả HTTP 404/PGRST202 trên project hosted hiện tại.
+
+### Kỳ vọng / Thực tế
+Endpoint xác nhận TEST gọi được get_payment_by_order_ref trước khi apply_payment_success. Hiện RPC không được PostgREST nhận diện; chưa phân biệt được SQL function chưa áp dụng, thiếu quyền hay schema cache chưa cập nhật. Không có log request gốc nên chưa khẳng định đây là lỗi duy nhất của lần bấm trên thiết bị, nhưng đây là blocker chắc chắn của đường xác nhận hiện tại.
+
+### Bằng chứng
+01/11/2026: GET /health API deploy trả 200. GET /payments/test/__readonly_probe__ không chữ ký trả 400/INVALID_SIGNATURE, chứng minh route TEST đang có. GET Supabase /rest/v1/rpc/get_payment_by_order_ref?p_order_ref=__tickey_readonly_probe__ bằng server key đúng project, chỉ đọc, trả 404/PGRST202; không lấy thông tin đơn thật. Không log key/token/signed URL.
+
+`backend/src/EventPlatform.Api/TestPaymentEndpoints.cs` gọi RPC này trước mọi nhánh success/failure. Định nghĩa và grant service_role đã có trong `supabase/migrations/20261026000001_fix_payment_pending_repayment.sql` (phần 3). Không cần tự tạo một chữ ký RPC mới.
+
+### Đề xuất sửa
+Chủ backend kiểm tra migration đã áp dụng, function public.get_payment_by_order_ref(text), quyền service_role và schema cache. Thực hiện trên local/staging trước; áp dụng production cần được người dùng cho phép riêng. Không tự chạy reset/seed hoặc migration hosted trong nhiệm vụ frontend. Mobile/core phân loại rõ PAYMENT_BACKEND_NOT_READY thay cho lỗi chung, không biến lỗi thành thành công.
+
+### Kiểm thử
+Các probe nêu trên chỉ GET và không tạo payment/booking hoặc gọi apply_payment_success. Chưa xác nhận lại flow E2E sau sửa deployment. Core bổ sung 3 regression tests cho PGRST202 và message middleware đã bỏ pgCode ở cả tạo phiên/xác nhận. `pnpm lint` 3/3, `pnpm typecheck` 7/7, `pnpm test` 6/6 qua; Mobile 152/152, Core 88/88; Portal/seat-map/agent-manager dùng cache không đổi. UI chỉ nói hệ thống xác nhận chưa sẵn sàng, không đưa tên RPC/endpoint hoặc chi tiết database cho người dùng. Chưa sửa backend/deployment nên C-12 vẫn OPEN.
+
+---
+
+## C-11: Xác nhận thanh toán thử một chạm trong Customer mobile
+
+- Trạng thái: IN_PROGRESS
+- Phía: shared
+- Giao cho: claude
+- Mức độ: low
+- Luồng: thanh toán
+- Người phát hiện: Codex, theo yêu cầu trực tiếp của người dùng ngày 01/11/2026
+
+### Tái hiện
+Customer đang mở browser trung gian của cổng TEST. Người dùng yêu cầu bấm Thanh toán trong app rồi xem vé, không mở cổng thanh toán.
+
+### Kỳ vọng / Thực tế
+Theo yêu cầu cập nhật 01/11, mobile không cần cờ payment hoặc gateway env: dùng trực tiếp adapter TEST hiện có, đọc Booking thật và chuyển đến vé. Không giả lập PAID/CONFIRMED, không tự tạo vé/QR. UI vẫn phải chờ phát vé nếu server còn PAID. Không thực hiện giao dịch production trong phiên làm việc.
+
+**Blocker tích hợp đã xác nhận:** C-12: RPC get_payment_by_order_ref trả 404/PGRST202 trên môi trường hosted. Phần code mobile/core có unit tests nhưng không coi flow thanh toán/phát hành đã hoàn thành runtime.
+
+### Bằng chứng / contract đã chốt
+`backend/src/EventPlatform.Api/TestPaymentEndpoints.cs` đã có POST /payments/test/{orderRef}, form amount/return/sig/result=success; backend kiểm HMAC rồi gọi apply_payment_success. Core sẽ chỉ chuyển tiếp đúng các giá trị trong PaymentSession.paymentUrl từ server, cùng origin API và return booking_id khớp. Không đổi backend/endpoint/schema.
+
+### Đề xuất sửa
+Thêm phương thức additive trong HttpPaymentApi để gửi form TEST; mobile chọn adapter xác nhận mặc định, không đòi cấu hình payment. Không có nhãn vé xem trước/vô hiệu vì chỉ hiển thị Ticket thật từ server. Luôn getBooking, xử lý redirect/network không rõ kết quả bằng trạng thái server; không retry tự động. Chuyển sang màn vé khi PAID/CONFIRMED, PAID vẫn hiện chờ phát hành. Kiểm tra code xác nhận QR chung vẫn chưa được cấp và Staff chưa nối camera/verifier, nên chưa tuyên bố quét được.
+
+### Kiểm thử
+Lượt đầu `pnpm lint` 3/3, `pnpm typecheck` 7/7 và `pnpm test` 6/6 qua. Sau yêu cầu bỏ cấu hình mobile: typecheck 7/7 và test 6/6 qua, Mobile 152 test/38 file; Core 85 test/13 file và Portal 38 test được replay từ cache vì không đổi. Lint lượt cuối cũng qua 3/3. Core thêm 11 test cho form ký/same-origin/booking mismatch/auth/error/timeout; mobile kiểm tra không cần payment env, xác nhận không browser, chuyển màn theo trạng thái server, kết quả không rõ và không ghi cache sau đổi tài khoản. Không đổi contract/backend/schema nên không chạy .NET/DB tests trong bản này. Chưa E2E local/staging hoặc native cho giao dịch một chạm, không ghi production. QR chung của đơn vẫn chưa có contract và không tạo mã giả. Hướng dẫn tại `apps/mobile/PAYMENT_TESTING.md`.
+
+---
+
 Kiểm tra tĩnh (đọc code), chưa chạy thử trên stack local, chưa sửa code. Mốc: nhánh `fix/agent-audit`, commit `33114f5`.
 Đường dẫn `init.sql` dưới đây là `supabase/migrations/20261001000000_init_database.sql`.
 

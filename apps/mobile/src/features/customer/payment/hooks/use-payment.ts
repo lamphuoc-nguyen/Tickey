@@ -1,36 +1,52 @@
 import { sessionScope } from '@/lib/session-scope';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import * as WebBrowser from 'expo-web-browser';
-import * as Linking from 'expo-linking';
+import { ApiError, type Booking } from '@event/core';
+import { useQueryClient } from '@tanstack/react-query';
 import { repositories } from '@/lib/repositories';
 import { useAuth } from '@/features/auth/hooks/auth-context';
 import { router } from 'expo-router';
-import { customerCapabilities } from '@/lib/capabilities';
-import { paidCheckoutAvailable } from '../payment-availability';
+import { useExclusiveMutation } from '@/features/forms/use-exclusive-mutation';
+import { getPaymentConfiguration } from '../payment-configuration';
+import { openPaymentBrowser } from '../open-payment-browser';
 
 export function usePayment(bookingId: string) {
   const cache = useQueryClient();
   const { session } = useAuth();
-  return useMutation({
+  return useExclusiveMutation<Booking, void>(`payment:${bookingId}`, {
     retry: false,
-    mutationFn: async () => {
-      const gateway = process.env.EXPO_PUBLIC_PAYMENT_GATEWAY;
-      if (!paidCheckoutAvailable(customerCapabilities.gatewayPayment, gateway))
-        throw new Error('Thanh toán trực tuyến chưa khả dụng.');
-      if (!gateway) throw new Error('Thanh toán trực tuyến chưa khả dụng.');
+    mutationFn: async (_variables, assertCurrent) => {
+      const configuration = getPaymentConfiguration();
+      const gateway = configuration.gateway;
+      if (!configuration.available || !gateway) throw new Error(configuration.unavailableReason);
+      let failure: unknown;
       try {
         const payment = await repositories.payment.createPaymentSession(bookingId, gateway);
-        await WebBrowser.openAuthSessionAsync(payment.paymentUrl, Linking.createURL('/payment-result'));
-      } finally {
-        // Closing the browser and a return-link status are never evidence of payment success/failure.
-        const booking = await repositories.booking.getBooking(bookingId);
-        cache.setQueryData(['booking', ...sessionScope(session), bookingId], {
-          booking,
-          receivedAt: performance.now(),
-        });
-        void cache.invalidateQueries({ queryKey: ['orders'] });
+        await assertCurrent();
+        if (configuration.isTest) await repositories.payment.confirmTestPayment(payment);
+        else await openPaymentBrowser(payment.paymentUrl);
+      } catch (error) {
+        failure = error;
       }
+      // Only server status resolves an uncertain write (including a failed app-scheme redirect).
+      await assertCurrent();
+      const booking = await repositories.booking.getBooking(bookingId);
+      await assertCurrent();
+      cache.setQueryData(['booking', ...sessionScope(session), bookingId], {
+        booking,
+        receivedAt: performance.now(),
+      });
+      void cache.invalidateQueries({ queryKey: ['orders'] });
+      const recorded = booking.status === 'PAID' || booking.status === 'CONFIRMED';
+      const uncertainTestResult =
+        configuration.isTest && failure instanceof ApiError && failure.code === 'NETWORK';
+      if (failure && !(uncertainTestResult && recorded)) throw failure;
+      return booking;
     },
-    onSuccess: () => router.replace({ pathname: '/booking/[bookingId]', params: { bookingId } }),
+    onSuccess: (booking) =>
+      router.replace({
+        pathname: ['PAID', 'CONFIRMED'].includes(booking.status)
+          ? '/booking/[bookingId]/result'
+          : '/booking/[bookingId]',
+        params: { bookingId },
+      }),
   });
 }

@@ -1,6 +1,5 @@
-import { customerCapabilities } from '@/lib/capabilities';
-import { paidCheckoutAvailable } from '../payment-availability';
+import { getPaymentConfiguration } from '../payment-configuration';
 
 export function usePaymentAvailability() {
-  return paidCheckoutAvailable(customerCapabilities.gatewayPayment, process.env.EXPO_PUBLIC_PAYMENT_GATEWAY);
+  return getPaymentConfiguration().available;
 }
