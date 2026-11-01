@@ -10,7 +10,9 @@ public sealed record TicketToSign(Guid TicketId, string Payload);
 
 /// <summary>
 /// PAID booking -> signed tickets -> CONFIRMED (MT §5, S2-BE1-3/4):
-/// claim_outbox('ISSUE_TICKETS') -> issue_tickets -> sign Ed25519 -> attach_ticket_credentials -> complete_outbox.
+/// claim_outbox('ISSUE_TICKETS') -> issue_tickets -> issue/attach_booking_credential (one gate QR for the whole
+/// booking) -> sign Ed25519 -> attach_ticket_credentials -> complete_outbox. The booking QR is attached first, so a
+/// CONFIRMED booking always has it.
 /// Errors go back through complete_outbox(p_error): the database schedules the retry with backoff.
 /// </summary>
 public sealed class IssueTicketsWorker(
@@ -53,6 +55,16 @@ public sealed class IssueTicketsWorker(
             {
                 var toSign = await rpc.CallAsync<List<TicketToSign>>("issue_tickets",
                     new { p_booking_id = job.AggregateId, p_kid = signer.Kid }, ct);
+                var bookingPayload = await rpc.CallAsync<string?>("issue_booking_credential",
+                    new { p_booking_id = job.AggregateId, p_kid = signer.Kid }, ct);
+                if (bookingPayload is not null)
+                {
+                    await rpc.CallAsync("attach_booking_credential", new
+                    {
+                        p_booking_id = job.AggregateId, p_kid = signer.Kid, p_payload = bookingPayload,
+                        p_signature = signer.Sign(bookingPayload),
+                    }, ct);
+                }
                 var items = toSign.Select(t => new
                 {
                     ticket_id = t.TicketId,

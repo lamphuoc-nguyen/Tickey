@@ -4,13 +4,14 @@ import { Button, Card, Copy, Heading, Notice, QueryState, Screen, ui } from '@/c
 import { TabBar } from '@/components/tab-bar';
 import { TextAction } from '@/components/customer-controls';
 import { BuyerInfo } from '@/features/customer/booking/components/buyer-info';
-import { useConnection, useOfflineTickets } from '../hooks/use-ticket';
+import { useConnection, useOfflineTickets, useSavedAdmissions } from '../hooks/use-ticket';
 import { BookingPassPresentation } from '../components/booking-pass-presentation';
 import { groupTicketsByBooking, oldestDownload } from '../booking-pass';
 
 /** Existing offline access/account guards are unchanged; snapshots are grouped only for display. */
 function OfflineContent({ bookingId }: { bookingId?: string }) {
   const query = useOfflineTickets();
+  const savedQrs = useSavedAdmissions();
   const online = useConnection();
   const [id, setId] = useState<string | null>(bookingId ?? null);
   const groups = groupTicketsByBooking(query.data?.map((entry) => entry.ticket) ?? []).filter(
@@ -47,6 +48,7 @@ function OfflineContent({ bookingId }: { bookingId?: string }) {
             <>
               <BookingPassPresentation
                 tickets={group.tickets}
+                savedQr={savedQrs.data?.[group.bookingId]}
                 online={false}
                 downloadedAt={oldestDownload(query.data ?? [], group.bookingId)}
               />

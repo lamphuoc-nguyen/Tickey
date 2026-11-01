@@ -62,7 +62,9 @@ select is_empty(
        'create_refund(uuid,bigint,text,text,uuid,uuid,jsonb,uuid)', 'execute_session_cancellation(uuid)',
        'apply_org_status_change(uuid,text,text,uuid)', 'write_audit(text,text,text,uuid,jsonb,jsonb,jsonb)',
        'enqueue(text,text,uuid,jsonb)', 'run_session_status_transitions()', 'alert_unconfirmed_bookings()',
-       'enqueue_session_reminders()', 'refresh_negative_balances()', 'list_payment_pending_to_query(integer)']) f
+       'enqueue_session_reminders()', 'refresh_negative_balances()', 'list_payment_pending_to_query(integer)',
+       'issue_booking_credential(uuid,text)', 'attach_booking_credential(uuid,text,text,text)',
+       'booking_admission_counts(uuid)']) f
      where has_function_privilege('authenticated', ('public.' || f)::regprocedure, 'execute') $$,
   'authenticated không gọi được hàm chỉ dành cho server');
 

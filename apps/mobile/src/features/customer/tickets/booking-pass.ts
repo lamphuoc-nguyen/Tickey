@@ -25,7 +25,7 @@ export function bookingTicketRecords(tickets: readonly Ticket[], bookingId?: str
   return groupTicketsByBooking(tickets.filter((ticket) => ticket.bookingId === bookingId))[0]?.tickets ?? [];
 }
 
-/** Ticket v1 credentials/statuses do not define a multi-use booking credential or its remaining scans. */
+/** Text for a booking whose gate QR is not shown. The QR and entry counts come only from the admission API. */
 export function bookingAdmissionState(status?: string) {
   if (status === 'CANCELLED' || status === 'EXPIRED' || status === 'REFUNDED')
     return { title: 'Đơn không còn hiệu lực', description: 'Đơn này không dùng để vào cổng.' };
@@ -36,7 +36,7 @@ export function bookingAdmissionState(status?: string) {
   if (status === 'PENDING')
     return { title: 'Chưa hoàn tất đặt vé', description: 'Hoàn tất đơn để nhận vé vào cổng.' };
   return {
-    title: 'Mã QR chung chưa khả dụng',
-    description: 'Chưa có mã vào cổng và thông tin lượt sử dụng cho đơn này.',
+    title: 'Mã vào cổng chưa sẵn sàng',
+    description: 'Kết nối mạng để tải mã vào cổng và số lượt của đơn này.',
   };
 }

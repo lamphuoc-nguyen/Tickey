@@ -29,6 +29,9 @@ Chọn sự kiện → Chọn suất/chỗ/số lượng → Kiểm tra đơn �
 
 ## Contract chưa có — không bù bằng frontend
 
+> Cập nhật 01/11/2026: contract này đã có (QR ký theo Booking, `check_in_booking`, `get_booking_admission`). Xem
+> [BOOKING_ADMISSION_FLOW.md](BOOKING_ADMISSION_FLOW.md). Phần dưới giữ lại để tham khảo lịch sử.
+
 Hiện Ticket trả credential riêng `{kid, payload, signature}`. Booking/Order không trả credential dùng nhiều lượt hoặc bộ đếm cấp đơn. UI không lấy QR của một Ticket, nối các credential hoặc ký envelope để giả QR chung. Backend/Staff cần chốt:
 
 - Credential cấp theo Booking, encoding và quy tắc hiệu lực theo session/zone/gate.

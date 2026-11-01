@@ -112,6 +112,31 @@ export function useBookingTickets(id: string, enabled = true) {
     enabled: enabled && !!id && session?.workspace.kind === 'CUSTOMER',
   });
 }
+/** The booking's gate QR and server-counted entries; refreshed on focus so "remaining" follows the gate. */
+export function useBookingAdmission(id: string, enabled = true) {
+  const { session } = useAuth();
+  return useQuery({
+    queryKey: ['booking-admission', ...sessionScope(session), id],
+    queryFn: ({ signal }) => repositories.customer.admission(id, signal),
+    enabled: enabled && !!id && session?.workspace.kind === 'CUSTOMER',
+    refetchOnWindowFocus: true,
+  });
+}
+/** Saved booking QRs of the account whose tickets are on the device (same guard as useOfflineTickets). */
+export function useSavedAdmissions() {
+  const auth = useAuth();
+  return useQuery({
+    queryKey: ['saved-admissions', ...sessionScope(auth.session)],
+    queryFn: async () => {
+      const savedAccount = await ticketCache.lastAccount();
+      if (auth.session && savedAccount !== auth.session.userId) return {};
+      const userId = auth.session?.userId ?? savedAccount;
+      return userId ? ticketCache.admissions(userId) : {};
+    },
+    enabled: !auth.loading,
+    networkMode: 'always',
+  });
+}
 export function useOrder(id: string, enabled = true) {
   const { session } = useAuth();
   return useQuery({
@@ -132,14 +157,21 @@ export function useSaveBookingTickets() {
       if (tickets.some((ticket) => ticket.bookingId !== bookingId))
         throw new Error('Các vé không cùng một đơn.');
       const downloadedAt = new Date().toISOString();
+      // The gate QR comes straight from the server at save time, never from a screen's stale copy.
+      const admission = await repositories.customer.admission(bookingId);
       for (const ticket of tickets) {
         await assertCurrent();
         await ticketCache.save(session.userId, ticket, downloadedAt);
+      }
+      if (admission.qr) {
+        await assertCurrent();
+        await ticketCache.saveAdmission(session.userId, bookingId, admission.qr);
       }
     },
     onSuccess: () => {
       void cache.invalidateQueries({ queryKey: ['saved-tickets', ...sessionScope(session)] });
       void cache.invalidateQueries({ queryKey: ['offline-ticket-snapshots', ...sessionScope(session)] });
+      void cache.invalidateQueries({ queryKey: ['saved-admissions', ...sessionScope(session)] });
     },
   });
 }

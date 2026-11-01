@@ -3,7 +3,14 @@ import { AuthGate } from '@/features/auth/components/auth-gate';
 import { ActionFooter, ErrorNotice, Heading, QueryState, Screen } from '@/components/ui';
 import { MenuGroup, MenuRow } from '@/components/customer-controls';
 import { BuyerInfo } from '@/features/customer/booking/components/buyer-info';
-import { useBookingTickets, useOrder, useSaveBookingTickets, useTicket } from '../hooks/use-ticket';
+import {
+  useBookingAdmission,
+  useBookingTickets,
+  useOrder,
+  useSaveBookingTickets,
+  useSavedAdmissions,
+  useTicket,
+} from '../hooks/use-ticket';
 import { BookingPassPresentation } from '../components/booking-pass-presentation';
 import { oldestDownload } from '../booking-pass';
 
@@ -14,6 +21,8 @@ function Content() {
   const bookingId = ticket?.bookingId ?? '';
   const siblings = useBookingTickets(bookingId, online);
   const order = useOrder(bookingId, online);
+  const admission = useBookingAdmission(bookingId, online);
+  const savedQrs = useSavedAdmissions();
   const save = useSaveBookingTickets();
   const records = online
     ? (siblings.data ?? (ticket ? [ticket] : []))
@@ -59,10 +68,12 @@ function Content() {
           )}
           <BookingPassPresentation
             order={order.data}
+            admission={online ? admission.data : undefined}
+            savedQr={online ? undefined : savedQrs.data?.[bookingId]}
             tickets={records}
             online={online}
             downloadedAt={oldestDownload(saved.data ?? [], bookingId)}
-            stale={online && (!!query.error || !!siblings.error || !!order.error)}
+            stale={online && (!!query.error || !!siblings.error || !!order.error || !!admission.error)}
           />
           <BuyerInfo online={online} />
           <MenuGroup title="Thông tin và hỗ trợ">
@@ -78,11 +89,14 @@ function Content() {
               <MenuRow
                 navigation={false}
                 label="Cập nhật thông tin vé"
-                busy={query.isRefetching || siblings.isRefetching || order.isRefetching}
+                busy={
+                  query.isRefetching || siblings.isRefetching || order.isRefetching || admission.isRefetching
+                }
                 onPress={() => {
                   void query.refetch();
                   void siblings.refetch();
                   void order.refetch();
+                  void admission.refetch();
                 }}
               />
             )}

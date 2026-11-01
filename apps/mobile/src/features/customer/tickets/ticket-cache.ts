@@ -79,11 +79,42 @@ export class TicketCache {
       throw new Error('Tài khoản đã thay đổi.');
     }
   }
+  private admissionKey(userId: string) {
+    return `tickey:admissions:v1:${userId}`;
+  }
+  /** Server-signed booking QRs by booking id. The QR is static; entry counts are never cached. */
+  async admissions(userId: string): Promise<Record<string, string>> {
+    try {
+      const parsed: unknown = JSON.parse((await this.storage.getItem(this.admissionKey(userId))) ?? '{}');
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+      return Object.fromEntries(
+        Object.entries(parsed).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+      );
+    } catch {
+      return {};
+    }
+  }
+  saveAdmission(userId: string, bookingId: string, qr: string): Promise<void> {
+    const generation = this.generation;
+    const operation = this.writeQueue.then(async () => {
+      if (this.activeAccount !== userId || this.generation !== generation)
+        throw new Error('Tài khoản đã thay đổi.');
+      const existing = await this.admissions(userId);
+      await this.storage.setItem(this.admissionKey(userId), JSON.stringify({ ...existing, [bookingId]: qr }));
+      if (this.activeAccount !== userId || this.generation !== generation) {
+        await this.clear(userId);
+        throw new Error('Tài khoản đã thay đổi.');
+      }
+    });
+    this.writeQueue = operation.catch(() => undefined);
+    return operation;
+  }
   async lastAccount() {
     return this.storage.getItem('tickey:tickets:last-account');
   }
   async clear(userId: string) {
     if ((await this.lastAccount()) === userId) await this.storage.removeItem('tickey:tickets:last-account');
     await this.storage.removeItem(this.key(userId));
+    await this.storage.removeItem(this.admissionKey(userId));
   }
 }
