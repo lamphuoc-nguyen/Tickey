@@ -7,6 +7,7 @@ import { BuyerInfo } from '@/features/customer/booking/components/buyer-info';
 import { useConnection, useOfflineTickets, useSavedAdmissions } from '../hooks/use-ticket';
 import { BookingPassPresentation } from '../components/booking-pass-presentation';
 import { groupTicketsByBooking, oldestDownload } from '../booking-pass';
+import { orderHistoryRoute } from '../order-presentation';
 
 /** Existing offline access/account guards are unchanged; snapshots are grouped only for display. */
 function OfflineContent({ bookingId }: { bookingId?: string }) {
@@ -61,7 +62,11 @@ function OfflineContent({ bookingId }: { bookingId?: string }) {
         <Button
           secondary
           onPress={() =>
-            router.replace({ pathname: '/tickets', params: { ...(bookingId ? { bookingId } : {}) } })
+            router.replace(
+              bookingId
+                ? { pathname: '/booking/[bookingId]/result', params: { bookingId } }
+                : orderHistoryRoute,
+            )
           }
         >
           Xem vé trực tuyến

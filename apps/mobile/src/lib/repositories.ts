@@ -29,7 +29,11 @@ function createRepositories() {
     auth: new SupabaseAuthRepository(client),
     booking: new SupabaseBookingRepository(client),
     workspace: new SupabaseWorkspaceRepository(client),
-    payment: new HttpPaymentApi(process.env.EXPO_PUBLIC_API_URL, client),
+    payment: new HttpPaymentApi(
+      process.env.EXPO_PUBLIC_API_URL,
+      client,
+      apiRequestTimeout(process.env.EXPO_PUBLIC_API_URL),
+    ),
   };
 }
 let instance: ReturnType<typeof createRepositories> | undefined;

@@ -107,7 +107,7 @@ Quy tắc server áp dụng (`check_in_booking`):
 2. Tạo khóa ký QR cho local (DB_INSTRUCTIONS §4.1) và chèn public key vào `signing_keys`.
 3. Chạy API với `Payments__Gateway=TEST`, `Payments__Test__HmacKey`, `Qr__SigningKey`, `Qr__Kid`, `Api__PublicUrl=http://localhost:5080` và các key Supabase local.
 4. Để demo soát vé ngay trong ngày, dời giờ suất "Đêm 1" và cửa sổ phân công của staff trên **DB local**: `doors_open_at` < bây giờ < `sales_end_at`.
-5. App khách coi gateway `TEST` là "chưa khả dụng" (`paidCheckoutAvailable`). Khi demo, đặt `EXPO_PUBLIC_PAYMENT_GATEWAY` bằng tên gateway thật (ví dụ `VNPAY`). API ở chế độ TEST vẫn luôn mở trang thanh toán thử, không trừ tiền.
+5. Sau khi đồng bộ nhánh Customer, app xác nhận trực tiếp qua adapter TEST hiện có của API, không cần EXPO_PUBLIC_PAYMENT_GATEWAY và không mở trang cổng trung gian. Các ảnh C07/C08 ở trên ghi lại lần demo trước thay đổi này. Không dùng tên gateway khác để vượt qua điều kiện của UI. Xem `apps/mobile/PAYMENT_TESTING.md` để biết luồng hiện tại và blocker C-12 trên hosted.
 6. Trên web không có camera: dán nội dung QR vào ô "Mã QR" ở màn Soát vé.
 
 ## Lưu ý khi đưa lên môi trường hosted

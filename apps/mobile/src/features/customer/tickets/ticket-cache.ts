@@ -88,7 +88,9 @@ export class TicketCache {
       const parsed: unknown = JSON.parse((await this.storage.getItem(this.admissionKey(userId))) ?? '{}');
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
       return Object.fromEntries(
-        Object.entries(parsed).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+        Object.entries(parsed).filter(
+          (entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim().length > 0,
+        ),
       );
     } catch {
       return {};
@@ -100,6 +102,8 @@ export class TicketCache {
       if (this.activeAccount !== userId || this.generation !== generation)
         throw new Error('Tài khoản đã thay đổi.');
       const existing = await this.admissions(userId);
+      if (this.activeAccount !== userId || this.generation !== generation)
+        throw new Error('Tài khoản đã thay đổi.');
       await this.storage.setItem(this.admissionKey(userId), JSON.stringify({ ...existing, [bookingId]: qr }));
       if (this.activeAccount !== userId || this.generation !== generation) {
         await this.clear(userId);

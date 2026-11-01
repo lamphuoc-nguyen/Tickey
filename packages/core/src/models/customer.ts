@@ -99,6 +99,7 @@ export const admissionSchema = z
     used: z.number().int().nonnegative(),
     remaining: z.number().int().nonnegative(),
   })
+  .refine((value) => value.used + value.remaining <= value.total, 'Admission counts exceed total')
   .transform(mapDatabaseJson);
 export const refundSchema = z
   .object({

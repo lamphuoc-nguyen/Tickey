@@ -53,9 +53,10 @@ export class HttpCustomerRepository {
     });
   }
   admission(bookingId: string, signal?: AbortSignal) {
+    const id = z.uuid().parse(bookingId);
     return this.http.request(
-      `/api/bookings/${encodeURIComponent(z.uuid().parse(bookingId))}/admission`,
-      admissionSchema,
+      `/api/bookings/${encodeURIComponent(id)}/admission`,
+      admissionSchema.refine((value) => value.bookingId === id, 'Admission booking mismatch'),
       { authenticated: true, signal },
     );
   }
