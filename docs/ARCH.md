@@ -128,8 +128,10 @@ Tham số (`public.app_settings`): `booking.lock_minutes` = 10 (T_LOCK), `paymen
   (`p_session_id`, `p_items[]` = `{ticket_type_id, seat_id}` hoặc `{ticket_type_id, zone_id, quantity}`,
   `p_idempotency_key` ≥ 8 ký tự, `p_options`). Không tự retry; retry của người dùng phải dùng lại cùng idempotency key.
   Giỏ nháp: `draft-store.ts`, `booking-intent.ts`.
-- API tương đương: `POST /api/bookings` (key trong body hoặc header `Idempotency-Key`) — dùng cho Staff POS
-  (`options.bookingType = "POS"`).
+- API tương đương: `POST /api/bookings` (key trong body hoặc header `Idempotency-Key`).
+- Staff POS (`features/staff/screens/staff-pos-screen.tsx`): cùng RPC với `p_options.booking_type = "POS"`, rồi
+  `POST /payments/sessions` và `GET /api/bookings/{id}/admission` để hiện QR cho khách vãng lai (`user_id` null,
+  quyền theo `created_by` / `sold_by`). Chỉ thu qua cổng, chưa có tiền mặt (BUG-006).
 - RPC `create_booking` (`supabase/migrations/...init_database.sql`, phần 1600): idempotency → Session phải `ON_SALE`
   (POS: cả `SALES_CLOSED`/`ONGOING`) và Org `APPROVED` → kiểm từng dòng → giới hạn vé/tài khoản → tạo Booking
   `PENDING` với `lock_expires_at = now + T_LOCK` → **khoá ghế all-or-nothing, theo thứ tự `seat_id`** (tránh deadlock;
