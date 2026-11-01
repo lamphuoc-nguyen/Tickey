@@ -44,12 +44,17 @@ describe('genuine ticket snapshots', () => {
       cache.save('account-a', { ...ticket, id: 'three' }, '2026-10-14T00:01:00Z'),
     ]);
     expect((await cache.list('account-a')).map((saved) => saved.ticket.id)).toEqual(['one', 'two', 'three']);
+    await cache.saveAdmission('account-a', 'booking', 'eyJ2IjoyfQ.sig');
+    expect(await cache.admissions('account-a')).toEqual({ booking: 'eyJ2IjoyfQ.sig' });
+    expect(await cache.admissions('account-b')).toEqual({});
     await cache.clear('account-a');
     expect(rows.get('other-feature-pending-sentinel')).toBe('preserve');
     expect(await cache.list('account-a')).toEqual([]);
+    expect(await cache.admissions('account-a')).toEqual({});
     cache.activate('account-b');
     await expect(cache.save('account-a', ticket, '2026-10-14T00:00:00Z')).rejects.toThrow(
       'Tài khoản đã thay đổi.',
     );
+    await expect(cache.saveAdmission('account-a', 'booking', 'qr')).rejects.toThrow('Tài khoản đã thay đổi.');
   });
 });

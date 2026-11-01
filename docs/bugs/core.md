@@ -28,7 +28,11 @@ Các probe nêu trên chỉ GET và không tạo payment/booking hoặc gọi ap
 
 ---
 
-## C-11: Xác nhận thanh toán thử một chạm trong Customer mobile
+## C-13: Xác nhận thanh toán một chạm trong Customer mobile
+
+Mục này dùng mã C-11 trên nhánh giaunh-cusmobile trước khi đồng bộ main. Khi merge, đổi sang C-13 để giữ nguyên C-11 của main (ký bù QR đơn); nội dung và phân công được bảo toàn.
+
+Kiểm tra sau merge main `e609af1`: giữ cả xác nhận thanh toán trực tiếp và admission/QR đơn từ PR #46/#47. Đã đồng bộ dependency bằng frozen lockfile; lint 3/3, typecheck 7/7, test 6/6 qua (Mobile 152, Core 89; các package không đổi dùng cache), .NET 220/220 qua. Không còn conflict marker hoặc mã C-NN trùng. Chưa chạy pgTAP vì Docker/Supabase CLI không có trong PATH; không áp migration hosted, không kiểm tra native/phát vé/check-in E2E trong lần merge này. Phần QR chưa có contract được ghi trong lịch sử bên dưới là hiện trạng trước PR #46/#47.
 
 - Trạng thái: IN_PROGRESS
 - Phía: shared
@@ -1097,3 +1101,43 @@ OWNER → `/org` → mời thành viên cần migration của opencode. claude c
   - Portal: `pnpm --filter @event/portal lint`, `typecheck`, `test` (38/38 passed), `build`: 100% xanh.
   - Mobile: `pnpm --filter @event/mobile lint`, `typecheck`, `test` (92/92 passed): 100% xanh.
   - Agent Dashboard: `pnpm --filter @event/agent-dashboard lint`, `typecheck`, `build`: 100% xanh.
+## C-11: Ký bù QR đơn cho Booking cũ không tạo việc nào (dedupe outbox)
+
+- Trạng thái: FIXED (claude, 2026-11-01; chờ áp migration lên hosted)
+- Phía: backend
+- Giao cho: claude
+- Mức độ: medium
+- Luồng: xác nhận
+- Người phát hiện: claude (kiểm tra hosted sau khi áp #46, 2026-11-01)
+
+### Tái hiện
+1. Có Booking `CONFIRMED` từ trước `20261101000000_booking_admission_pass.sql` (job `ISSUE_TICKETS` của nó đã `DONE`).
+2. Áp `20261101000000`: bước cuối gọi `enqueue('ISSUE_TICKETS', 'booking', b.id)` cho các đơn chưa có QR đơn.
+3. Đếm `booking_credentials` và job `ISSUE_TICKETS` mới.
+
+### Kỳ vọng / Thực tế
+- Kỳ vọng: worker ký bù QR đơn cho mọi Booking `CONFIRMED` còn suất diễn.
+- Thực tế: không có job mới, QR đơn không được ký. Hosted còn 2 đơn (`5CF245B80B`, `5D6D5542D6`) không có QR đơn;
+  app khách báo "Mã vào cổng đang được phát hành".
+
+### Bằng chứng
+- `supabase/migrations/20261001000000_init_database.sql`: `uq_outbox_dedupe on public.outbox (topic, aggregate_id)
+  where topic in ('ISSUE_TICKETS', …)` và `enqueue … on conflict do nothing`.
+- `supabase/migrations/20261101000000_booking_admission_pass.sql`, câu `select public.enqueue('ISSUE_TICKETS', …)` cuối file.
+- Hosted: `outbox` của 2 đơn trên chỉ có job ngày 22/10, `status = DONE`.
+
+### Nguyên nhân
+Mỗi Booking chỉ được có một job `ISSUE_TICKETS`; `enqueue` với job đã có là no-op im lặng. pgTAP `05_booking_admission`
+không phủ bước ký bù.
+
+### Đề xuất sửa
+Migration mới `20261101000001_backfill_booking_credentials.sql`: đưa job `ISSUE_TICKETS` (`DONE`/`DEAD`) của các
+Booking `CONFIRMED` chưa có QR đơn, suất chưa kết thúc, về `PENDING`. Worker chạy lại: `issue_tickets` trả `[]`
+(không phát vé mới), ký QR đơn, `attach_ticket_credentials([])` giữ `CONFIRMED`, không gửi lại thông báo.
+
+### Kiểm thử
+- Local: xoá QR đơn của một Booking `CONFIRMED` (job `DONE`) → `enqueue` kiểu cũ vẫn 1 job (tái hiện lỗi) → áp
+  migration mới → job `PENDING` → worker xử lý: job `DONE`, có QR đơn, Booking vẫn `CONFIRMED`, vẫn 3 vé, vẫn 1
+  `NOTIFY_USER`.
+- `supabase db reset` + `supabase test db` (local).
+- Hosted: chưa áp (AGENTS.md mục 5); người có quyền chạy nội dung migration trong SQL Editor.

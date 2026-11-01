@@ -4,6 +4,7 @@ import { HttpClient, pageQuery } from '../api/http-client';
 import { ApiError } from '../errors';
 import { authError } from '../api/auth-error';
 import {
+  admissionSchema,
   bankInputSchema,
   notificationSchema,
   orderSchema,
@@ -50,6 +51,13 @@ export class HttpCustomerRepository {
       authenticated: true,
       signal,
     });
+  }
+  admission(bookingId: string, signal?: AbortSignal) {
+    return this.http.request(
+      `/api/bookings/${encodeURIComponent(z.uuid().parse(bookingId))}/admission`,
+      admissionSchema,
+      { authenticated: true, signal },
+    );
   }
   ticket(id: string, signal?: AbortSignal) {
     return this.http.request(`/api/tickets/${encodeURIComponent(id)}`, ticketSchema, {

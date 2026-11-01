@@ -714,7 +714,7 @@ Mobile lint/typecheck qua; 149/149 test trong 38 file qua. Test mới kiểm tra
 ---
 
 ### Cập nhật F-13 ngày 01/11/2026
-Người dùng yêu cầu thanh toán không qua màn trung gian và không cấu hình payment ở mobile. C-11 trong core.md chốt cách dùng form TEST có sẵn: mobile gửi xác nhận trực tiếp, vẫn đọc Booking thật và chờ phát hành vé. Mô tả browser Expo Go và khóa theo cờ/hostname ở trên là hành vi của bản trước. Payment env cũ bị bỏ qua; không có nhãn vé xem trước/vô hiệu. Không đổi backend hoặc thực hiện ghi dữ liệu production. QR chung và camera/verifier Staff chưa hoàn thiện nên không tuyên bố đã kiểm tra quét vé.
+Người dùng yêu cầu thanh toán không qua màn trung gian và không cấu hình payment ở mobile. C-13 trong core.md (trước merge main là C-11) chốt cách dùng form TEST có sẵn: mobile gửi xác nhận trực tiếp, vẫn đọc Booking thật và chờ phát hành vé. Mô tả browser Expo Go và khóa theo cờ/hostname ở trên là hành vi của bản trước. Payment env cũ bị bỏ qua; không có nhãn vé xem trước/vô hiệu. Không đổi backend hoặc thực hiện ghi dữ liệu production. Tại thời điểm bàn giao phần thanh toán, QR chung và camera/verifier Staff chưa hoàn thiện; main sau đó bổ sung ở PR #46/#47, được giữ lại khi merge. Chưa kiểm tra native E2E các phần vừa nhận.
 
 ## Summary by Severity
 

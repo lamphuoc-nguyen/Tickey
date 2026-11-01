@@ -30,7 +30,7 @@ Backend vẫn phải hỗ trợ adapter xác nhận hiện có (TEST, HMAC ký U
 
 Mobile không kiểm tra/gỡ khóa theo hostname production nữa, theo yêu cầu sản phẩm không cần cờ cấu hình payment. Điều này không xác minh môi trường và không cấp quyền chạy giao dịch production cho agent. Kiểm thử ghi chỉ được thực hiện trên local/staging riêng.
 
-**QR còn bị chặn:** contract hiện trả credential từng Ticket; chưa có encoding QR chung Booking kèm số lượt quét. Customer hiện truyền null vào vùng QR chung; StaffCheckInScreen hiện ghi Native camera/QR verifier chưa được nối. Không thể tuyên bố Staff quét được QR chung từ bản code này. Cần chủ Backend/Staff thống nhất credential/decoder và kiểm chứng thật, không tự gộp credential hoặc dựng QR giả.
+**Cập nhật sau merge main PR #46/#47:** đã có contract QR chung Booking và số lượt qua GET /api/bookings/{id}/admission. Worker ký credential v2; Customer dùng chuỗi QR server cấp và lưu offline, Staff có camera expo-camera và gửi kiểm tra chữ ký tới server. Các phần này được giữ nguyên khi merge. Hosted vẫn cần đầy đủ migration/quyền/cache và worker; trong phiên merge này chưa chạy giao dịch/phát hành hoặc quét native E2E. Chi tiết và QA do tác giả ghi tại docs/BOOKING_ADMISSION_FLOW.md. Không tự gộp credential hay dựng QR giả.
 
 ## Kiểm thử
 

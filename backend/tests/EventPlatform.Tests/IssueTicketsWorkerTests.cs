@@ -35,21 +35,45 @@ public class IssueTicketsWorkerTests
         {
             "claim_outbox" => (HttpStatusCode.OK, Job),
             "issue_tickets" => (HttpStatusCode.OK, $$"""[{"ticket_id":"{{TicketId}}","payload":"{\"v\":1}"}]"""),
+            "issue_booking_credential" => (HttpStatusCode.OK, "\"{\\\"v\\\":2}\""),
             _ => (HttpStatusCode.OK, "null"),
         });
 
         Assert.Equal(1, await worker.RunOnceAsync(TestContext.Current.CancellationToken));
 
         var calls = handler.Calls.Select(c => c.Request.RequestUri!.Segments[^1]).ToArray();
-        Assert.Equal(["claim_outbox", "issue_tickets", "attach_ticket_credentials", "complete_outbox"], calls);
+        Assert.Equal(["claim_outbox", "issue_tickets", "issue_booking_credential", "attach_booking_credential",
+            "attach_ticket_credentials", "complete_outbox"], calls);
 
-        using var attach = JsonDocument.Parse(handler.Calls[2].Body);
+        using var booking = JsonDocument.Parse(handler.Calls[3].Body);
+        Assert.Equal("""{"v":2}""", booking.RootElement.GetProperty("p_payload").GetString());
+        Assert.True(QrSigner.Verify(signer.PublicKey, """{"v":2}""",
+            booking.RootElement.GetProperty("p_signature").GetString()!));
+
+        using var attach = JsonDocument.Parse(handler.Calls[4].Body);
         var item = attach.RootElement.GetProperty("p_items")[0];
         Assert.Equal("dev-1", item.GetProperty("kid").GetString());
         Assert.True(QrSigner.Verify(signer.PublicKey, """{"v":1}""", item.GetProperty("signature").GetString()!));
 
-        using var complete = JsonDocument.Parse(handler.Calls[3].Body);
+        using var complete = JsonDocument.Parse(handler.Calls[5].Body);
         Assert.Equal(JsonValueKind.Null, complete.RootElement.GetProperty("p_error").ValueKind);
+    }
+
+    [Fact]
+    public async Task Booking_that_already_has_a_gate_qr_is_not_signed_again()
+    {
+        var (worker, handler, _) = Create(fn => fn switch
+        {
+            "claim_outbox" => (HttpStatusCode.OK, Job),
+            "issue_tickets" => (HttpStatusCode.OK, "[]"),
+            _ => (HttpStatusCode.OK, "null"),
+        });
+
+        await worker.RunOnceAsync(TestContext.Current.CancellationToken);
+
+        var calls = handler.Calls.Select(c => c.Request.RequestUri!.Segments[^1]).ToArray();
+        Assert.Equal(["claim_outbox", "issue_tickets", "issue_booking_credential", "attach_ticket_credentials",
+            "complete_outbox"], calls);
     }
 
     [Fact]

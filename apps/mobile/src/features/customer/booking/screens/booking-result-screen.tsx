@@ -4,6 +4,7 @@ import { Disclosure, MenuGroup, MenuRow } from '@/components/customer-controls';
 import { DetailRow, UnavailableAction } from '@/components/detail';
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import {
+  useBookingAdmission,
   useBookingTickets,
   useOrder,
   useSaveBookingTickets,
@@ -21,6 +22,7 @@ function Content() {
   const issued =
     !!booking && ['CONFIRMED', 'REFUND_PENDING', 'PARTIALLY_REFUNDED', 'REFUNDED'].includes(booking.status);
   const tickets = useBookingTickets(bookingId, issued);
+  const admission = useBookingAdmission(bookingId, issued);
   const save = useSaveBookingTickets();
   const firstTicket = tickets.data?.[0];
   const cancelledTicket = tickets.data?.find((ticket) => ticket.session?.status === 'CANCELLED');
@@ -64,9 +66,10 @@ function Content() {
           <BookingPassPresentation
             booking={booking}
             order={order.data}
+            admission={admission.data}
             tickets={tickets.data ?? []}
             online
-            stale={!!query.error || !!order.error || !!tickets.error}
+            stale={!!query.error || !!order.error || !!tickets.error || !!admission.error}
           />
           <BuyerInfo />
           <MenuGroup title="Thông tin đơn">
@@ -105,7 +108,10 @@ function Content() {
               onPress={() => {
                 void query.refetch();
                 void order.refetch();
-                if (issued) void tickets.refetch();
+                if (issued) {
+                  void tickets.refetch();
+                  void admission.refetch();
+                }
               }}
             />
             <MenuRow

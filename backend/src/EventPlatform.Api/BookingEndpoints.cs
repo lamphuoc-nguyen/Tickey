@@ -1,5 +1,6 @@
 using System.Text.Json;
 using EventPlatform.Core.Payments;
+using EventPlatform.Core.Qr;
 using EventPlatform.Core.Supabase;
 using static EventPlatform.Api.Postgrest;
 
@@ -60,6 +61,27 @@ public static class BookingEndpoints
 
         api.MapGet("/bookings/{id:guid}", async (Guid id, HttpContext http, SupabaseRpcClient rpc, CancellationToken ct) =>
             Results.Ok(await rpc.CallAsUserAsync<JsonElement>("get_booking", new { p_booking_id = id }, http.Jwt(), ct)));
+
+        // The booking's gate QR (null until the Workers sign it) and the server's count of entries used / left.
+        api.MapGet("/bookings/{id:guid}/admission", async (Guid id, HttpContext http, SupabaseRpcClient rpc,
+            CancellationToken ct) =>
+        {
+            var a = await rpc.CallAsUserAsync<JsonElement>("get_booking_admission", new { p_booking_id = id },
+                http.Jwt(), ct);
+            var credential = a.GetProperty("credential");
+            return Results.Ok(new
+            {
+                booking_id = a.GetProperty("booking_id").GetGuid(),
+                status = a.GetProperty("status").GetString(),
+                qr = credential.ValueKind == JsonValueKind.Object
+                    ? AdmissionCode.Encode(credential.GetProperty("payload").GetString()!,
+                        credential.GetProperty("signature").GetString()!)
+                    : null,
+                total = a.GetProperty("total").GetInt32(),
+                used = a.GetProperty("used").GetInt32(),
+                remaining = a.GetProperty("remaining").GetInt32(),
+            });
+        });
 
         // Holds the seats / places all-or-nothing; SEAT_CONFLICT details list the seats that were taken (AC-01/02).
         api.MapPost("/bookings", async (CreateBookingRequest body, HttpContext http, SupabaseRpcClient rpc,
