@@ -100,9 +100,9 @@ Thay đổi sau khi đã triển khai: không sửa file này, tạo migration m
 | Ứng dụng | RPC |
 | --- | --- |
 | Mọi app | `list_my_workspaces`, `set_active_workspace` (rồi `auth.refreshSession()`), `mark_notifications_read` |
-| Customer | `get_session_layout`, `get_session_availability`, `get_session_seat_pricing` (cả anon); `create_booking`, `get_booking`, `cancel_booking`, `begin_payment` (qua API .NET `POST /payments/sessions`), `assign_ticket_holder`, `submit_report`, `submit_refund_bank_info`, `create_support_request`, `add_support_message` |
+| Customer | `get_session_layout`, `get_session_availability`, `get_session_seat_pricing` (cả anon); `create_booking`, `get_booking`, `cancel_booking`, `begin_payment` (qua API .NET `POST /payments/sessions`), `assign_ticket_holder`, `submit_report`, `submit_refund_bank_info`, `create_support_request`, `add_support_message`, `get_booking_admission` (QR chung của đơn + lượt đã vào / còn lại, qua API `GET /api/bookings/{id}/admission`) |
 | Org portal | `create_organization`, `set_org_member`, `submit_kyc`, `save_venue`, `create_layout`, `save_layout_draft`, `new_layout_version`, `publish_layout_version`, `save_event`, `submit_event_for_review`, `save_session`, `save_ticket_type`, `assign_seats_ticket_type`, `set_session_seat_status` (giữ/chặn ghế), `set_zone_held`, `issue_comp_tickets` (vé mời), `set_session_gate_zones`, `assign_staff`, `revoke_staff_assignment`, `revoke_gate_device`, `request_session_cancellation`, `request_event_cancellation`, `add_dispute_message`, `request_bank_account_change`, `get_org_finance_summary`, `get_gate_analytics` |
-| Staff app | `register_gate_device`, `get_session_manifest` (đầy đủ / delta), `check_in`, `sync_offline_scans`, `search_attendees`, `manual_check_in`, `get_gate_analytics`; POS: `create_booking` với `{"booking_type":"POS"}` + `POST /payments/sessions` (API .NET) |
+| Staff app | `register_gate_device`, `get_session_manifest` (đầy đủ / delta), `check_in`, `check_in_booking` (QR đơn: cho vào N người; gọi qua API `POST /api/check-in/scan`, API xác minh chữ ký QR), `sync_offline_scans`, `search_attendees`, `manual_check_in`, `get_gate_analytics`; POS: `create_booking` với `{"booking_type":"POS"}` + `POST /payments/sessions` (API .NET) |
 | Admin portal | `review_kyc`, `review_event`, `request_org_status_change` (SUSPEND / UNSUSPEND / TERMINATE), `vote_approval` (mọi thao tác hai người), `resolve_dispute_case`, `create_manual_refund`, `admin_refund_action`, `confirm_manual_transfer`, `record_chargeback`, `resolve_chargeback`, `recompute_settlement`, `review_bank_account`, `propose_payout`, `cancel_payout`, `import_gateway_statement` |
 
 Thao tác hai người duyệt (`approvals` + `vote_approval`; mỗi Admin một phiếu, người đề nghị là phiếu thứ nhất khi là Admin):
@@ -120,7 +120,7 @@ người dùng kèm anon key. Không cần migration mới: `service_role` đã 
 | Api `POST /payments/sessions` | gọi `begin_payment` bằng JWT của khách, dựng URL cổng từ `order_ref` + `amount` |
 | Api `POST /payments/ipn/{gateway}` | xác thực chữ ký cổng → `apply_payment_success` / `apply_payment_failure`; luôn trả 200 sau khi ghi nhận |
 | Workers `PaymentQueryJob` (mỗi 2 phút) | `list_payment_pending_to_query` → hỏi cổng → `apply_payment_success` hoặc `expire_unpaid_booking` |
-| Workers `IssueTicketsWorker` | `claim_outbox('ISSUE_TICKETS', ...)` → `issue_tickets` → ký Ed25519 → `attach_ticket_credentials` → `complete_outbox` |
+| Workers `IssueTicketsWorker` | `claim_outbox('ISSUE_TICKETS', ...)` → `issue_tickets` → `issue_booking_credential` + ký → `attach_booking_credential` → ký vé → `attach_ticket_credentials` → `complete_outbox` |
 | Workers `RefundWorker` | `claim_outbox('PROCESS_REFUND' / 'PROCESS_SESSION_REFUNDS')` → `start_refund_processing` (idempotency key = refund id) → API hoàn của cổng → `apply_refund_result` |
 | Workers `PayoutWorker` | `claim_outbox('PROCESS_PAYOUT')` → `mark_payout_sent` → `confirm_payout` |
 | Workers `ReconciliationJob` (hằng ngày) | `import_gateway_statement` |

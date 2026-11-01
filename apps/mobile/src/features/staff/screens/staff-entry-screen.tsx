@@ -74,7 +74,7 @@ function StaffLanding() {
                   })
                 }
               >
-                BÃ¡n vÃ© táº¡i quáº§y
+                Bán vé tại quầy
               </Button>
             )}
             <Copy style={ui.secure}>

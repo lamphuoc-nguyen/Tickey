@@ -1,4 +1,4 @@
-import { formatSessionTime, type Booking, type Order, type Ticket } from '@event/core';
+import { formatSessionTime, type Admission, type Booking, type Order, type Ticket } from '@event/core';
 import { Image } from 'expo-image';
 import { View } from 'react-native';
 import { Card, Copy, Heading, Notice, c, ui } from '@/components/ui';
@@ -11,6 +11,8 @@ import { ServerTicketQr } from './server-ticket-qr';
 export function BookingPassPresentation({
   booking,
   order,
+  admission,
+  savedQr,
   tickets: suppliedTickets,
   online,
   downloadedAt,
@@ -18,18 +20,24 @@ export function BookingPassPresentation({
 }: {
   booking?: Booking;
   order?: Order;
+  /** Online: the server's gate QR and entry counts. */
+  admission?: Admission;
+  /** Offline: the gate QR saved with the booking; counts are unknown without the server. */
+  savedQr?: string;
   tickets: readonly Ticket[];
   online: boolean;
   downloadedAt?: string;
   stale?: boolean;
 }) {
-  const bookingId = booking?.id ?? order?.id ?? suppliedTickets[0]?.bookingId;
+  const bookingId = booking?.id ?? order?.id ?? admission?.bookingId ?? suppliedTickets[0]?.bookingId;
   const tickets = bookingTicketRecords(suppliedTickets, bookingId);
   const first = tickets[0];
   const event = order?.session?.event ?? first?.session?.event;
   const startsAt = order?.session?.startsAt ?? first?.session?.startsAt;
   const venue = first?.session?.venue;
-  const status = booking?.status ?? order?.status;
+  const status = booking?.status ?? order?.status ?? admission?.status;
+  const qr = admission?.qr ?? savedQr ?? null;
+  const usedUp = !!admission && admission.total > 0 && admission.remaining === 0;
   const count = booking?.itemCount ?? order?.itemCount;
   const state = bookingAdmissionState(status);
   const cancelled = tickets.some((t) => t.session?.status === 'CANCELLED');
@@ -57,9 +65,18 @@ export function BookingPassPresentation({
       </View>
       <Card style={{ alignItems: 'stretch' }}>
         <Heading small>{showCode ? 'Mã vào cổng của đơn' : 'Trạng thái vé'}</Heading>
-        {/* Current contracts only expose per-ticket credentials. Never reuse one as a group QR. */}
+        {/* One server-signed QR for the whole booking; staff choose how many people enter per scan. */}
         {showCode ? (
-          <ServerTicketQr encodedCredential={null} />
+          <>
+            {!usedUp && <ServerTicketQr encodedCredential={qr} />}
+            <Copy style={[ui.muted, { textAlign: 'center' }]}>
+              {usedUp
+                ? 'Đơn đã dùng hết lượt vào cổng.'
+                : qr
+                  ? 'Đưa mã này cho nhân viên soát vé. Cả nhóm dùng chung một mã.'
+                  : 'Mã vào cổng đang được phát hành.'}
+            </Copy>
+          </>
         ) : (
           <>
             <Copy style={ui.semibold}>{cancelled ? 'Suất diễn đã bị hủy' : state.title}</Copy>
@@ -74,8 +91,8 @@ export function BookingPassPresentation({
       <Disclosure title="Lượt vào cổng">
         <View style={[ui.row, { alignItems: 'stretch', gap: 8 }]}>
           {[
-            { label: 'Đã vào cổng', value: '—' },
-            { label: 'Lượt còn lại', value: '—' },
+            { label: 'Đã vào cổng', value: admission ? String(admission.used) : '—' },
+            { label: 'Lượt còn lại', value: admission ? String(admission.remaining) : '—' },
           ].map((item) => (
             <View
               key={item.label}
@@ -94,7 +111,11 @@ export function BookingPassPresentation({
             </View>
           ))}
         </View>
-        <Copy style={ui.muted}>Chưa có thông tin lượt sử dụng.</Copy>
+        {!admission && (
+          <Copy style={ui.muted}>
+            {online ? 'Chưa có thông tin lượt sử dụng.' : 'Kết nối mạng để xem số lượt đã dùng.'}
+          </Copy>
+        )}
       </Disclosure>
       {!!tickets.length && (
         <Disclosure title={`Ghế và hạng vé · ${tickets.length} chỗ đã tải`}>

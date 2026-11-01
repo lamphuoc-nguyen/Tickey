@@ -57,8 +57,8 @@ describe('booking admission presentation', () => {
   it('does not turn per-ticket USED status into a booking QR or a remaining-scan counter', () => {
     const group = groupTicketsByBooking([ticket('one', 'a', 'USED'), ticket('two', 'a')])[0]!;
     expect(group.tickets).toHaveLength(2);
-    expect(bookingAdmissionState('CONFIRMED').title).toBe('Mã QR chung chưa khả dụng');
-    expect(bookingAdmissionState('PARTIALLY_REFUNDED').title).toBe('Mã QR chung chưa khả dụng');
+    expect(bookingAdmissionState('CONFIRMED').title).toBe('Mã vào cổng chưa sẵn sàng');
+    expect(bookingAdmissionState('PARTIALLY_REFUNDED').title).toBe('Mã vào cổng chưa sẵn sàng');
   });
 
   it('uses the oldest snapshot for the selected booking, never another order or a made-up refresh time', () => {

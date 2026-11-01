@@ -89,6 +89,17 @@ export const notificationSchema = z
     read_at: nullable,
   })
   .transform(mapDatabaseJson);
+/** One gate QR for the whole booking; used / remaining are counted by the server, never by the app. */
+export const admissionSchema = z
+  .object({
+    booking_id: z.string(),
+    status: z.enum(BOOKING_STATUSES),
+    qr: z.string().min(1).nullable(),
+    total: z.number().int().nonnegative(),
+    used: z.number().int().nonnegative(),
+    remaining: z.number().int().nonnegative(),
+  })
+  .transform(mapDatabaseJson);
 export const refundSchema = z
   .object({
     id: z.string(),
@@ -170,6 +181,7 @@ export const bankInputSchema = z.object({
 export type Profile = z.infer<typeof profileSchema>;
 export type Order = z.infer<typeof orderSchema>;
 export type Ticket = z.infer<typeof ticketSchema>;
+export type Admission = z.infer<typeof admissionSchema>;
 export type Refund = z.infer<typeof refundSchema>;
 export type NotificationPreferences = z.infer<typeof preferencesSchema>;
 

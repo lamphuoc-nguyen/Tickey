@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button, Field, QueryState, c, fonts } from '@/components/ui';
 import { useAuth } from '../../auth/hooks/auth-context';
 import { StaffCard, StaffFrame, StaffSectionTitle, StaffStatus } from '../components/staff-ui';
+import { StaffScanner } from '../components/staff-scanner';
 import { useSelectedStaffShift } from '../hooks/use-selected-staff-shift';
 import { useStaffDevice } from '../hooks/use-staff-device';
 import {
@@ -85,15 +86,7 @@ export default function StaffCheckInScreen() {
         </StaffStatus>
         <Text style={styles.permission}>{selected.permissions.join(' · ')}</Text>
       </View>
-      <StaffCard style={styles.qrUnavailable}>
-        <View style={styles.qrIcon}>
-          <Text style={styles.qrIconText}>QR</Text>
-        </View>
-        <View style={{ flex: 1, gap: 3 }}>
-          <Text style={styles.resultTitle}>Quét QR</Text>
-          <Text style={styles.resultDetail}>Native camera/QR verifier chưa được nối trong app hiện tại.</Text>
-        </View>
-      </StaffCard>
+      <StaffScanner sessionId={selected.sessionId} gateId={gateId} deviceId={device.data?.deviceId} />
       <View style={{ gap: 10 }}>
         <StaffSectionTitle>Tra cứu khách để check-in thủ công</StaffSectionTitle>
         <StaffCard>
@@ -171,21 +164,6 @@ function Result({ result }: { result: StaffScanResult }) {
 const styles = StyleSheet.create({
   statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   permission: { color: c.muted, fontFamily: fonts.medium, fontSize: 10 },
-  qrUnavailable: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: c.blueTint,
-    borderColor: '#CBD9F0',
-  },
-  qrIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    backgroundColor: '#315D99',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  qrIconText: { color: 'white', fontFamily: fonts.heading, fontSize: 15, letterSpacing: 1 },
   resultTitle: { color: c.text, fontFamily: fonts.semibold, fontSize: 14 },
   resultDetail: { color: c.muted, fontFamily: fonts.regular, fontSize: 11, lineHeight: 16 },
   selected: { borderColor: c.primary, borderWidth: 1.5, backgroundColor: c.tint },

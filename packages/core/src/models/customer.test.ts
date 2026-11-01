@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  admissionSchema,
   bankInputSchema,
   credentialMatchesTicket,
   preferencesSchema,
@@ -97,6 +98,26 @@ describe('database response mapping', () => {
     expect(ticket.credential?.payload).toBe(payload);
     expect(credentialMatchesTicket(ticket)).toBe(true);
     expect(credentialMatchesTicket({ ...ticket, id: 'different-ticket' })).toBe(false);
+  });
+
+  it('maps the booking gate pass with server-counted entries', () => {
+    const admission = admissionSchema.parse({
+      booking_id: 'booking',
+      status: 'CONFIRMED',
+      qr: 'eyJ2IjoyfQ.sig',
+      total: 4,
+      used: 1,
+      remaining: 3,
+    });
+    expect(admission).toEqual({
+      bookingId: 'booking',
+      status: 'CONFIRMED',
+      qr: 'eyJ2IjoyfQ.sig',
+      total: 4,
+      used: 1,
+      remaining: 3,
+    });
+    expect(admissionSchema.parse({ ...admission, booking_id: 'b', qr: null }).qr).toBeNull();
   });
   it('validates bank input before the OTP-gated submission', () => {
     expect(

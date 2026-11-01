@@ -1,4 +1,5 @@
 using System.Text.Json;
+using EventPlatform.Core.Qr;
 using EventPlatform.Core.Supabase;
 
 namespace EventPlatform.Api;
@@ -11,6 +12,9 @@ public sealed record CheckInRequest(Guid TicketId, Guid SessionId, Guid GateId, 
 public sealed record OfflineScan(string ClientScanId, Guid TicketId, Guid GateId, DateTimeOffset ScannedAt, string? LocalResult);
 
 public sealed record SyncScansRequest(Guid SessionId, Guid DeviceId, OfflineScan[] Scans);
+
+/// <summary>Code is the raw QR text. Count = people let in on this scan (booking QR only; a ticket QR is always 1).</summary>
+public sealed record ScanRequest(string Code, Guid SessionId, Guid GateId, Guid DeviceId, string ClientScanId, int? Count);
 
 public sealed record ManualCheckInRequest(Guid TicketId, Guid SessionId, Guid GateId, Guid DeviceId, bool IdVerified);
 
@@ -55,6 +59,28 @@ public static class CheckInEndpoints
                 p_device_id = body.DeviceId, p_client_scan_id = body.ClientScanId,
             }, http.Jwt(), ct)));
 
+        // Camera scan of a ticket QR (v1) or a booking QR (v2). The signature is checked here against signing_keys,
+        // so the app needs no crypto; a bad code is a scan result, not an error.
+        api.MapPost("/check-in/scan", async (ScanRequest body, HttpContext http, SupabaseRpcClient rpc,
+            SupabaseRestClient db, CancellationToken ct) =>
+        {
+            if (!AdmissionCode.TryParse(body.Code, out var code) || !await IsSignedAsync(code!, db, http.Jwt(), ct))
+            {
+                return Results.Ok(new { result = "INVALID_SIGNATURE", admitted = Array.Empty<object>() });
+            }
+            return Results.Ok(code!.BookingId is { } bookingId
+                ? await rpc.CallAsUserAsync<JsonElement>("check_in_booking", new
+                {
+                    p_booking_id = bookingId, p_session_id = body.SessionId, p_gate_id = body.GateId,
+                    p_device_id = body.DeviceId, p_client_scan_id = body.ClientScanId, p_count = body.Count ?? 1,
+                }, http.Jwt(), ct)
+                : await rpc.CallAsUserAsync<JsonElement>("check_in", new
+                {
+                    p_ticket_id = code.TicketId, p_session_id = body.SessionId, p_gate_id = body.GateId,
+                    p_device_id = body.DeviceId, p_client_scan_id = body.ClientScanId,
+                }, http.Jwt(), ct));
+        });
+
         // First Write Wins by scanned_at; duplicates come back as DUPLICATE_ENTRY alerts (AC-10).
         api.MapPost("/check-in/sync", async (SyncScansRequest body, HttpContext http, SupabaseRpcClient rpc,
             CancellationToken ct) =>
@@ -78,5 +104,22 @@ public static class CheckInEndpoints
         api.MapGet("/sessions/{id:guid}/gate-analytics", async (Guid id, HttpContext http, SupabaseRpcClient rpc,
             CancellationToken ct) =>
             Results.Ok(await rpc.CallAsUserAsync<JsonElement>("get_gate_analytics", new { p_session_id = id }, http.Jwt(), ct)));
+    }
+
+    /// <summary>Ed25519 check with the public key named by the payload's kid (RETIRED keys still verify old QRs).</summary>
+    private static async Task<bool> IsSignedAsync(AdmissionCode code, SupabaseRestClient db, string? jwt,
+        CancellationToken ct)
+    {
+        var keys = await db.SelectAsync("signing_keys",
+            Postgrest.Query(Postgrest.Select("public_key"), Postgrest.Eq("kid", code.Kid)), jwt, ct);
+        if (keys.GetArrayLength() == 0) return false;
+        try
+        {
+            return QrSigner.Verify(keys[0].GetProperty("public_key").GetString()!, code.Payload, code.Signature);
+        }
+        catch (Exception e) when (e is FormatException or ArgumentException)
+        {
+            return false;
+        }
     }
 }

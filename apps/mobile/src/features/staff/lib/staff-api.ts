@@ -37,10 +37,25 @@ export const manifestSchema = z.object({
 });
 export type StaffManifest = z.infer<typeof manifestSchema>;
 
+const admittedTicketSchema = z.object({
+  id: z.string(),
+  zone_name: z.string().nullable().optional(),
+  seat_code: z.string().nullable().optional(),
+  ticket_type: z.string().nullable().optional(),
+});
+
 export const scanResultSchema = z
   .object({
     result: z.string(),
     replayed: z.boolean().optional(),
+    // Booking QR: who got in on this scan and the server's count for the whole booking.
+    booking_code: z.string().optional(),
+    holder_name: z.string().nullable().optional(),
+    admitted: z.array(admittedTicketSchema).optional(),
+    total: z.number().optional(),
+    used: z.number().optional(),
+    remaining: z.number().optional(),
+    allowed_gates: z.array(z.object({ code: z.string(), name: z.string() }).passthrough()).optional(),
     ticket: z
       .object({
         id: z.string(),
@@ -158,6 +173,25 @@ export async function checkInStaff(input: {
       deviceId: input.deviceId,
       clientScanId: input.clientScanId,
     },
+  });
+}
+
+/**
+ * Camera scan: the API verifies the QR signature, then lets in `count` people of a booking QR (or the one ticket of
+ * a ticket QR). Reuse clientScanId when retrying the same press, so a lost response never lets in extra people.
+ */
+export async function scanStaffCode(input: {
+  code: string;
+  sessionId: string;
+  gateId: string;
+  deviceId: string;
+  clientScanId: string;
+  count: number;
+}) {
+  return repositories.http.request('/api/check-in/scan', scanResultSchema, {
+    method: 'POST',
+    authenticated: true,
+    body: input,
   });
 }
 
