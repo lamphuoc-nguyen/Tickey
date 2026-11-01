@@ -1,6 +1,6 @@
 # Customer: xác nhận đặt vé trực tiếp
 
-**Blocker hiện tại (01/11/2026, C-12):** kiểm tra chỉ đọc trên Supabase hosted trả 404/PGRST202 cho RPC get_payment_by_order_ref mà endpoint xác nhận đang gọi. Chủ backend cần đối chiếu migration 20261026000001_fix_payment_pending_repayment.sql, grant và schema cache. Chưa chạy hoặc sửa migration production. Đây là lỗi tích hợp server cần xử lý trước khi kết luận checkout chạy được; đổi giao diện hoặc cấu hình Expo không khắc phục RPC bị thiếu.
+**Cập nhật sau sửa backend:** GET get_payment_by_order_ref với mã không tồn tại đã trả 200/null thay cho PGRST202. RPC admission cũng đã có (probe không có user trả UNAUTHENTICATED). Không cần thêm cờ cấu hình thanh toán ở mobile. Đây là xác minh đường đọc/contract, không phải xác nhận đã thanh toán hoặc phát vé E2E.
 
 Theo yêu cầu cập nhật ngày 01/11/2026, Customer không cần cấu hình cổng thanh toán, cờ TEST hoặc chế độ xem trước. Mobile dùng luồng xác nhận server hiện có, không mở browser và không tự tạo vé.
 
@@ -33,6 +33,10 @@ Mobile không kiểm tra/gỡ khóa theo hostname production nữa, theo yêu c�
 **Cập nhật sau merge main PR #46/#47:** đã có contract QR chung Booking và số lượt qua GET /api/bookings/{id}/admission. Worker ký credential v2; Customer dùng chuỗi QR server cấp và lưu offline, Staff có camera expo-camera và gửi kiểm tra chữ ký tới server. Các phần này được giữ nguyên khi merge. Hosted vẫn cần đầy đủ migration/quyền/cache và worker; trong phiên merge này chưa chạy giao dịch/phát hành hoặc quét native E2E. Chi tiết và QA do tác giả ghi tại docs/BOOKING_ADMISSION_FLOW.md. Không tự gộp credential hay dựng QR giả.
 
 ## Kiểm thử
+
+Flow hiện tại bổ sung: QR chậm tự đọc lại sau 3 giây; có QR/lượt thì cập nhật sau 5 giây khi app foreground. Lỗi admission có retry riêng, không dùng counter cũ như dữ liệu mới. Hết lượt, hủy hoặc hoàn hết sẽ ẩn QR; offline chỉ hiện QR server đã tải, lượt hiện dấu gạch và thời điểm bản lưu. Lưu offline chỉ mở khi có QR và vé đúng đơn còn lượt. Khi đọc kết quả thanh toán gặp lỗi mạng, booking poll có thể khôi phục và chuyển tới vé nếu server đã PAID/CONFIRMED; không gửi lặp mutation. Timeout payment được cấu hình chung với timeout API Mobile.
+
+Lint/typecheck toàn workspace qua; Mobile 162 test/39 file, Core 93 test/14 file qua. Android Expo Go trên AVD Pixel_5 API 36 read-only: đã mở Home, danh sách đơn thật, empty vé đã mua, đơn hết hạn và empty vé đã lưu. Tài khoản QA chưa có vé đã phát hành nên QR và trạng thái PAID/CONFIRMED mới kiểm tra bằng unit tests; chưa chạy thanh toán, phát vé hoặc Staff scan E2E. Không ghi production. Các process QA riêng đã được dừng khi bàn giao; không dừng process của người dùng.
 
 Unit tests chỉ dùng fixtures trong test: xác nhận không cần cờ payment, request form đúng URL/chữ ký/Booking, chặn gửi lặp, xử lý mất phản hồi bằng getBooking và không ghi cache sau đổi tài khoản. Không dùng test để tuyên bố đã kiểm tra phát hành/check-in E2E.
 

@@ -15,6 +15,26 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+it('bounds session creation and its response body without automatically replaying the payment', async () => {
+  vi.useFakeTimers();
+  const fetcher = vi.fn(
+    (_url, options: RequestInit) =>
+      new Promise((_resolve, reject) => {
+        options.signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+      }),
+  );
+  vi.stubGlobal('fetch', fetcher);
+  const request = new HttpPaymentApi(`${api}/`, auth, 1000).createPaymentSession('booking-a', 'TEST');
+  const assertion = expect(request).rejects.toMatchObject({
+    code: 'NETWORK',
+    details: { reason: 'REQUEST_TIMEOUT' },
+  });
+  await vi.advanceTimersByTimeAsync(1000);
+  await assertion;
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(fetcher.mock.calls[0]?.[0]).toBe(`${api}/payments/sessions`);
+});
+
 it('posts the unchanged signed server fields to the existing TEST form endpoint', async () => {
   const fetcher = vi.fn(async () => new Response(null, { status: 303 }));
   vi.stubGlobal('fetch', fetcher);

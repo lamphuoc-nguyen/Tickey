@@ -35,6 +35,9 @@ export function usePayment(bookingId: string) {
         receivedAt: performance.now(),
       });
       void cache.invalidateQueries({ queryKey: ['orders'] });
+      for (const resource of ['order', 'booking-tickets', 'booking-admission'])
+        void cache.invalidateQueries({ queryKey: [resource, ...sessionScope(session), bookingId] });
+      void cache.invalidateQueries({ queryKey: ['tickets', ...sessionScope(session)] });
       const recorded = booking.status === 'PAID' || booking.status === 'CONFIRMED';
       const uncertainTestResult =
         configuration.isTest && failure instanceof ApiError && failure.code === 'NETWORK';

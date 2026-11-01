@@ -89,6 +89,9 @@ it('submits TEST directly without opening a browser and preserves server pending
     booking,
     receivedAt: expect.any(Number),
   });
+  expect(runtime.invalidateQueries).toHaveBeenCalledWith({
+    queryKey: ['booking-admission', 'account-a', 'CUSTOMER', null, 'booking-a'],
+  });
 });
 
 it('refreshes a possibly committed booking after session creation fails without opening the browser', async () => {

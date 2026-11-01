@@ -1,4 +1,5 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback } from 'react';
 import { ActionFooter, Copy, ErrorNotice, Heading, Notice, QueryState, Screen, ui } from '@/components/ui';
 import { MenuRow } from '@/components/customer-controls';
 import { AuthGate } from '@/features/auth/components/auth-gate';
@@ -14,8 +15,16 @@ function Content() {
   const query = useBooking(bookingId);
   const payment = usePayment(bookingId);
   const booking = query.data;
+  const status = booking?.status;
   const configuration = getPaymentConfiguration();
   const configured = configuration.available;
+  useFocusEffect(
+    useCallback(() => {
+      // A response may be lost after the server has committed; the booking poll resolves that uncertainty.
+      if (!payment.isPending && (status === 'PAID' || status === 'CONFIRMED'))
+        router.replace({ pathname: '/booking/[bookingId]/result', params: { bookingId } });
+    }, [status, bookingId, payment.isPending]),
+  );
   return (
     <Screen
       footer={

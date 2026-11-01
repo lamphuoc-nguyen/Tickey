@@ -40,11 +40,13 @@ function paymentFailure(status: number, body: unknown): ApiError {
 export class HttpPaymentApi implements PaymentApi {
   private readonly apiUrl: string;
   private readonly client: SupabaseClient;
+  private readonly timeoutMs: number;
 
-  constructor(apiUrl: string | undefined, client: SupabaseClient) {
+  constructor(apiUrl: string | undefined, client: SupabaseClient, timeoutMs = 20_000) {
     if (!apiUrl) throw new Error('Missing API URL (EXPO_PUBLIC_API_URL / VITE_API_URL).');
-    this.apiUrl = apiUrl;
+    this.apiUrl = apiUrl.replace(/\/+$/, '');
     this.client = client;
+    this.timeoutMs = timeoutMs;
   }
 
   /** Submit the existing signed TEST form. Submission is not proof of payment; always reload Booking. */
@@ -81,8 +83,9 @@ export class HttpPaymentApi implements PaymentApi {
       result: 'success',
     });
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20_000);
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     let response: Response;
+    let failure: unknown;
     try {
       response = await fetch(`${checkout.origin}${checkout.pathname}`, {
         method: 'POST',
@@ -90,6 +93,11 @@ export class HttpPaymentApi implements PaymentApi {
         body: body.toString(),
         signal: controller.signal,
       });
+      if (!response.ok && response.status !== 302 && response.status !== 303)
+        failure = await response.json().catch((error: unknown) => {
+          if (controller.signal.aborted) throw error;
+          return null;
+        });
     } catch {
       // Native fetch can also fail while following the server's app-scheme redirect after commit.
       throw new ApiError('NETWORK', controller.signal.aborted ? { reason: 'REQUEST_TIMEOUT' } : {});
@@ -97,7 +105,6 @@ export class HttpPaymentApi implements PaymentApi {
       clearTimeout(timeout);
     }
     if (response.ok || response.status === 302 || response.status === 303) return;
-    const failure: unknown = await response.json().catch(() => null);
     throw paymentFailure(response.status, failure);
   }
 
@@ -106,18 +113,31 @@ export class HttpPaymentApi implements PaymentApi {
     const token = data.session?.access_token;
     if (!token) throw new ApiError('UNAUTHENTICATED');
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     let res: Response;
+    let body: unknown;
     try {
       res = await fetch(`${this.apiUrl}/payments/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ bookingId, gateway }),
+        signal: controller.signal,
+      });
+      body = await res.json().catch((error: unknown) => {
+        if (controller.signal.aborted) throw error;
+        return null;
       });
     } catch (e) {
-      throw new ApiError('NETWORK', {}, e instanceof Error ? e.message : String(e));
+      throw new ApiError(
+        'NETWORK',
+        controller.signal.aborted ? { reason: 'REQUEST_TIMEOUT' } : {},
+        e instanceof Error ? e.message : String(e),
+      );
+    } finally {
+      clearTimeout(timeout);
     }
     if (res.status === 401) throw new ApiError('UNAUTHENTICATED');
-    const body: unknown = await res.json().catch(() => null);
     if (!res.ok) {
       throw paymentFailure(res.status, body);
     }

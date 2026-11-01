@@ -8,6 +8,7 @@ import { useAuth } from '@/features/auth/hooks/auth-context';
 import { ticketCache } from '../ticket-cache-instance';
 import { useExclusiveMutation } from '@/features/forms/use-exclusive-mutation';
 import type { Ticket } from '@event/core';
+import { admissionPollingInterval, canSaveBookingPass } from '../admission-presentation';
 
 export { ticketCache } from '../ticket-cache-instance';
 export function useConnection() {
@@ -120,6 +121,8 @@ export function useBookingAdmission(id: string, enabled = true) {
     queryFn: ({ signal }) => repositories.customer.admission(id, signal),
     enabled: enabled && !!id && session?.workspace.kind === 'CUSTOMER',
     refetchOnWindowFocus: true,
+    refetchInterval: (query) => admissionPollingInterval(query.state.data, query.state.error),
+    refetchIntervalInBackground: false,
   });
 }
 /** Saved booking QRs of the account whose tickets are on the device (same guard as useOfflineTickets). */
@@ -159,14 +162,14 @@ export function useSaveBookingTickets() {
       const downloadedAt = new Date().toISOString();
       // The gate QR comes straight from the server at save time, never from a screen's stale copy.
       const admission = await repositories.customer.admission(bookingId);
+      if (!canSaveBookingPass(bookingId, tickets, admission))
+        throw new Error('Cần tải được mã vào cổng và các vé còn lượt sử dụng trước khi lưu.');
       for (const ticket of tickets) {
         await assertCurrent();
         await ticketCache.save(session.userId, ticket, downloadedAt);
       }
-      if (admission.qr) {
-        await assertCurrent();
-        await ticketCache.saveAdmission(session.userId, bookingId, admission.qr);
-      }
+      await assertCurrent();
+      await ticketCache.saveAdmission(session.userId, bookingId, admission.qr!);
     },
     onSuccess: () => {
       void cache.invalidateQueries({ queryKey: ['saved-tickets', ...sessionScope(session)] });

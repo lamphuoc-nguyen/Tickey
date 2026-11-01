@@ -1,24 +1,29 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActionFooter, ErrorNotice, Heading, QueryState, Screen } from '@/components/ui';
+import { ActionFooter, ErrorNotice, Heading, Notice, QueryState, Screen } from '@/components/ui';
 import { Disclosure, MenuGroup, MenuRow } from '@/components/customer-controls';
 import { DetailRow, UnavailableAction } from '@/components/detail';
 import { AuthGate } from '@/features/auth/components/auth-gate';
 import {
   useBookingAdmission,
+  useConnection,
   useBookingTickets,
   useOrder,
   useSaveBookingTickets,
+  useSavedAdmissions,
 } from '@/features/customer/tickets/hooks/use-ticket';
 import { BookingPassPresentation } from '@/features/customer/tickets/components/booking-pass-presentation';
 import { useBooking } from '../hooks/use-booking';
 import { BuyerInfo } from '../components/buyer-info';
 import { orderHistoryRoute } from '@/features/customer/tickets/order-presentation';
+import { canSaveBookingPass } from '@/features/customer/tickets/admission-presentation';
 
 function Content() {
   const { bookingId = '' } = useLocalSearchParams<{ bookingId: string }>();
   const query = useBooking(bookingId);
   const order = useOrder(bookingId);
   const booking = query.data;
+  const online = useConnection();
+  const savedAdmissions = useSavedAdmissions();
   const issued =
     !!booking && ['CONFIRMED', 'REFUND_PENDING', 'PARTIALLY_REFUNDED', 'REFUNDED'].includes(booking.status);
   const tickets = useBookingTickets(bookingId, issued);
@@ -26,19 +31,37 @@ function Content() {
   const save = useSaveBookingTickets();
   const firstTicket = tickets.data?.[0];
   const cancelledTicket = tickets.data?.find((ticket) => ticket.session?.status === 'CANCELLED');
-  const canSave = issued && !!tickets.data?.length && !tickets.error && !query.error && !order.error;
+  const canSave =
+    online &&
+    issued &&
+    canSaveBookingPass(bookingId, tickets.data ?? [], admission.data) &&
+    !tickets.error &&
+    !query.error &&
+    !order.error &&
+    !admission.error;
+  const refreshPass = () => {
+    void query.refetch();
+    void order.refetch();
+    if (issued) {
+      void tickets.refetch();
+      void admission.refetch();
+    }
+  };
+  const hasCode = issued && !!admission.data?.qr && !admission.error;
   return (
     <Screen
       footer={
         <ActionFooter
-          busy={query.isRefetching}
+          busy={query.isRefetching || admission.isFetching}
           onPress={() =>
-            issued
-              ? router.replace({ pathname: '/booking/[bookingId]', params: { bookingId } })
-              : void query.refetch()
+            !online
+              ? router.push({ pathname: '/tickets/offline', params: { bookingId } })
+              : hasCode
+                ? router.replace({ pathname: '/booking/[bookingId]', params: { bookingId } })
+                : refreshPass()
           }
         >
-          {issued ? 'Chi tiết đơn' : 'Kiểm tra trạng thái'}
+          {!online ? 'Vé đã lưu' : hasCode ? 'Chi tiết đơn' : 'Kiểm tra trạng thái'}
         </ActionFooter>
       }
     >
@@ -49,13 +72,20 @@ function Content() {
             ? 'Đặt vé thành công'
             : 'Vé vào cổng'}
       </Heading>
-      <QueryState loading={query.isPending} error={query.error} retry={() => void query.refetch()} />
+      {!online && !booking && (
+        <Notice warning>Bạn đang ngoại tuyến. Mở vé đã lưu trên thiết bị để xem.</Notice>
+      )}
+      <QueryState
+        loading={online && query.isPending}
+        error={query.error}
+        retry={() => void query.refetch()}
+      />
       {booking && (
         <>
           <QueryState error={order.error} retry={() => void order.refetch()} compact />
           {issued && (
             <QueryState
-              loading={tickets.isPending}
+              loading={online && tickets.isPending}
               error={tickets.error}
               retry={() => void tickets.refetch()}
               empty={!tickets.isPending && !tickets.error && !tickets.data?.length}
@@ -63,15 +93,28 @@ function Content() {
               compact
             />
           )}
+          {issued && <QueryState error={admission.error} retry={() => void admission.refetch()} compact />}
           <BookingPassPresentation
             booking={booking}
             order={order.data}
             admission={admission.data}
             tickets={tickets.data ?? []}
-            online
+            online={online}
+            savedQr={
+              !online
+                ? admission.data
+                  ? (admission.data.qr ?? undefined)
+                  : savedAdmissions.data?.[bookingId]
+                : undefined
+            }
+            downloadedAt={
+              !online && admission.dataUpdatedAt ? new Date(admission.dataUpdatedAt).toISOString() : undefined
+            }
+            admissionLoading={online && issued && admission.isPending}
+            admissionFailed={online && !!admission.error}
             stale={!!query.error || !!order.error || !!tickets.error || !!admission.error}
           />
-          <BuyerInfo />
+          <BuyerInfo online={online} />
           <MenuGroup title="Thông tin đơn">
             {firstTicket && (
               <MenuRow
@@ -104,15 +147,8 @@ function Content() {
             <MenuRow
               navigation={false}
               label="Cập nhật thông tin vé"
-              busy={query.isRefetching || tickets.isRefetching || order.isRefetching}
-              onPress={() => {
-                void query.refetch();
-                void order.refetch();
-                if (issued) {
-                  void tickets.refetch();
-                  void admission.refetch();
-                }
-              }}
+              busy={query.isRefetching || tickets.isRefetching || order.isRefetching || admission.isFetching}
+              onPress={refreshPass}
             />
             <MenuRow
               icon="ticket"
@@ -120,7 +156,7 @@ function Content() {
               label={save.isSuccess ? 'Đã lưu thông tin vé trên thiết bị' : 'Lưu đơn để xem offline'}
               busy={save.isPending}
               disabled={!canSave}
-              disabledReason="Cần tải được các vé đã phát hành trước khi lưu đơn."
+              disabledReason="Cần tải được mã vào cổng và các vé còn lượt sử dụng trước khi lưu."
               onPress={() => save.mutate(tickets.data ?? [])}
             />
             <MenuRow

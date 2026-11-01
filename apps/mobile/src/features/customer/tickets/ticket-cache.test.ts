@@ -2,6 +2,46 @@ import { describe, expect, it } from 'vitest';
 import { ticketSchema } from '@event/core';
 import { TicketCache } from './ticket-cache';
 describe('genuine ticket snapshots', () => {
+  it('does not write a late booking QR after the account changes during the storage read', async () => {
+    const rows = new Map<string, string>();
+    let pause = false;
+    let releaseRead!: () => void;
+    let notifyRead!: () => void;
+    const started = new Promise<void>((resolve) => {
+      notifyRead = resolve;
+    });
+    const blocked = new Promise<void>((resolve) => {
+      releaseRead = resolve;
+    });
+    const cache = new TicketCache({
+      getItem: async (key) => {
+        if (pause && key === 'tickey:admissions:v1:account-a') {
+          notifyRead();
+          await blocked;
+        }
+        return rows.get(key) ?? null;
+      },
+      setItem: async (key, value) => {
+        rows.set(key, value);
+      },
+      removeItem: async (key) => {
+        rows.delete(key);
+      },
+    });
+    cache.activate('account-a');
+    await cache.saveAdmission('account-a', 'previous-booking', 'existing-server-qr');
+    pause = true;
+    const saving = cache.saveAdmission('account-a', 'new-booking', 'late-server-qr');
+    const failure = expect(saving).rejects.toThrow('Tài khoản đã thay đổi.');
+    await started;
+    cache.activate('account-b');
+    releaseRead();
+    await failure;
+    expect(JSON.parse(rows.get('tickey:admissions:v1:account-a')!)).toEqual({
+      'previous-booking': 'existing-server-qr',
+    });
+    expect(await cache.admissions('account-b')).toEqual({});
+  });
   it('isolates accounts, keeps timestamps and clears downloads on logout', async () => {
     const rows = new Map<string, string>();
     rows.set('other-feature-pending-sentinel', 'preserve');

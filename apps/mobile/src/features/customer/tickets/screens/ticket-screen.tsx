@@ -13,6 +13,7 @@ import {
 } from '../hooks/use-ticket';
 import { BookingPassPresentation } from '../components/booking-pass-presentation';
 import { oldestDownload } from '../booking-pass';
+import { canSaveBookingPass } from '../admission-presentation';
 
 /** Existing ticket links resolve to their booking; no per-person carousel or name assignment. */
 function Content() {
@@ -27,7 +28,13 @@ function Content() {
   const records = online
     ? (siblings.data ?? (ticket ? [ticket] : []))
     : (saved.data?.filter((s) => s.ticket.bookingId === bookingId).map((s) => s.ticket) ?? []);
-  const canSave = online && !!siblings.data?.length && !query.error && !siblings.error && !order.error;
+  const canSave =
+    online &&
+    canSaveBookingPass(bookingId, siblings.data ?? [], admission.data) &&
+    !query.error &&
+    !siblings.error &&
+    !order.error &&
+    !admission.error;
   return (
     <Screen
       footer={
@@ -66,12 +73,15 @@ function Content() {
               compact
             />
           )}
+          {online && <QueryState error={admission.error} retry={() => void admission.refetch()} compact />}
           <BookingPassPresentation
             order={order.data}
             admission={online ? admission.data : undefined}
             savedQr={online ? undefined : savedQrs.data?.[bookingId]}
             tickets={records}
             online={online}
+            admissionLoading={online && admission.isPending}
+            admissionFailed={online && !!admission.error}
             downloadedAt={oldestDownload(saved.data ?? [], bookingId)}
             stale={online && (!!query.error || !!siblings.error || !!order.error || !!admission.error)}
           />
@@ -113,7 +123,7 @@ function Content() {
               disabled={!canSave}
               disabledReason={
                 online
-                  ? 'Cần tải đủ thông tin vé của đơn trước khi lưu.'
+                  ? 'Cần tải được mã vào cổng và các vé còn lượt sử dụng trước khi lưu.'
                   : 'Kết nối mạng để tải thông tin mới nhất.'
               }
               onPress={() => save.mutate(siblings.data ?? [])}
