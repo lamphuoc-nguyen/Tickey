@@ -1,3 +1,4 @@
+import { BOOKING_STATUSES } from '@event/core';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import * as Device from 'expo-device';
@@ -246,42 +247,24 @@ export async function getStaffTicketTypes(sessionId: string) {
   );
 }
 
-export async function createStaffPosBooking(input: {
-  sessionId: string;
-  ticketTypeId: string;
-  zoneId?: string;
-  quantity: number;
-  buyerName?: string;
-  buyerPhone?: string;
-  buyerEmail?: string;
-}) {
-  return repositories.http.request(
-    '/api/bookings',
-    z
-      .object({
-        id: z.string(),
-        code: z.string(),
-        status: z.string(),
-        booking_type: z.string(),
-        total_amount: z.number(),
-      })
-      .passthrough(),
-    {
-      method: 'POST',
-      authenticated: true,
-      body: {
-        sessionId: input.sessionId,
-        items: [{ ticketTypeId: input.ticketTypeId, zoneId: input.zoneId, quantity: input.quantity }],
-        idempotencyKey: Crypto.randomUUID(),
-        options: {
-          bookingType: 'POS',
-          buyerName: input.buyerName ?? null,
-          buyerPhone: input.buyerPhone ?? null,
-          buyerEmail: input.buyerEmail ?? null,
-        },
-      },
-    },
-  );
+const posBookingSchema = z.object({
+  id: z.string(),
+  code: z.string(),
+  status: z.enum(BOOKING_STATUSES),
+  booking_type: z.string(),
+  session_id: z.string(),
+  item_count: z.number(),
+  total_amount: z.number(),
+});
+export type StaffPosBooking = z.infer<typeof posBookingSchema>;
+
+/** The caller's own recent POS sales in this Session, so a hold or QR survives leaving the screen. */
+export async function getStaffPosBookings(sessionId: string, signal?: AbortSignal) {
+  const rows = await repositories.http.request('/api/bookings?limit=50', z.array(posBookingSchema), {
+    authenticated: true,
+    signal,
+  });
+  return rows.filter((row) => row.booking_type === 'POS' && row.session_id === sessionId);
 }
 
 export async function clearStaffDevice(orgId: string) {
